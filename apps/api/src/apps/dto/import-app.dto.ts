@@ -3,7 +3,8 @@ import { IsNotEmpty, IsString } from 'class-validator';
 
 export class ImportAppDto {
   @ApiProperty({
-    example: 'https://apps.apple.com/us/app/things-3/id904237743',
+    example:
+      'https://apps.apple.com/us/app/where-am-i-geoguess-map-quiz/id6657987209',
   })
   @IsString()
   @IsNotEmpty()
