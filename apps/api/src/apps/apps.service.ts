@@ -9,6 +9,7 @@ import {
   SUPPORTED_STORES,
 } from '@asobeast/shared';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
+import { KeywordsService } from '../keywords/keywords.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreNotSupportedError } from '../store-providers/errors';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
@@ -21,6 +22,7 @@ export class AppsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly registry: StoreProviderRegistry,
+    private readonly keywords: KeywordsService,
   ) {}
 
   async importFromUrl(url: string): Promise<AppDetail> {
@@ -65,6 +67,8 @@ export class AppsService {
 
       return { app, snapshot };
     });
+
+    await this.keywords.syncFromSnapshot(app.id);
 
     return toAppDetail(app, snapshot, []);
   }
@@ -146,6 +150,8 @@ export class AppsService {
       });
       return created;
     });
+
+    await this.keywords.syncFromSnapshot(app.id);
 
     return {
       snapshotId: snapshot.id,
