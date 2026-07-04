@@ -19,3 +19,5 @@ export interface HealthStatus {
   status: 'ok' | 'error';
   db: 'up' | 'down';
 }
+
+export * from './url-parser';
