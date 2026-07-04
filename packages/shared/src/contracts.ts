@@ -70,6 +70,21 @@ export interface KeywordFieldResult {
   duplicatesRemoved: number;
 }
 
+export interface RankingPoint {
+  date: string;
+  position: number | null;
+}
+
+export interface RankingSeriesItem {
+  keywordId: string;
+  text: string;
+  points: RankingPoint[];
+}
+
+export interface RankingSeries {
+  series: RankingSeriesItem[];
+}
+
 export interface SnapshotChange {
   field: string;
   before: string | number | null;

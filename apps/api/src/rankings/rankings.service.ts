@@ -1,14 +1,23 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { RankingSeries } from '@asobeast/shared';
+import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
+import { RankingHistoryQueryDto } from './dto/ranking-history-query.dto';
 
 const RANK_DEPTH = 100;
+const HISTORY_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function utcToday(): Date {
   const now = new Date();
   return new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
   );
+}
+
+function toDateKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
 }
 
 @Injectable()
@@ -74,6 +83,65 @@ export class RankingsService {
         create: { appId, keywordId, date, position, depth: RANK_DEPTH },
         update: { position, depth: RANK_DEPTH },
       });
+    }
+  }
+
+  async history(
+    appId: string,
+    query: RankingHistoryQueryDto,
+  ): Promise<RankingSeries> {
+    await this.ensureApp(appId);
+
+    const to = query.to ? new Date(query.to) : utcToday();
+    const from = query.from
+      ? new Date(query.from)
+      : new Date(to.getTime() - HISTORY_DAYS * DAY_MS);
+
+    const requested = query.keywordIds
+      ?.split(',')
+      .map((id) => id.trim())
+      .filter((id) => id.length > 0);
+
+    const tracked = await this.prisma.trackedKeyword.findMany({
+      where: {
+        appId,
+        ...(requested ? { keywordId: { in: requested } } : { active: true }),
+      },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        keywordId: true,
+        keyword: {
+          select: {
+            text: true,
+            rankings: {
+              where: { appId, date: { gte: from, lte: to } },
+              orderBy: { date: 'asc' },
+              select: { date: true, position: true },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      series: tracked.map((row) => ({
+        keywordId: row.keywordId,
+        text: row.keyword.text,
+        points: row.keyword.rankings.map((ranking) => ({
+          date: toDateKey(ranking.date),
+          position: ranking.position,
+        })),
+      })),
+    };
+  }
+
+  private async ensureApp(appId: string): Promise<void> {
+    const app = await this.prisma.app.findFirst({
+      where: { id: appId, workspaceId: DEFAULT_WORKSPACE_ID },
+      select: { id: true },
+    });
+    if (!app) {
+      throw new NotFoundException(`App ${appId} not found`);
     }
   }
 }
