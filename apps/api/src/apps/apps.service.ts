@@ -5,6 +5,7 @@ import {
   AppListItem,
   DEFAULT_COUNTRY,
   parseStoreUrl,
+  SnapshotDiffResult,
   SUPPORTED_STORES,
 } from '@asobeast/shared';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
@@ -13,6 +14,7 @@ import { StoreNotSupportedError } from '../store-providers/errors';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
 import { NormalizedApp } from '../store-providers/types';
 import { toAppDetail, toAppListItem } from './apps.mapper';
+import { diffSnapshots } from './snapshot-diff';
 
 @Injectable()
 export class AppsService {
@@ -114,6 +116,41 @@ export class AppsService {
     }
 
     await this.prisma.app.delete({ where: { id } });
+  }
+
+  async refreshApp(id: string): Promise<SnapshotDiffResult> {
+    const app = await this.prisma.app.findFirst({
+      where: { id, workspaceId: DEFAULT_WORKSPACE_ID },
+    });
+
+    if (!app) {
+      throw new NotFoundException(`App ${id} not found`);
+    }
+
+    const normalized = await this.registry
+      .get(app.store)
+      .getApp(app.storeAppId, app.country);
+
+    const previous = await this.prisma.appSnapshot.findFirst({
+      where: { appId: app.id },
+      orderBy: { capturedAt: 'desc' },
+    });
+
+    const snapshot = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.appSnapshot.create({
+        data: this.toSnapshotData(app.id, normalized),
+      });
+      await tx.app.update({
+        where: { id: app.id },
+        data: { name: normalized.title, iconUrl: normalized.iconUrl },
+      });
+      return created;
+    });
+
+    return {
+      snapshotId: snapshot.id,
+      changes: diffSnapshots(previous, snapshot),
+    };
   }
 
   private toSnapshotData(
