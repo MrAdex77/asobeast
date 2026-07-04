@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
   AppDetail,
+  AppListItem,
   DEFAULT_COUNTRY,
   parseStoreUrl,
   SUPPORTED_STORES,
@@ -11,7 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StoreNotSupportedError } from '../store-providers/errors';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
 import { NormalizedApp } from '../store-providers/types';
-import { toAppDetail } from './apps.mapper';
+import { toAppDetail, toAppListItem } from './apps.mapper';
 
 @Injectable()
 export class AppsService {
@@ -64,6 +65,55 @@ export class AppsService {
     });
 
     return toAppDetail(app, snapshot, []);
+  }
+
+  async list(): Promise<AppListItem[]> {
+    const apps = await this.prisma.app.findMany({
+      where: { workspaceId: DEFAULT_WORKSPACE_ID, isCompetitor: false },
+      include: {
+        snapshots: { orderBy: { capturedAt: 'desc' }, take: 1 },
+        _count: { select: { tracked: true, competitors: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return apps.map((app) =>
+      toAppListItem(
+        app,
+        app.snapshots[0] ?? null,
+        app._count.tracked,
+        app._count.competitors,
+      ),
+    );
+  }
+
+  async detail(id: string): Promise<AppDetail> {
+    const app = await this.prisma.app.findFirst({
+      where: { id, workspaceId: DEFAULT_WORKSPACE_ID },
+      include: {
+        snapshots: { orderBy: { capturedAt: 'desc' }, take: 1 },
+        competitors: true,
+      },
+    });
+
+    if (!app) {
+      throw new NotFoundException(`App ${id} not found`);
+    }
+
+    return toAppDetail(app, app.snapshots[0] ?? null, app.competitors);
+  }
+
+  async remove(id: string): Promise<void> {
+    const app = await this.prisma.app.findFirst({
+      where: { id, workspaceId: DEFAULT_WORKSPACE_ID },
+      select: { id: true },
+    });
+
+    if (!app) {
+      throw new NotFoundException(`App ${id} not found`);
+    }
+
+    await this.prisma.app.delete({ where: { id } });
   }
 
   private toSnapshotData(

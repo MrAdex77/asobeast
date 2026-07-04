@@ -1,6 +1,7 @@
 import { App, AppSnapshot } from '@prisma/client';
 import {
   AppDetail,
+  AppListItem,
   AppSnapshotSummary,
   CompetitorItem,
 } from '@asobeast/shared';
@@ -26,6 +27,25 @@ export function toCompetitorItem(app: App): CompetitorItem {
     store: app.store,
     name: app.name,
     iconUrl: app.iconUrl,
+  };
+}
+
+export function toAppListItem(
+  app: App,
+  snapshot: AppSnapshot | null,
+  trackedKeywordCount: number,
+  competitorCount: number,
+): AppListItem {
+  return {
+    id: app.id,
+    store: app.store,
+    name: app.name,
+    iconUrl: app.iconUrl,
+    ratingAvg: snapshot?.ratingAvg ?? null,
+    ratingCount: snapshot?.ratingCount ?? null,
+    capturedAt: snapshot ? snapshot.capturedAt.toISOString() : null,
+    trackedKeywordCount,
+    competitorCount,
   };
 }
 
