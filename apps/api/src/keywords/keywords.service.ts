@@ -1,0 +1,454 @@
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { KeywordSource, Store } from '@prisma/client';
+import {
+  KeywordFieldResult,
+  KeywordSuggestion,
+  KeywordSuggestionStrategy,
+  normalizeText,
+  TrackedKeywordItem,
+} from '@asobeast/shared';
+import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
+import { PrismaService } from '../prisma/prisma.service';
+import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
+import { extractCandidates } from './extraction';
+import { toTrackedKeywordItem } from './keywords.mapper';
+
+const AUTO_TRACK_LIMIT = 15;
+const MAX_KEYWORD_WORDS = 5;
+const RANKING_HISTORY_LIMIT = 60;
+const KEYWORD_FIELD_CHAR_LIMIT = 100;
+const SEARCH_SEED_LIMIT = 5;
+
+const SOURCE_WEIGHT: Record<KeywordSource, number> = {
+  KEYWORD_FIELD: 4,
+  TITLE: 3,
+  SUBTITLE: 2,
+  MANUAL: 2,
+  SUGGESTED: 1,
+  DESCRIPTION: 1,
+  COMPETITOR: 1,
+};
+
+@Injectable()
+export class KeywordsService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly registry: StoreProviderRegistry,
+  ) {}
+
+  async listTracked(appId: string): Promise<TrackedKeywordItem[]> {
+    await this.ensureApp(appId);
+    const rows = await this.prisma.trackedKeyword.findMany({
+      where: { appId },
+      ...this.trackedArgs(appId),
+    });
+    return rows.map(toTrackedKeywordItem);
+  }
+
+  async addManual(
+    appId: string,
+    rawKeywords: string[],
+  ): Promise<TrackedKeywordItem[]> {
+    const app = await this.ensureApp(appId);
+    const texts = new Set(rawKeywords.map((raw) => this.normalizeKeyword(raw)));
+
+    for (const text of texts) {
+      const keyword = await this.prisma.keyword.upsert({
+        where: {
+          text_store_country: { text, store: app.store, country: app.country },
+        },
+        create: { text, store: app.store, country: app.country },
+        update: {},
+        select: { id: true },
+      });
+      await this.prisma.trackedKeyword.upsert({
+        where: { appId_keywordId: { appId, keywordId: keyword.id } },
+        create: {
+          appId,
+          keywordId: keyword.id,
+          source: 'MANUAL',
+          active: true,
+        },
+        update: { active: true },
+      });
+    }
+
+    return this.listTracked(appId);
+  }
+
+  async toggle(
+    appId: string,
+    keywordId: string,
+    active: boolean,
+  ): Promise<TrackedKeywordItem> {
+    await this.ensureApp(appId);
+    await this.ensureTracked(appId, keywordId);
+    await this.prisma.trackedKeyword.update({
+      where: { appId_keywordId: { appId, keywordId } },
+      data: { active },
+    });
+    return this.getTrackedItem(appId, keywordId);
+  }
+
+  async remove(appId: string, keywordId: string): Promise<void> {
+    await this.ensureApp(appId);
+    await this.ensureTracked(appId, keywordId);
+    await this.prisma.trackedKeyword.delete({
+      where: { appId_keywordId: { appId, keywordId } },
+    });
+  }
+
+  async setKeywordField(
+    appId: string,
+    text: string,
+  ): Promise<KeywordFieldResult> {
+    const app = await this.ensureApp(appId);
+    if (app.store !== Store.APP_STORE) {
+      throw new BadRequestException(
+        'The keyword field is only available for App Store apps',
+      );
+    }
+
+    const parsed = text
+      .split(',')
+      .map((part) => normalizeText(part))
+      .filter((part) => part.length > 0);
+    const unique = [...new Set(parsed)];
+    const duplicatesRemoved = parsed.length - unique.length;
+
+    const previous = await this.prisma.trackedKeyword.findMany({
+      where: { appId, source: 'KEYWORD_FIELD' },
+      select: { keywordId: true, keyword: { select: { text: true } } },
+    });
+
+    for (const value of unique) {
+      const keyword = await this.prisma.keyword.upsert({
+        where: {
+          text_store_country: {
+            text: value,
+            store: app.store,
+            country: app.country,
+          },
+        },
+        create: { text: value, store: app.store, country: app.country },
+        update: {},
+        select: { id: true },
+      });
+      await this.prisma.trackedKeyword.upsert({
+        where: { appId_keywordId: { appId, keywordId: keyword.id } },
+        create: {
+          appId,
+          keywordId: keyword.id,
+          source: 'KEYWORD_FIELD',
+          active: true,
+        },
+        update: { source: 'KEYWORD_FIELD', active: true },
+      });
+    }
+
+    const uniqueSet = new Set(unique);
+    const staleKeywordIds = previous
+      .filter((row) => !uniqueSet.has(row.keyword.text))
+      .map((row) => row.keywordId);
+    if (staleKeywordIds.length > 0) {
+      await this.prisma.trackedKeyword.updateMany({
+        where: { appId, keywordId: { in: staleKeywordIds } },
+        data: { active: false },
+      });
+    }
+
+    const tracked = (
+      await this.prisma.trackedKeyword.findMany({
+        where: { appId, source: 'KEYWORD_FIELD', active: true },
+        ...this.trackedArgs(appId),
+      })
+    ).map(toTrackedKeywordItem);
+
+    return {
+      tracked,
+      charactersUsed: unique.join(',').length,
+      charactersLimit: KEYWORD_FIELD_CHAR_LIMIT,
+      duplicatesRemoved,
+    };
+  }
+
+  async suggest(
+    appId: string,
+    strategy: KeywordSuggestionStrategy,
+    limit: number,
+  ): Promise<KeywordSuggestion[]> {
+    const app = await this.ensureApp(appId);
+    const trackedTexts = await this.trackedTexts(appId);
+
+    if (strategy === 'search') {
+      return this.suggestFromSearch(appId, app, trackedTexts, limit);
+    }
+    if (strategy === 'similar') {
+      return this.suggestFromSimilar(app, trackedTexts, limit);
+    }
+    return this.suggestFromMetadata(appId, trackedTexts, limit);
+  }
+
+  private async suggestFromMetadata(
+    appId: string,
+    trackedTexts: Set<string>,
+    limit: number,
+  ): Promise<KeywordSuggestion[]> {
+    const candidates = await this.latestCandidates(appId);
+    return candidates
+      .filter((candidate) => !trackedTexts.has(candidate.text))
+      .slice(0, limit)
+      .map((candidate) => ({
+        text: candidate.text,
+        strategy: 'metadata' as const,
+      }));
+  }
+
+  private async suggestFromSearch(
+    appId: string,
+    app: { store: Store; country: string },
+    trackedTexts: Set<string>,
+    limit: number,
+  ): Promise<KeywordSuggestion[]> {
+    const provider = this.registry.get(app.store);
+    const seeds = await this.searchSeeds(appId);
+    const seedSet = new Set(seeds);
+    const merged = new Map<string, number | undefined>();
+
+    for (const seed of seeds) {
+      const items = await provider.suggest(seed, app.country);
+      for (const item of items) {
+        const text = normalizeText(item.term);
+        if (!text || trackedTexts.has(text) || seedSet.has(text)) {
+          continue;
+        }
+        if (!merged.has(text)) {
+          merged.set(text, item.priority);
+        } else if ((item.priority ?? -1) > (merged.get(text) ?? -1)) {
+          merged.set(text, item.priority);
+        }
+      }
+    }
+
+    return [...merged.entries()]
+      .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0))
+      .slice(0, limit)
+      .map(([text, priority]) => ({
+        text,
+        strategy: 'search' as const,
+        ...(priority === undefined ? {} : { priority }),
+      }));
+  }
+
+  private async suggestFromSimilar(
+    app: { store: Store; country: string; storeAppId: string },
+    trackedTexts: Set<string>,
+    limit: number,
+  ): Promise<KeywordSuggestion[]> {
+    const provider = this.registry.get(app.store);
+    const similar = await provider.similar(app.storeAppId, app.country);
+    const counts = new Map<string, number>();
+
+    for (const item of similar) {
+      const texts = new Set(
+        extractCandidates({ title: item.title }).map(
+          (candidate) => candidate.text,
+        ),
+      );
+      for (const text of texts) {
+        if (trackedTexts.has(text)) {
+          continue;
+        }
+        counts.set(text, (counts.get(text) ?? 0) + 1);
+      }
+    }
+
+    return [...counts.entries()]
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, limit)
+      .map(([text, usedByCount]) => ({
+        text,
+        strategy: 'similar' as const,
+        usedByCount,
+      }));
+  }
+
+  private async searchSeeds(appId: string): Promise<string[]> {
+    const tracked = await this.prisma.trackedKeyword.findMany({
+      where: { appId, active: true },
+      select: { source: true, keyword: { select: { text: true } } },
+    });
+    return tracked
+      .sort((a, b) => SOURCE_WEIGHT[b.source] - SOURCE_WEIGHT[a.source])
+      .slice(0, SEARCH_SEED_LIMIT)
+      .map((row) => row.keyword.text);
+  }
+
+  private async latestCandidates(appId: string) {
+    const snapshot = await this.prisma.appSnapshot.findFirst({
+      where: { appId },
+      orderBy: { capturedAt: 'desc' },
+      select: { title: true, subtitle: true, summary: true },
+    });
+    if (!snapshot) {
+      return [];
+    }
+    return extractCandidates({
+      title: snapshot.title,
+      subtitle: snapshot.subtitle ?? undefined,
+      summary: snapshot.summary ?? undefined,
+    });
+  }
+
+  private async trackedTexts(appId: string): Promise<Set<string>> {
+    const rows = await this.prisma.trackedKeyword.findMany({
+      where: { appId },
+      select: { keyword: { select: { text: true } } },
+    });
+    return new Set(rows.map((row) => row.keyword.text));
+  }
+
+  async syncFromSnapshot(appId: string): Promise<void> {
+    const app = await this.prisma.app.findUnique({
+      where: { id: appId },
+      select: { id: true, store: true, country: true },
+    });
+    if (!app) {
+      return;
+    }
+
+    const snapshot = await this.prisma.appSnapshot.findFirst({
+      where: { appId },
+      orderBy: { capturedAt: 'desc' },
+      select: { title: true, subtitle: true, summary: true },
+    });
+    if (!snapshot) {
+      return;
+    }
+
+    const candidates = extractCandidates({
+      title: snapshot.title,
+      subtitle: snapshot.subtitle ?? undefined,
+      summary: snapshot.summary ?? undefined,
+    })
+      .filter(
+        (candidate) =>
+          candidate.source === 'TITLE' || candidate.source === 'SUBTITLE',
+      )
+      .slice(0, AUTO_TRACK_LIMIT);
+
+    for (const candidate of candidates) {
+      const keyword = await this.prisma.keyword.upsert({
+        where: {
+          text_store_country: {
+            text: candidate.text,
+            store: app.store,
+            country: app.country,
+          },
+        },
+        create: {
+          text: candidate.text,
+          store: app.store,
+          country: app.country,
+        },
+        update: {},
+        select: { id: true },
+      });
+
+      await this.prisma.trackedKeyword.upsert({
+        where: { appId_keywordId: { appId: app.id, keywordId: keyword.id } },
+        create: {
+          appId: app.id,
+          keywordId: keyword.id,
+          source: candidate.source,
+          active: true,
+        },
+        update: {},
+      });
+    }
+  }
+
+  private normalizeKeyword(raw: string): string {
+    const text = normalizeText(raw);
+    if (!text) {
+      throw new BadRequestException('Keyword must not be empty');
+    }
+    if (text.split(' ').length > MAX_KEYWORD_WORDS) {
+      throw new BadRequestException(
+        `Keyword "${text}" exceeds ${MAX_KEYWORD_WORDS} words`,
+      );
+    }
+    return text;
+  }
+
+  private async ensureApp(appId: string): Promise<{
+    id: string;
+    store: Store;
+    country: string;
+    storeAppId: string;
+  }> {
+    const app = await this.prisma.app.findFirst({
+      where: { id: appId, workspaceId: DEFAULT_WORKSPACE_ID },
+      select: { id: true, store: true, country: true, storeAppId: true },
+    });
+    if (!app) {
+      throw new NotFoundException(`App ${appId} not found`);
+    }
+    return app;
+  }
+
+  private async ensureTracked(appId: string, keywordId: string): Promise<void> {
+    const tracked = await this.prisma.trackedKeyword.findUnique({
+      where: { appId_keywordId: { appId, keywordId } },
+      select: { appId: true },
+    });
+    if (!tracked) {
+      throw new NotFoundException(`Keyword ${keywordId} is not tracked`);
+    }
+  }
+
+  private async getTrackedItem(
+    appId: string,
+    keywordId: string,
+  ): Promise<TrackedKeywordItem> {
+    const row = await this.prisma.trackedKeyword.findFirst({
+      where: { appId, keywordId },
+      ...this.trackedArgs(appId),
+    });
+    if (!row) {
+      throw new NotFoundException(`Keyword ${keywordId} is not tracked`);
+    }
+    return toTrackedKeywordItem(row);
+  }
+
+  private trackedArgs(appId: string) {
+    return {
+      orderBy: { createdAt: 'asc' as const },
+      select: {
+        keywordId: true,
+        source: true,
+        active: true,
+        keyword: {
+          select: {
+            text: true,
+            rankings: {
+              where: { appId },
+              orderBy: { date: 'desc' as const },
+              take: RANKING_HISTORY_LIMIT,
+              select: { position: true, date: true },
+            },
+            metrics: {
+              orderBy: { date: 'desc' as const },
+              take: 1,
+              select: { traffic: true, difficulty: true },
+            },
+          },
+        },
+      },
+    };
+  }
+}

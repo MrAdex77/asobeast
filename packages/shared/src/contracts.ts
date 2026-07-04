@@ -1,4 +1,4 @@
-import { Store } from './index';
+import { KeywordSource, KeywordSuggestionStrategy, Store } from './index';
 
 export interface AppSnapshotSummary {
   id: string;
@@ -42,6 +42,32 @@ export interface AppListItem {
   capturedAt: string | null;
   trackedKeywordCount: number;
   competitorCount: number;
+}
+
+export interface TrackedKeywordItem {
+  keywordId: string;
+  text: string;
+  source: KeywordSource;
+  active: boolean;
+  latestPosition: number | null;
+  positionDelta7d: number | null;
+  traffic: number | null;
+  difficulty: number | null;
+  opportunity: number | null;
+}
+
+export interface KeywordSuggestion {
+  text: string;
+  strategy: KeywordSuggestionStrategy;
+  priority?: number;
+  usedByCount?: number;
+}
+
+export interface KeywordFieldResult {
+  tracked: TrackedKeywordItem[];
+  charactersUsed: number;
+  charactersLimit: number;
+  duplicatesRemoved: number;
 }
 
 export interface SnapshotChange {
