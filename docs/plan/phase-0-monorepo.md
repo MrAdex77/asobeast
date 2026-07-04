@@ -291,11 +291,11 @@ feat(api): add health check endpoint
 
 ## Acceptance checklist
 
-* [ ] `pnpm lint`, `pnpm test`, `pnpm build` pass from the root through Turborepo.
-* [ ] `pnpm dev` runs shared (watch) + api (4000) + web (3000); both apps import from `@asobeast/shared`.
-* [ ] Turborepo caches: a second `pnpm build` with no changes is a full cache hit.
-* [ ] Dev Postgres and Redis healthy; `/health` answers; `.env.example` files exist in both apps.
-* [ ] Nine commits above, in order.
+* [x] `pnpm lint`, `pnpm test`, `pnpm build` pass from the root through Turborepo.
+* [x] `pnpm dev` runs shared (watch) + api (4000) + web (3000); both apps import from `@asobeast/shared`.
+* [x] Turborepo caches: a second `pnpm build` with no changes is a full cache hit.
+* [x] Dev Postgres and Redis healthy; `/health` answers; `.env.example` files exist in both apps.
+* [x] Nine commits above, in order.
 
 ```text
 docs: mark phase 0 complete
