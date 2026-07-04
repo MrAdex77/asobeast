@@ -1,12 +1,84 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Store } from '@prisma/client';
+import { normalizeText, TrackedKeywordItem } from '@asobeast/shared';
+import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { PrismaService } from '../prisma/prisma.service';
 import { extractCandidates } from './extraction';
+import { toTrackedKeywordItem } from './keywords.mapper';
 
 const AUTO_TRACK_LIMIT = 15;
+const MAX_KEYWORD_WORDS = 5;
+const RANKING_HISTORY_LIMIT = 60;
 
 @Injectable()
 export class KeywordsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async listTracked(appId: string): Promise<TrackedKeywordItem[]> {
+    await this.ensureApp(appId);
+    const rows = await this.prisma.trackedKeyword.findMany({
+      where: { appId },
+      ...this.trackedArgs(appId),
+    });
+    return rows.map(toTrackedKeywordItem);
+  }
+
+  async addManual(
+    appId: string,
+    rawKeywords: string[],
+  ): Promise<TrackedKeywordItem[]> {
+    const app = await this.ensureApp(appId);
+    const texts = new Set(rawKeywords.map((raw) => this.normalizeKeyword(raw)));
+
+    for (const text of texts) {
+      const keyword = await this.prisma.keyword.upsert({
+        where: {
+          text_store_country: { text, store: app.store, country: app.country },
+        },
+        create: { text, store: app.store, country: app.country },
+        update: {},
+        select: { id: true },
+      });
+      await this.prisma.trackedKeyword.upsert({
+        where: { appId_keywordId: { appId, keywordId: keyword.id } },
+        create: {
+          appId,
+          keywordId: keyword.id,
+          source: 'MANUAL',
+          active: true,
+        },
+        update: { active: true },
+      });
+    }
+
+    return this.listTracked(appId);
+  }
+
+  async toggle(
+    appId: string,
+    keywordId: string,
+    active: boolean,
+  ): Promise<TrackedKeywordItem> {
+    await this.ensureApp(appId);
+    await this.ensureTracked(appId, keywordId);
+    await this.prisma.trackedKeyword.update({
+      where: { appId_keywordId: { appId, keywordId } },
+      data: { active },
+    });
+    return this.getTrackedItem(appId, keywordId);
+  }
+
+  async remove(appId: string, keywordId: string): Promise<void> {
+    await this.ensureApp(appId);
+    await this.ensureTracked(appId, keywordId);
+    await this.prisma.trackedKeyword.delete({
+      where: { appId_keywordId: { appId, keywordId } },
+    });
+  }
 
   async syncFromSnapshot(appId: string): Promise<void> {
     const app = await this.prisma.app.findUnique({
@@ -66,5 +138,82 @@ export class KeywordsService {
         update: {},
       });
     }
+  }
+
+  private normalizeKeyword(raw: string): string {
+    const text = normalizeText(raw);
+    if (!text) {
+      throw new BadRequestException('Keyword must not be empty');
+    }
+    if (text.split(' ').length > MAX_KEYWORD_WORDS) {
+      throw new BadRequestException(
+        `Keyword "${text}" exceeds ${MAX_KEYWORD_WORDS} words`,
+      );
+    }
+    return text;
+  }
+
+  private async ensureApp(
+    appId: string,
+  ): Promise<{ id: string; store: Store; country: string }> {
+    const app = await this.prisma.app.findFirst({
+      where: { id: appId, workspaceId: DEFAULT_WORKSPACE_ID },
+      select: { id: true, store: true, country: true },
+    });
+    if (!app) {
+      throw new NotFoundException(`App ${appId} not found`);
+    }
+    return app;
+  }
+
+  private async ensureTracked(appId: string, keywordId: string): Promise<void> {
+    const tracked = await this.prisma.trackedKeyword.findUnique({
+      where: { appId_keywordId: { appId, keywordId } },
+      select: { appId: true },
+    });
+    if (!tracked) {
+      throw new NotFoundException(`Keyword ${keywordId} is not tracked`);
+    }
+  }
+
+  private async getTrackedItem(
+    appId: string,
+    keywordId: string,
+  ): Promise<TrackedKeywordItem> {
+    const row = await this.prisma.trackedKeyword.findFirst({
+      where: { appId, keywordId },
+      ...this.trackedArgs(appId),
+    });
+    if (!row) {
+      throw new NotFoundException(`Keyword ${keywordId} is not tracked`);
+    }
+    return toTrackedKeywordItem(row);
+  }
+
+  private trackedArgs(appId: string) {
+    return {
+      orderBy: { createdAt: 'asc' as const },
+      select: {
+        keywordId: true,
+        source: true,
+        active: true,
+        keyword: {
+          select: {
+            text: true,
+            rankings: {
+              where: { appId },
+              orderBy: { date: 'desc' as const },
+              take: RANKING_HISTORY_LIMIT,
+              select: { position: true, date: true },
+            },
+            metrics: {
+              orderBy: { date: 'desc' as const },
+              take: 1,
+              select: { traffic: true, difficulty: true },
+            },
+          },
+        },
+      },
+    };
   }
 }

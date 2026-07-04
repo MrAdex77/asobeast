@@ -1,0 +1,166 @@
+import { execSync } from 'child_process';
+import { join } from 'path';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { Store } from '@prisma/client';
+import { AppDetail, TrackedKeywordItem } from '@asobeast/shared';
+import request from 'supertest';
+import { App } from 'supertest/types';
+import { AppModule } from '../src/app.module';
+import { DEFAULT_WORKSPACE_ID } from '../src/common/workspace';
+import { PrismaService } from '../src/prisma/prisma.service';
+import { StoreProviderRegistry } from '../src/store-providers/store-provider.registry';
+import { NormalizedApp, StoreProvider } from '../src/store-providers/types';
+
+const FIXTURE: NormalizedApp = {
+  store: Store.APP_STORE,
+  storeAppId: '1234567890',
+  title: 'Habit Tracker',
+  subtitle: 'Daily streak counter',
+  summary: 'A markdown journal',
+  description: 'Fixture description',
+  raw: { source: 'fixture' },
+};
+
+const APP_STORE_URL = 'https://apps.apple.com/us/app/fixture/id1234567890';
+
+class FakeRegistry {
+  get(store: Store): StoreProvider {
+    return {
+      store,
+      getApp: () => Promise.resolve(FIXTURE),
+      search: () => Promise.resolve([]),
+      suggest: () => Promise.resolve([]),
+      similar: () => Promise.resolve([]),
+    };
+  }
+}
+
+describe('KeywordsController (e2e)', () => {
+  let app: INestApplication<App>;
+  let prisma: PrismaService;
+
+  const importApp = async (): Promise<string> => {
+    const response = await request(app.getHttpServer())
+      .post('/apps')
+      .send({ url: APP_STORE_URL })
+      .expect(201);
+    return (response.body as AppDetail).id;
+  };
+
+  beforeAll(async () => {
+    execSync('pnpm prisma migrate deploy', {
+      cwd: join(__dirname, '..'),
+      env: process.env,
+      stdio: 'ignore',
+    });
+
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(StoreProviderRegistry)
+      .useValue(new FakeRegistry())
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
+    await app.init();
+
+    prisma = app.get(PrismaService);
+    await prisma.workspace.upsert({
+      where: { id: DEFAULT_WORKSPACE_ID },
+      update: {},
+      create: { id: DEFAULT_WORKSPACE_ID, name: 'Default' },
+    });
+  });
+
+  beforeEach(async () => {
+    await prisma.$executeRawUnsafe(
+      'TRUNCATE TABLE "App", "Keyword" RESTART IDENTITY CASCADE',
+    );
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('auto tracks title and subtitle keywords but not description', async () => {
+    const id = await importApp();
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${id}/keywords`)
+      .expect(200);
+    const items = response.body as TrackedKeywordItem[];
+
+    const bySource = (source: string) =>
+      items.filter((item) => item.source === source).map((item) => item.text);
+
+    expect(bySource('TITLE')).toContain('habit');
+    expect(bySource('SUBTITLE')).toContain('streak');
+    expect(items.some((item) => item.source === 'DESCRIPTION')).toBe(false);
+    for (const item of items) {
+      expect(item.latestPosition).toBeNull();
+      expect(item.opportunity).toBeNull();
+    }
+  });
+
+  it('adds, toggles and removes manual keywords', async () => {
+    const id = await importApp();
+
+    const added = await request(app.getHttpServer())
+      .post(`/apps/${id}/keywords`)
+      .send({ keywords: ['Habit Builder', 'streak counter'] })
+      .expect(201);
+    const manual = (added.body as TrackedKeywordItem[]).find(
+      (item) => item.text === 'habit builder',
+    );
+    expect(manual).toBeDefined();
+    expect(manual?.source).toBe('MANUAL');
+
+    await request(app.getHttpServer())
+      .patch(`/apps/${id}/keywords/${manual?.keywordId}`)
+      .send({ active: false })
+      .expect(200);
+
+    const afterToggle = await request(app.getHttpServer())
+      .get(`/apps/${id}/keywords`)
+      .expect(200);
+    expect(
+      (afterToggle.body as TrackedKeywordItem[]).find(
+        (item) => item.keywordId === manual?.keywordId,
+      )?.active,
+    ).toBe(false);
+
+    await request(app.getHttpServer())
+      .delete(`/apps/${id}/keywords/${manual?.keywordId}`)
+      .expect(204);
+
+    const afterDelete = await request(app.getHttpServer())
+      .get(`/apps/${id}/keywords`)
+      .expect(200);
+    expect(
+      (afterDelete.body as TrackedKeywordItem[]).some(
+        (item) => item.keywordId === manual?.keywordId,
+      ),
+    ).toBe(false);
+    expect(
+      await prisma.keyword.count({ where: { text: 'habit builder' } }),
+    ).toBe(1);
+  });
+
+  it('rejects empty and overly long keyword phrases', async () => {
+    const id = await importApp();
+
+    await request(app.getHttpServer())
+      .post(`/apps/${id}/keywords`)
+      .send({ keywords: ['   '] })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post(`/apps/${id}/keywords`)
+      .send({ keywords: ['one two three four five six'] })
+      .expect(400);
+  });
+});

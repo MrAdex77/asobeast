@@ -13,6 +13,17 @@ export type Store = (typeof STORES)[number];
 /** Stores actively scraped in this version. */
 export const SUPPORTED_STORES: readonly Store[] = ['APP_STORE'];
 
+export const KEYWORD_SOURCES = [
+  'TITLE',
+  'SUBTITLE',
+  'DESCRIPTION',
+  'KEYWORD_FIELD',
+  'SUGGESTED',
+  'MANUAL',
+  'COMPETITOR',
+] as const;
+export type KeywordSource = (typeof KEYWORD_SOURCES)[number];
+
 export const DEFAULT_COUNTRY = 'us';
 
 export interface HealthStatus {
