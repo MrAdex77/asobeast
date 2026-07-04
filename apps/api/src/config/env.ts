@@ -1,0 +1,37 @@
+import { z } from 'zod';
+
+/**
+ * Typed environment configuration.
+ *
+ * The app refuses to boot on invalid config: `ConfigModule.forRoot` runs
+ * `validate` (see app.module.ts) which calls `EnvSchema.parse`, so a bad value
+ * (for example `PORT=abc`) throws a clear error at startup. Numbers are coerced
+ * from their string env representation. Defaults follow CLAUDE.md.
+ */
+export const EnvSchema = z.object({
+  DATABASE_URL: z
+    .string()
+    .min(1)
+    .default('postgresql://asobeast:asobeast@localhost:5432/asobeast'),
+  REDIS_HOST: z.string().min(1).default('localhost'),
+  REDIS_PORT: z.coerce.number().int().positive().default(6379),
+  PORT: z.coerce.number().int().positive().default(4000),
+  DEFAULT_COUNTRY: z.string().min(1).default('us'),
+  CRON_DAILY: z.string().min(1).default('0 3 * * *'),
+  CRON_SCORING: z.string().min(1).default('0 4 * * 0'),
+  SCRAPE_ITUNES_RPM: z.coerce.number().int().positive().default(15),
+  BULL_BOARD_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  LOG_LEVEL: z
+    .enum(['error', 'warn', 'log', 'debug', 'verbose'])
+    .default('debug'),
+});
+
+export type Env = z.infer<typeof EnvSchema>;
+
+/** Used as the `validate` hook in `ConfigModule.forRoot`. */
+export function validateEnv(config: Record<string, unknown>): Env {
+  return EnvSchema.parse(config);
+}
