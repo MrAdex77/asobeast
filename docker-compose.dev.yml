@@ -1,6 +1,7 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
+    container_name: "postgres"
     environment:
       POSTGRES_USER: asobeast
       POSTGRES_PASSWORD: asobeast
@@ -8,16 +9,19 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U asobeast"]
       interval: 5s
       timeout: 3s
       retries: 10
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
+    container_name: "redis"
     ports:
       - "6379:6379"
+    volumes:
+      - redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -25,3 +29,4 @@ services:
       retries: 10
 volumes:
   pgdata:
+  redisdata:
