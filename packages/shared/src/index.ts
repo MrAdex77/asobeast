@@ -22,3 +22,4 @@ export interface HealthStatus {
 
 export * from './url-parser';
 export * from './contracts';
+export * from './text';
