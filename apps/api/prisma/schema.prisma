@@ -1,0 +1,9 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Prisma 7: the connection URL lives in prisma.config.ts (for Migrate) and is
+// passed to PrismaClient via the @prisma/adapter-pg driver adapter at runtime.
+datasource db {
+  provider = "postgresql"
+}
