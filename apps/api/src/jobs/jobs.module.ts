@@ -1,5 +1,8 @@
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import { ExpressAdapter } from '@bull-board/express';
+import { BullBoardModule } from '@bull-board/nestjs';
 import { BullModule } from '@nestjs/bullmq';
-import { Module } from '@nestjs/common';
+import { DynamicModule, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppsModule } from '../apps/apps.module';
 import { Env } from '../config/env';
@@ -9,6 +12,20 @@ import { JobsController } from './jobs.controller';
 import { QUEUES } from './jobs.types';
 import { PipelineService } from './pipeline.service';
 import { PipelineWorker } from './pipeline.worker';
+
+const bullBoardModules: DynamicModule[] =
+  (process.env.BULL_BOARD_ENABLED ?? 'true') === 'false'
+    ? []
+    : [
+        BullBoardModule.forRoot({
+          route: '/admin/queues',
+          adapter: ExpressAdapter,
+        }),
+        BullBoardModule.forFeature(
+          { name: QUEUES.PIPELINE, adapter: BullMQAdapter },
+          { name: QUEUES.APP_STORE, adapter: BullMQAdapter },
+        ),
+      ];
 
 @Module({
   imports: [
@@ -33,6 +50,7 @@ import { PipelineWorker } from './pipeline.worker';
     ),
     AppsModule,
     RankingsModule,
+    ...bullBoardModules,
   ],
   controllers: [JobsController],
   providers: [AppStoreWorker, PipelineWorker, PipelineService],
