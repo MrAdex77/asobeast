@@ -5,6 +5,7 @@ import { StoreRequestError } from './errors';
 
 const makeLib = (overrides: Partial<AppStoreLib> = {}): AppStoreLib => ({
   app: jest.fn(),
+  page: jest.fn().mockResolvedValue(''),
   search: jest.fn(),
   suggest: jest.fn(),
   similar: jest.fn(),
@@ -46,18 +47,53 @@ describe('AppStoreProvider', () => {
     });
   });
 
-  it('maps subtitle when present', async () => {
+  it('maps subtitle when present on the lookup payload', async () => {
     const app = jest.fn().mockResolvedValue({
       id: 1,
       title: 'App',
       subtitle: 'The best app',
       description: 'desc',
     });
-    const provider = new AppStoreProvider(makeLib({ app }));
+    const page = jest.fn();
+    const provider = new AppStoreProvider(makeLib({ app, page }));
 
     const result = await provider.getApp('1', 'us');
 
     expect(result.subtitle).toBe('The best app');
+    expect(page).not.toHaveBeenCalled();
+  });
+
+  it('scrapes subtitle from the product page when the lookup omits it', async () => {
+    const app = jest.fn().mockResolvedValue({
+      id: 1,
+      title: 'App',
+      description: 'desc',
+    });
+    const page = jest
+      .fn()
+      .mockResolvedValue(
+        '<h1>App</h1><p class="subtitle svelte-abc123">Crossword Puzzles Brain Games</p>',
+      );
+    const provider = new AppStoreProvider(makeLib({ app, page }));
+
+    const result = await provider.getApp('1', 'us');
+
+    expect(result.subtitle).toBe('Crossword Puzzles Brain Games');
+    expect(page).toHaveBeenCalledWith({ id: 1, country: 'us' });
+  });
+
+  it('leaves subtitle undefined when the product page has none', async () => {
+    const app = jest.fn().mockResolvedValue({
+      id: 1,
+      title: 'App',
+      description: 'desc',
+    });
+    const page = jest.fn().mockResolvedValue('<h1>App</h1>');
+    const provider = new AppStoreProvider(makeLib({ app, page }));
+
+    const result = await provider.getApp('1', 'us');
+
+    expect(result.subtitle).toBeUndefined();
   });
 
   it('falls back to currentVersionReviews for the rating count', async () => {

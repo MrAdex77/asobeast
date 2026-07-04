@@ -38,6 +38,7 @@ export interface AppStoreLib {
     country: string;
     ratings: boolean;
   }): Promise<AppStoreAppResult>;
+  page(options: { id: number; country: string }): Promise<string>;
   search(options: {
     term: string;
     country: string;
@@ -55,8 +56,21 @@ export interface AppStoreLib {
 
 export const APP_STORE_LIB = Symbol('APP_STORE_LIB');
 
+const PAGE_USER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
+
 export const appStoreLib: AppStoreLib = {
   app: (options) => appStore.app(options),
+  page: async ({ id, country }) => {
+    const url = `https://apps.apple.com/${country}/app/id${id}`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': PAGE_USER_AGENT },
+    });
+    if (!response.ok) {
+      throw new Error(`Request failed with status ${response.status}`);
+    }
+    return response.text();
+  },
   search: (options) =>
     appStore.search(options) as Promise<AppStoreSearchResult[]>,
   suggest: (options) => appStore.suggest(options),

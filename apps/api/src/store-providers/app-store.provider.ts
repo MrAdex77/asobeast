@@ -1,5 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Store } from '@prisma/client';
+import * as cheerio from 'cheerio';
 import {
   APP_STORE_LIB,
   AppStoreAppResult,
@@ -14,6 +15,7 @@ const RETRY_DELAYS_MS = [2000, 5000];
 @Injectable()
 export class AppStoreProvider implements StoreProvider {
   readonly store = Store.APP_STORE;
+  private readonly logger = new Logger(AppStoreProvider.name);
 
   constructor(@Inject(APP_STORE_LIB) private readonly lib: AppStoreLib) {}
 
@@ -21,7 +23,9 @@ export class AppStoreProvider implements StoreProvider {
     const raw = await this.withRetry('getApp', () =>
       this.lib.app({ id: Number(storeAppId), country, ratings: true }),
     );
-    return this.toNormalizedApp(raw);
+    const subtitle =
+      raw.subtitle ?? (await this.fetchSubtitle(storeAppId, country));
+    return this.toNormalizedApp(raw, subtitle);
   }
 
   async search(
@@ -49,12 +53,33 @@ export class AppStoreProvider implements StoreProvider {
     return results.map((item) => this.toSearchItem(item));
   }
 
-  private toNormalizedApp(raw: AppStoreAppResult): NormalizedApp {
+  private async fetchSubtitle(
+    storeAppId: string,
+    country: string,
+  ): Promise<string | undefined> {
+    try {
+      const html = await this.withRetry('page', () =>
+        this.lib.page({ id: Number(storeAppId), country }),
+      );
+      const text = cheerio.load(html)('p.subtitle').first().text().trim();
+      return text.length > 0 ? text : undefined;
+    } catch (error) {
+      this.logger.warn(
+        `subtitle scrape failed for ${storeAppId}: ${messageOf(error)}`,
+      );
+      return undefined;
+    }
+  }
+
+  private toNormalizedApp(
+    raw: AppStoreAppResult,
+    subtitle: string | undefined,
+  ): NormalizedApp {
     return {
       store: this.store,
       storeAppId: String(raw.trackId ?? raw.id),
       title: raw.title,
-      subtitle: raw.subtitle,
+      subtitle,
       description: raw.description,
       iconUrl: raw.icon,
       ratingAvg: raw.score,
