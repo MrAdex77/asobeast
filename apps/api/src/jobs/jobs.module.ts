@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppsModule } from '../apps/apps.module';
 import { Env } from '../config/env';
+import { RankingsModule } from '../rankings/rankings.module';
 import { AppStoreWorker } from './app-store.worker';
 import { QUEUES } from './jobs.types';
 
@@ -28,6 +29,7 @@ import { QUEUES } from './jobs.types';
       { name: QUEUES.APP_STORE },
     ),
     AppsModule,
+    RankingsModule,
   ],
   providers: [AppStoreWorker],
   exports: [BullModule],
