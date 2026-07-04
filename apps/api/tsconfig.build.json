@@ -5,6 +5,7 @@
     "test",
     "dist",
     "prisma.config.ts",
+    "prisma/seed.ts",
     "**/*spec.ts"
   ]
 }
