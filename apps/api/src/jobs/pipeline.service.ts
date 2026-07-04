@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { PrismaService } from '../prisma/prisma.service';
@@ -38,6 +38,30 @@ export class PipelineService {
       apps.map((app) => app.id),
       keywords.map((keyword) => keyword.keywordId),
     );
+  }
+
+  async fanOutApp(appId: string): Promise<FanOutSummary> {
+    const app = await this.prisma.app.findFirst({
+      where: { id: appId, workspaceId: DEFAULT_WORKSPACE_ID },
+      select: {
+        id: true,
+        competitors: { select: { id: true } },
+        tracked: { where: { active: true }, select: { keywordId: true } },
+      },
+    });
+    if (!app) {
+      throw new NotFoundException(`App ${appId} not found`);
+    }
+
+    const appIds = [
+      app.id,
+      ...app.competitors.map((competitor) => competitor.id),
+    ];
+    const keywordIds = [
+      ...new Set(app.tracked.map((tracked) => tracked.keywordId)),
+    ];
+
+    return this.enqueue(appIds, keywordIds);
   }
 
   private async enqueue(

@@ -5,6 +5,7 @@ import { AppsModule } from '../apps/apps.module';
 import { Env } from '../config/env';
 import { RankingsModule } from '../rankings/rankings.module';
 import { AppStoreWorker } from './app-store.worker';
+import { JobsController } from './jobs.controller';
 import { QUEUES } from './jobs.types';
 import { PipelineService } from './pipeline.service';
 import { PipelineWorker } from './pipeline.worker';
@@ -33,6 +34,7 @@ import { PipelineWorker } from './pipeline.worker';
     AppsModule,
     RankingsModule,
   ],
+  controllers: [JobsController],
   providers: [AppStoreWorker, PipelineWorker, PipelineService],
   exports: [BullModule],
 })
