@@ -2,8 +2,125 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Prisma 7: the connection URL lives in prisma.config.ts (for Migrate) and is
-// passed to PrismaClient via the @prisma/adapter-pg driver adapter at runtime.
 datasource db {
   provider = "postgresql"
+}
+
+enum Store {
+  GOOGLE_PLAY
+  APP_STORE
+}
+
+enum KeywordSource {
+  TITLE
+  SUBTITLE
+  DESCRIPTION
+  KEYWORD_FIELD
+  SUGGESTED
+  MANUAL
+  COMPETITOR
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String   @default("Default")
+  apps      App[]
+  createdAt DateTime @default(now())
+}
+
+model App {
+  id           String           @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  store        Store
+  storeAppId   String
+  country      String           @default("us")
+  name         String?
+  iconUrl      String?
+  isCompetitor Boolean          @default(false)
+  primaryAppId String?
+  primaryApp   App?             @relation("AppCompetitors", fields: [primaryAppId], references: [id], onDelete: Cascade)
+  competitors  App[]            @relation("AppCompetitors")
+  snapshots    AppSnapshot[]
+  tracked      TrackedKeyword[]
+  rankings     KeywordRanking[]
+  createdAt    DateTime         @default(now())
+
+  @@unique([workspaceId, store, storeAppId, country])
+  @@index([workspaceId])
+  @@index([primaryAppId])
+}
+
+model AppSnapshot {
+  id             String    @id @default(cuid())
+  appId          String
+  app            App       @relation(fields: [appId], references: [id], onDelete: Cascade)
+  title          String
+  subtitle       String?
+  summary        String?
+  description    String
+  ratingAvg      Float?
+  ratingCount    Int?
+  installs       BigInt?
+  price          Float?
+  version        String?
+  releasedAt     DateTime?
+  storeUpdatedAt DateTime?
+  raw            Json
+  capturedAt     DateTime  @default(now())
+
+  @@index([appId, capturedAt])
+}
+
+model Keyword {
+  id        String           @id @default(cuid())
+  text      String
+  store     Store
+  country   String           @default("us")
+  metrics   KeywordMetric[]
+  tracked   TrackedKeyword[]
+  rankings  KeywordRanking[]
+  createdAt DateTime         @default(now())
+
+  @@unique([text, store, country])
+}
+
+model TrackedKeyword {
+  appId     String
+  app       App           @relation(fields: [appId], references: [id], onDelete: Cascade)
+  keywordId String
+  keyword   Keyword       @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  source    KeywordSource
+  active    Boolean       @default(true)
+  createdAt DateTime      @default(now())
+
+  @@id([appId, keywordId])
+  @@index([keywordId])
+}
+
+model KeywordMetric {
+  keywordId  String
+  keyword    Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  date       DateTime @db.Date
+  traffic    Float?
+  difficulty Float?
+  stats      Json?
+  createdAt  DateTime @default(now())
+
+  @@id([keywordId, date])
+}
+
+model KeywordRanking {
+  appId     String
+  app       App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  keywordId String
+  keyword   Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  position  Int?
+  depth     Int      @default(100)
+  createdAt DateTime @default(now())
+
+  @@id([appId, keywordId, date])
+  @@index([keywordId, date])
+  @@index([appId, date])
 }
