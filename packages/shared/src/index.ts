@@ -14,3 +14,8 @@ export type Store = (typeof STORES)[number];
 export const SUPPORTED_STORES: readonly Store[] = ['APP_STORE'];
 
 export const DEFAULT_COUNTRY = 'us';
+
+export interface HealthStatus {
+  status: 'ok' | 'error';
+  db: 'up' | 'down';
+}

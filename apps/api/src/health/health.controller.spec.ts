@@ -1,14 +1,25 @@
+import { ServiceUnavailableException } from '@nestjs/common';
 import { HealthController } from './health.controller';
+import { PrismaService } from '../prisma/prisma.service';
 
 describe('HealthController', () => {
-  const controller = new HealthController();
+  it('reports ok and db up when the database responds', async () => {
+    const prisma = {
+      $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
+    } as unknown as PrismaService;
 
-  it('reports ok with uptime and an ISO timestamp', () => {
-    const result = controller.check();
+    const result = await new HealthController(prisma).check();
 
-    expect(result.status).toBe('ok');
-    expect(typeof result.uptime).toBe('number');
-    expect(() => new Date(result.timestamp).toISOString()).not.toThrow();
-    expect(result.timestamp).toBe(new Date(result.timestamp).toISOString());
+    expect(result).toEqual({ status: 'ok', db: 'up' });
+  });
+
+  it('throws 503 with db down when the database is unreachable', async () => {
+    const prisma = {
+      $queryRaw: jest.fn().mockRejectedValue(new Error('unreachable')),
+    } as unknown as PrismaService;
+
+    await expect(new HealthController(prisma).check()).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
   });
 });
