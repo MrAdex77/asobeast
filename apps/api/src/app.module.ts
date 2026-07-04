@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { validateEnv } from './config/env';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -10,6 +11,7 @@ import { validateEnv } from './config/env';
       isGlobal: true,
       validate: validateEnv,
     }),
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
