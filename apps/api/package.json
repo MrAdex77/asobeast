@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@asobeast/shared": "workspace:*",
+    "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
@@ -34,6 +35,7 @@
     "@perttu/app-store-scraper": "^2.0.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "bullmq": "^5.79.2",
     "cheerio": "^1.2.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",

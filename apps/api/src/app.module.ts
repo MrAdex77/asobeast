@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { AppsModule } from './apps/apps.module';
 import { validateEnv } from './config/env';
 import { HealthModule } from './health/health.module';
+import { JobsModule } from './jobs/jobs.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -15,6 +16,7 @@ import { PrismaModule } from './prisma/prisma.module';
     }),
     PrismaModule,
     HealthModule,
+    JobsModule,
     AppsModule,
   ],
   controllers: [AppController],
