@@ -8,13 +8,13 @@ The implementation plan lives in `docs/plan/`. Work phase by phase, step by step
 
 ## Tech stack
 
-* **Monorepo:** pnpm workspaces + Turborepo, Node.js 22+, TypeScript strict everywhere
-* **apps/api:** NestJS (latest stable), Prisma + PostgreSQL 16, BullMQ + Redis 7, Jest + Supertest
-* **apps/web:** Next.js (latest stable, App Router, Tailwind), consumes the API over HTTP
-* **packages/shared:** `@asobeast/shared`, compiled with tsup (cjs + esm + dts), tested with Vitest
-* **packages/typescript-config:** `@asobeast/typescript-config`, base tsconfigs
-* Scraping: `@perttu/app-store-scraper` (App Store). No Google Play scraper is installed in v1.
-* Docker + docker compose for dev services and self hosting
+- **Monorepo:** pnpm workspaces + Turborepo, Node.js 22+, TypeScript strict everywhere
+- **apps/api:** NestJS (latest stable), Prisma + PostgreSQL 16, BullMQ + Redis 7, Jest + Supertest
+- **apps/web:** Next.js (latest stable, App Router, Tailwind), consumes the API over HTTP
+- **packages/shared:** `@asobeast/shared`, compiled with tsup (cjs + esm + dts), tested with Vitest
+- **packages/typescript-config:** `@asobeast/typescript-config`, base tsconfigs
+- Scraping: `@perttu/app-store-scraper` (App Store). No Google Play scraper is installed in v1.
+- Docker + docker compose for dev services and self hosting
 
 ## Repository layout
 
@@ -61,21 +61,21 @@ docker compose -f docker-compose.dev.yml up -d
 
 ## Git conventions (strict)
 
-* Conventional commits: `type(scope): subject`. Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `build`, `ci`, `perf`.
-* Scopes: `repo` (workspace level), `api`, `web`, `shared`, `docker`, `ci`, plus API domain scopes `db`, `providers`, `apps`, `keywords`, `rankings`, `scoring`, `competitors`, `analytics`, `jobs` (domain scopes always mean code inside `apps/api`).
-* Subject: imperative, lowercase, no trailing period, max 72 chars. One plan step = one commit with the exact message from the plan; body only for deviations.
-* Before every commit: `pnpm lint && pnpm test` green (plus `pnpm build` when configs or dependencies changed).
-* Never commit `.env` files, `node_modules`, `dist`, `.next`, `.turbo`.
+- Conventional commits: `type(scope): subject`. Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `build`, `ci`, `perf`.
+- Scopes: `repo` (workspace level), `api`, `web`, `shared`, `docker`, `ci`, plus API domain scopes `db`, `providers`, `apps`, `keywords`, `rankings`, `scoring`, `competitors`, `analytics`, `jobs` (domain scopes always mean code inside `apps/api`).
+- Subject: imperative, lowercase, no trailing period, max 72 chars. One plan step = one commit with the exact message from the plan; body only for deviations.
+- Before every commit: `pnpm lint && pnpm test` green (plus `pnpm build` when configs or dependencies changed).
+- Never commit `.env` files, `node_modules`, `dist`, `.next`, `.turbo`.
 
 ## Coding conventions
 
-* TypeScript `strict: true` in all packages, extending `@asobeast/typescript-config`. No `any` except where untyped scraper payloads enter the provider layer, mapped to typed structures immediately.
-* Every controller input is a DTO validated with `class-validator`; global `ValidationPipe` with `whitelist: true`.
-* Controllers thin, services own logic, scoring functions pure and unit tested.
-* All scraping goes through the `StoreProvider` interface in `apps/api/src/store-providers/`. No other module may import a scraper library. This isolation contains parser breakage and lets a future cloud version swap in proxies or a data API.
-* Store raw scraper payloads in `raw` Json columns; parsers change, raw data allows reprocessing.
-* All dates UTC; daily granularity uses Postgres `date` (`@db.Date`); "today" is the UTC date.
-* `installs` is `BigInt` (kept for future Google Play); JSON serialization patched in `apps/api/src/main.ts`.
+- TypeScript `strict: true` in all packages, extending `@asobeast/typescript-config`. No `any` except where untyped scraper payloads enter the provider layer, mapped to typed structures immediately.
+- Every controller input is a DTO validated with `class-validator`; global `ValidationPipe` with `whitelist: true`.
+- Controllers thin, services own logic, scoring functions pure and unit tested.
+- All scraping goes through the `StoreProvider` interface in `apps/api/src/store-providers/`. No other module may import a scraper library. This isolation contains parser breakage and lets a future cloud version swap in proxies or a data API.
+- Store raw scraper payloads in `raw` Json columns; parsers change, raw data allows reprocessing.
+- All dates UTC; daily granularity uses Postgres `date` (`@db.Date`); "today" is the UTC date.
+- `installs` is `BigInt` (kept for future Google Play); JSON serialization patched in `apps/api/src/main.ts`.
 
 ## Shared code rules (monorepo discipline)
 
@@ -121,8 +121,9 @@ NEXT_PUBLIC_API_URL=http://localhost:4000
 
 ## What NOT to do
 
-* No features outside the current phase; park ideas in the backlog section of `docs/plan/phase-10-polish.md`.
-* No alternative ORMs, queue systems, HTTP clients, package managers or task runners; the stack is fixed.
-* No store calls in tests; providers are mocked in unit and e2e tests.
-* No manual SQL migrations; always `prisma migrate dev`.
-* No Google Play scraping code in v1.
+- No features outside the current phase; park ideas in the backlog section of `docs/plan/phase-10-polish.md`.
+- No alternative ORMs, queue systems, HTTP clients, package managers or task runners; the stack is fixed.
+- No store calls in tests; providers are mocked in unit and e2e tests.
+- No manual SQL migrations; always `prisma migrate dev`.
+- No Google Play scraping code in v1.
+- No comments inside code. DRY, KISS, CLEAN CODE.
