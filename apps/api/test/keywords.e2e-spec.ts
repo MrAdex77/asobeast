@@ -3,7 +3,11 @@ import { join } from 'path';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Store } from '@prisma/client';
-import { AppDetail, TrackedKeywordItem } from '@asobeast/shared';
+import {
+  AppDetail,
+  KeywordFieldResult,
+  TrackedKeywordItem,
+} from '@asobeast/shared';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
@@ -148,6 +152,49 @@ describe('KeywordsController (e2e)', () => {
     expect(
       await prisma.keyword.count({ where: { text: 'habit builder' } }),
     ).toBe(1);
+  });
+
+  it('round trips the ios keyword field with character accounting', async () => {
+    const id = await importApp();
+
+    const first = await request(app.getHttpServer())
+      .put(`/apps/${id}/keyword-field`)
+      .send({ text: 'habit,tracker,streak,habit' })
+      .expect(200);
+    const firstBody = first.body as KeywordFieldResult;
+
+    expect(firstBody.charactersLimit).toBe(100);
+    expect(firstBody.duplicatesRemoved).toBe(1);
+    expect(firstBody.charactersUsed).toBe('habit,tracker,streak'.length);
+    expect(firstBody.tracked.map((item) => item.text).sort()).toEqual([
+      'habit',
+      'streak',
+      'tracker',
+    ]);
+    for (const item of firstBody.tracked) {
+      expect(item.source).toBe('KEYWORD_FIELD');
+      expect(item.active).toBe(true);
+    }
+
+    const second = await request(app.getHttpServer())
+      .put(`/apps/${id}/keyword-field`)
+      .send({ text: 'habit,goals' })
+      .expect(200);
+    const secondBody = second.body as KeywordFieldResult;
+
+    expect(secondBody.tracked.map((item) => item.text).sort()).toEqual([
+      'goals',
+      'habit',
+    ]);
+
+    const deactivated = await prisma.trackedKeyword.findMany({
+      where: { appId: id, source: 'KEYWORD_FIELD', active: false },
+      include: { keyword: true },
+    });
+    expect(deactivated.map((row) => row.keyword.text).sort()).toEqual([
+      'streak',
+      'tracker',
+    ]);
   });
 
   it('rejects empty and overly long keyword phrases', async () => {

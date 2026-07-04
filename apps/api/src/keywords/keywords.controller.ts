@@ -7,25 +7,27 @@ import {
   Param,
   Patch,
   Post,
+  Put,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { TrackedKeywordItem } from '@asobeast/shared';
+import { KeywordFieldResult, TrackedKeywordItem } from '@asobeast/shared';
 import { AddKeywordsDto } from './dto/add-keywords.dto';
+import { KeywordFieldDto } from './dto/keyword-field.dto';
 import { ToggleKeywordDto } from './dto/toggle-keyword.dto';
 import { KeywordsService } from './keywords.service';
 
 @ApiTags('keywords')
-@Controller('apps/:id/keywords')
+@Controller('apps/:id')
 export class KeywordsController {
   constructor(private readonly keywords: KeywordsService) {}
 
-  @Get()
+  @Get('keywords')
   @ApiOperation({ summary: 'List tracked keywords for an app' })
   list(@Param('id') id: string): Promise<TrackedKeywordItem[]> {
     return this.keywords.listTracked(id);
   }
 
-  @Post()
+  @Post('keywords')
   @ApiOperation({ summary: 'Add manual keywords' })
   add(
     @Param('id') id: string,
@@ -34,7 +36,7 @@ export class KeywordsController {
     return this.keywords.addManual(id, dto.keywords);
   }
 
-  @Patch(':keywordId')
+  @Patch('keywords/:keywordId')
   @ApiOperation({ summary: 'Toggle a tracked keyword active flag' })
   toggle(
     @Param('id') id: string,
@@ -44,7 +46,7 @@ export class KeywordsController {
     return this.keywords.toggle(id, keywordId, dto.active);
   }
 
-  @Delete(':keywordId')
+  @Delete('keywords/:keywordId')
   @HttpCode(204)
   @ApiOperation({ summary: 'Stop tracking a keyword' })
   remove(
@@ -52,5 +54,14 @@ export class KeywordsController {
     @Param('keywordId') keywordId: string,
   ): Promise<void> {
     return this.keywords.remove(id, keywordId);
+  }
+
+  @Put('keyword-field')
+  @ApiOperation({ summary: 'Set the manual iOS keyword field' })
+  setKeywordField(
+    @Param('id') id: string,
+    @Body() dto: KeywordFieldDto,
+  ): Promise<KeywordFieldResult> {
+    return this.keywords.setKeywordField(id, dto.text);
   }
 }

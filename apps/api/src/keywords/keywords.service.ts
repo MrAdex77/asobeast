@@ -4,7 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Store } from '@prisma/client';
-import { normalizeText, TrackedKeywordItem } from '@asobeast/shared';
+import {
+  KeywordFieldResult,
+  normalizeText,
+  TrackedKeywordItem,
+} from '@asobeast/shared';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { PrismaService } from '../prisma/prisma.service';
 import { extractCandidates } from './extraction';
@@ -13,6 +17,7 @@ import { toTrackedKeywordItem } from './keywords.mapper';
 const AUTO_TRACK_LIMIT = 15;
 const MAX_KEYWORD_WORDS = 5;
 const RANKING_HISTORY_LIMIT = 60;
+const KEYWORD_FIELD_CHAR_LIMIT = 100;
 
 @Injectable()
 export class KeywordsService {
@@ -78,6 +83,80 @@ export class KeywordsService {
     await this.prisma.trackedKeyword.delete({
       where: { appId_keywordId: { appId, keywordId } },
     });
+  }
+
+  async setKeywordField(
+    appId: string,
+    text: string,
+  ): Promise<KeywordFieldResult> {
+    const app = await this.ensureApp(appId);
+    if (app.store !== Store.APP_STORE) {
+      throw new BadRequestException(
+        'The keyword field is only available for App Store apps',
+      );
+    }
+
+    const parsed = text
+      .split(',')
+      .map((part) => normalizeText(part))
+      .filter((part) => part.length > 0);
+    const unique = [...new Set(parsed)];
+    const duplicatesRemoved = parsed.length - unique.length;
+
+    const previous = await this.prisma.trackedKeyword.findMany({
+      where: { appId, source: 'KEYWORD_FIELD' },
+      select: { keywordId: true, keyword: { select: { text: true } } },
+    });
+
+    for (const value of unique) {
+      const keyword = await this.prisma.keyword.upsert({
+        where: {
+          text_store_country: {
+            text: value,
+            store: app.store,
+            country: app.country,
+          },
+        },
+        create: { text: value, store: app.store, country: app.country },
+        update: {},
+        select: { id: true },
+      });
+      await this.prisma.trackedKeyword.upsert({
+        where: { appId_keywordId: { appId, keywordId: keyword.id } },
+        create: {
+          appId,
+          keywordId: keyword.id,
+          source: 'KEYWORD_FIELD',
+          active: true,
+        },
+        update: { source: 'KEYWORD_FIELD', active: true },
+      });
+    }
+
+    const uniqueSet = new Set(unique);
+    const staleKeywordIds = previous
+      .filter((row) => !uniqueSet.has(row.keyword.text))
+      .map((row) => row.keywordId);
+    if (staleKeywordIds.length > 0) {
+      await this.prisma.trackedKeyword.updateMany({
+        where: { appId, keywordId: { in: staleKeywordIds } },
+        data: { active: false },
+      });
+    }
+
+    const tracked = (
+      await this.prisma.trackedKeyword.findMany({
+        where: { appId, source: 'KEYWORD_FIELD', active: true },
+        ...this.trackedArgs(appId),
+      })
+    ).map(toTrackedKeywordItem);
+
+    return {
+      tracked,
+      charactersUsed: unique.join(',').length,
+      charactersLimit: KEYWORD_FIELD_CHAR_LIMIT,
+      duplicatesRemoved,
+    };
   }
 
   async syncFromSnapshot(appId: string): Promise<void> {

@@ -56,6 +56,13 @@ export interface TrackedKeywordItem {
   opportunity: number | null;
 }
 
+export interface KeywordFieldResult {
+  tracked: TrackedKeywordItem[];
+  charactersUsed: number;
+  charactersLimit: number;
+  duplicatesRemoved: number;
+}
+
 export interface SnapshotChange {
   field: string;
   before: string | number | null;
