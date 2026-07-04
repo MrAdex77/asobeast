@@ -6,6 +6,8 @@ import { Env } from '../config/env';
 import { RankingsModule } from '../rankings/rankings.module';
 import { AppStoreWorker } from './app-store.worker';
 import { QUEUES } from './jobs.types';
+import { PipelineService } from './pipeline.service';
+import { PipelineWorker } from './pipeline.worker';
 
 @Module({
   imports: [
@@ -31,7 +33,7 @@ import { QUEUES } from './jobs.types';
     AppsModule,
     RankingsModule,
   ],
-  providers: [AppStoreWorker],
+  providers: [AppStoreWorker, PipelineWorker, PipelineService],
   exports: [BullModule],
 })
 export class JobsModule {}
