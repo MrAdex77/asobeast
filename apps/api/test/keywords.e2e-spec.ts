@@ -6,6 +6,7 @@ import { Store } from '@prisma/client';
 import {
   AppDetail,
   KeywordFieldResult,
+  KeywordSuggestion,
   TrackedKeywordItem,
 } from '@asobeast/shared';
 import request from 'supertest';
@@ -34,8 +35,17 @@ class FakeRegistry {
       store,
       getApp: () => Promise.resolve(FIXTURE),
       search: () => Promise.resolve([]),
-      suggest: () => Promise.resolve([]),
-      similar: () => Promise.resolve([]),
+      suggest: () =>
+        Promise.resolve([
+          { term: 'productivity', priority: 6000 },
+          { term: 'habit tracker app', priority: 8000 },
+          { term: 'habit', priority: 9000 },
+        ]),
+      similar: () =>
+        Promise.resolve([
+          { storeAppId: '1', title: 'Streak Master Planner' },
+          { storeAppId: '2', title: 'Daily Planner Pro' },
+        ]),
     };
   }
 }
@@ -195,6 +205,53 @@ describe('KeywordsController (e2e)', () => {
       'streak',
       'tracker',
     ]);
+  });
+
+  it('suggests untracked metadata candidates by default', async () => {
+    const id = await importApp();
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${id}/keywords/suggestions`)
+      .expect(200);
+    const suggestions = response.body as KeywordSuggestion[];
+    const texts = suggestions.map((item) => item.text);
+
+    expect(suggestions.every((item) => item.strategy === 'metadata')).toBe(
+      true,
+    );
+    expect(texts).toContain('markdown');
+    expect(texts).not.toContain('habit');
+  });
+
+  it('suggests autocomplete terms with priority for the search strategy', async () => {
+    const id = await importApp();
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${id}/keywords/suggestions`)
+      .query({ strategy: 'search' })
+      .expect(200);
+    const suggestions = response.body as KeywordSuggestion[];
+
+    const productivity = suggestions.find(
+      (item) => item.text === 'productivity',
+    );
+    expect(productivity?.strategy).toBe('search');
+    expect(productivity?.priority).toBe(6000);
+    expect(suggestions.some((item) => item.text === 'habit')).toBe(false);
+  });
+
+  it('suggests common terms from similar apps with usedByCount', async () => {
+    const id = await importApp();
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${id}/keywords/suggestions`)
+      .query({ strategy: 'similar' })
+      .expect(200);
+    const suggestions = response.body as KeywordSuggestion[];
+
+    const planner = suggestions.find((item) => item.text === 'planner');
+    expect(planner?.strategy).toBe('similar');
+    expect(planner?.usedByCount).toBe(2);
   });
 
   it('rejects empty and overly long keyword phrases', async () => {

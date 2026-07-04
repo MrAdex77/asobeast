@@ -1,4 +1,4 @@
-import { KeywordSource, Store } from './index';
+import { KeywordSource, KeywordSuggestionStrategy, Store } from './index';
 
 export interface AppSnapshotSummary {
   id: string;
@@ -54,6 +54,13 @@ export interface TrackedKeywordItem {
   traffic: number | null;
   difficulty: number | null;
   opportunity: number | null;
+}
+
+export interface KeywordSuggestion {
+  text: string;
+  strategy: KeywordSuggestionStrategy;
+  priority?: number;
+  usedByCount?: number;
 }
 
 export interface KeywordFieldResult {

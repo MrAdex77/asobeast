@@ -13,6 +13,14 @@ export type Store = (typeof STORES)[number];
 /** Stores actively scraped in this version. */
 export const SUPPORTED_STORES: readonly Store[] = ['APP_STORE'];
 
+export const KEYWORD_SUGGESTION_STRATEGIES = [
+  'metadata',
+  'search',
+  'similar',
+] as const;
+export type KeywordSuggestionStrategy =
+  (typeof KEYWORD_SUGGESTION_STRATEGIES)[number];
+
 export const KEYWORD_SOURCES = [
   'TITLE',
   'SUBTITLE',
