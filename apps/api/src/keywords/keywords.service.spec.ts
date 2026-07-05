@@ -93,6 +93,72 @@ describe('KeywordsService.syncFromSnapshot', () => {
   });
 });
 
+describe('KeywordsService.compare', () => {
+  const buildService = (prisma: unknown) =>
+    new KeywordsService(
+      prisma as PrismaService,
+      undefined as unknown as StoreProviderRegistry,
+      { add: jest.fn() } as unknown as Queue,
+    );
+
+  const buildPrisma = () => ({
+    app: {
+      findFirst: jest.fn().mockResolvedValue({ id: 'app1' }),
+      findMany: jest.fn().mockResolvedValue([{ id: 'rival', name: 'Rival' }]),
+    },
+    trackedKeyword: {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          keywordId: 'kwGap',
+          keyword: {
+            text: 'habit tracker',
+            metrics: [{ traffic: 5, difficulty: 3 }],
+          },
+        },
+        {
+          keywordId: 'kwLead',
+          keyword: {
+            text: 'daily planner',
+            metrics: [{ traffic: 8, difficulty: 4 }],
+          },
+        },
+      ]),
+    },
+    keywordRanking: {
+      findMany: jest.fn().mockResolvedValue([
+        { appId: 'app1', keywordId: 'kwGap', position: null },
+        { appId: 'rival', keywordId: 'kwGap', position: 3 },
+        { appId: 'app1', keywordId: 'kwLead', position: 2 },
+        { appId: 'rival', keywordId: 'kwLead', position: 40 },
+      ]),
+    },
+  });
+
+  it('flags a gap when a competitor leads the top 10 and lists competitors', async () => {
+    const service = buildService(buildPrisma());
+
+    const result = await service.compare('app1', false);
+
+    expect(result.competitors).toEqual([{ id: 'rival', name: 'Rival' }]);
+    const gapRow = result.rows.find((row) => row.keywordId === 'kwGap');
+    const leadRow = result.rows.find((row) => row.keywordId === 'kwLead');
+    expect(gapRow?.gap).toBe(true);
+    expect(gapRow?.you).toBeNull();
+    expect(gapRow?.positions.rival).toBe(3);
+    expect(leadRow?.gap).toBe(false);
+    expect(result.rows[0].keywordId).toBe('kwGap');
+  });
+
+  it('filters to gaps only when requested', async () => {
+    const service = buildService(buildPrisma());
+
+    const result = await service.compare('app1', true);
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].keywordId).toBe('kwGap');
+  });
+});
+
 describe('KeywordsService.suggest competitors', () => {
   const buildService = (prisma: unknown) =>
     new KeywordsService(

@@ -87,6 +87,26 @@ export interface RankingSeries {
   series: RankingSeriesItem[];
 }
 
+export interface KeywordComparisonCompetitor {
+  id: string;
+  name: string | null;
+}
+
+export interface KeywordComparisonRow {
+  keywordId: string;
+  text: string;
+  traffic: number | null;
+  difficulty: number | null;
+  you: number | null;
+  positions: Record<string, number | null>;
+  gap: boolean;
+}
+
+export interface KeywordComparison {
+  competitors: KeywordComparisonCompetitor[];
+  rows: KeywordComparisonRow[];
+}
+
 export interface SnapshotChange {
   field: string;
   before: string | number | null;

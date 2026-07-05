@@ -7,6 +7,8 @@ import {
 import { KeywordSource, Store } from '@prisma/client';
 import { Queue } from 'bullmq';
 import {
+  KeywordComparison,
+  KeywordComparisonRow,
   KeywordFieldResult,
   KeywordSort,
   KeywordSuggestion,
@@ -70,6 +72,84 @@ export class KeywordsService {
       ...this.trackedArgs(appId),
     });
     return sortTracked(rows.map(toTrackedKeywordItem), sort);
+  }
+
+  async compare(appId: string, onlyGaps: boolean): Promise<KeywordComparison> {
+    await this.ensureApp(appId);
+
+    const competitors = await this.prisma.app.findMany({
+      where: { primaryAppId: appId },
+      select: { id: true, name: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const tracked = await this.prisma.trackedKeyword.findMany({
+      where: { appId, active: true },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        keywordId: true,
+        keyword: {
+          select: {
+            text: true,
+            metrics: {
+              orderBy: { date: 'desc' },
+              take: 1,
+              select: { traffic: true, difficulty: true },
+            },
+          },
+        },
+      },
+    });
+
+    const appIds = [appId, ...competitors.map((competitor) => competitor.id)];
+    const latest = await this.latestPositions(
+      appIds,
+      tracked.map((row) => row.keywordId),
+    );
+
+    const rows = tracked.map((row) => {
+      const you = latest.get(positionKey(appId, row.keywordId)) ?? null;
+      const positions: Record<string, number | null> = {};
+      for (const competitor of competitors) {
+        positions[competitor.id] =
+          latest.get(positionKey(competitor.id, row.keywordId)) ?? null;
+      }
+      const metric = row.keyword.metrics[0] ?? null;
+      return {
+        keywordId: row.keywordId,
+        text: row.keyword.text,
+        traffic: metric?.traffic ?? null,
+        difficulty: metric?.difficulty ?? null,
+        you,
+        positions,
+        gap: isGap(you, positions),
+      };
+    });
+
+    const filtered = onlyGaps ? rows.filter((row) => row.gap) : rows;
+    return { competitors, rows: sortComparison(filtered) };
+  }
+
+  private async latestPositions(
+    appIds: string[],
+    keywordIds: string[],
+  ): Promise<Map<string, number | null>> {
+    if (keywordIds.length === 0) {
+      return new Map();
+    }
+    const rankings = await this.prisma.keywordRanking.findMany({
+      where: { appId: { in: appIds }, keywordId: { in: keywordIds } },
+      orderBy: { date: 'desc' },
+      select: { appId: true, keywordId: true, position: true },
+    });
+    const latest = new Map<string, number | null>();
+    for (const ranking of rankings) {
+      const key = positionKey(ranking.appId, ranking.keywordId);
+      if (!latest.has(key)) {
+        latest.set(key, ranking.position);
+      }
+    }
+    return latest;
   }
 
   async addManual(
@@ -526,6 +606,35 @@ export class KeywordsService {
       },
     };
   }
+}
+
+const GAP_COMPETITOR_TOP = 10;
+const GAP_PRIMARY_WORSE_THAN = 30;
+
+function positionKey(appId: string, keywordId: string): string {
+  return `${appId}:${keywordId}`;
+}
+
+function isGap(
+  you: number | null,
+  positions: Record<string, number | null>,
+): boolean {
+  const primaryWeak = you === null || you > GAP_PRIMARY_WORSE_THAN;
+  if (!primaryWeak) {
+    return false;
+  }
+  return Object.values(positions).some(
+    (position) => position !== null && position <= GAP_COMPETITOR_TOP,
+  );
+}
+
+function sortComparison(rows: KeywordComparisonRow[]): KeywordComparisonRow[] {
+  return [...rows].sort((a, b) => {
+    if (a.gap !== b.gap) {
+      return a.gap ? -1 : 1;
+    }
+    return (b.traffic ?? 0) - (a.traffic ?? 0);
+  });
 }
 
 const SORT_VALUE: Record<
