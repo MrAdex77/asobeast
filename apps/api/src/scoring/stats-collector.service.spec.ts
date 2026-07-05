@@ -73,6 +73,23 @@ describe('StatsCollectorService', () => {
     expect(suggestFn).not.toHaveBeenCalled();
   });
 
+  it('scores without suggestions when the suggest request fails', async () => {
+    const search = jest.fn().mockResolvedValue(buildSearch());
+    const suggestFn = jest
+      .fn()
+      .mockRejectedValue(new Error('Suggest API response validation failed'));
+    const registry = {
+      get: jest.fn().mockReturnValue({ search, suggest: suggestFn }),
+    } as unknown as StoreProviderRegistry;
+    const service = new StatsCollectorService(buildPrisma(), registry);
+
+    const stats = await service.collect('kw1');
+
+    expect(stats).not.toBeNull();
+    expect(stats?.suggest).toEqual({});
+    expect(stats?.top30TitleMatchCount).toBe(12);
+  });
+
   it('falls back to best partial priority when the term is absent', async () => {
     const { registry } = buildProvider([
       { term: 'puzzle game free', priority: 4000 },

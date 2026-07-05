@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { Store } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
-import { SearchItem } from '../store-providers/types';
+import { SearchItem, SuggestItem } from '../store-providers/types';
 import { KeywordStats } from './formulas';
 
 const SEARCH_DEPTH = 100;
@@ -11,6 +12,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class StatsCollectorService {
+  private readonly logger = new Logger(StatsCollectorService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly registry: StoreProviderRegistry,
@@ -31,7 +34,11 @@ export class StatsCollectorService {
       keyword.country,
       SEARCH_DEPTH,
     );
-    const suggestions = await provider.suggest(keyword.text, keyword.country);
+    const suggestions = await this.safeSuggest(
+      keyword.store,
+      keyword.text,
+      keyword.country,
+    );
 
     return {
       keywordText: keyword.text,
@@ -41,6 +48,21 @@ export class StatsCollectorService {
       top30TitleMatchCount: this.countTitleMatches(results, keyword.text),
       suggest: this.toSuggest(suggestions, keyword.text),
     };
+  }
+
+  private async safeSuggest(
+    store: Store,
+    text: string,
+    country: string,
+  ): Promise<SuggestItem[]> {
+    try {
+      return await this.registry.get(store).suggest(text, country);
+    } catch (error) {
+      this.logger.warn(
+        `suggest failed for "${text}", scoring without it: ${messageOf(error)}`,
+      );
+      return [];
+    }
   }
 
   private toStrength(item: SearchItem): KeywordStats['top10'][number] {
@@ -93,4 +115,8 @@ export class StatsCollectorService {
 
 function daysSince(date: Date): number {
   return Math.floor((Date.now() - date.getTime()) / DAY_MS);
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
