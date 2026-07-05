@@ -8,6 +8,7 @@ import { KeywordSource, Store } from '@prisma/client';
 import { Queue } from 'bullmq';
 import {
   KeywordFieldResult,
+  KeywordSort,
   KeywordSuggestion,
   KeywordSuggestionStrategy,
   normalizeText,
@@ -59,13 +60,16 @@ export class KeywordsService {
     );
   }
 
-  async listTracked(appId: string): Promise<TrackedKeywordItem[]> {
+  async listTracked(
+    appId: string,
+    sort?: KeywordSort,
+  ): Promise<TrackedKeywordItem[]> {
     await this.ensureApp(appId);
     const rows = await this.prisma.trackedKeyword.findMany({
       where: { appId },
       ...this.trackedArgs(appId),
     });
-    return rows.map(toTrackedKeywordItem);
+    return sortTracked(rows.map(toTrackedKeywordItem), sort);
   }
 
   async addManual(
@@ -466,11 +470,46 @@ export class KeywordsService {
             metrics: {
               orderBy: { date: 'desc' as const },
               take: 1,
-              select: { traffic: true, difficulty: true },
+              select: { traffic: true, difficulty: true, date: true },
             },
           },
         },
       },
     };
   }
+}
+
+const SORT_VALUE: Record<
+  KeywordSort,
+  (item: TrackedKeywordItem) => number | null
+> = {
+  opportunity: (item) => item.opportunity,
+  traffic: (item) => item.traffic,
+  difficulty: (item) => item.difficulty,
+  position: (item) => item.latestPosition,
+};
+
+function sortTracked(
+  items: TrackedKeywordItem[],
+  sort?: KeywordSort,
+): TrackedKeywordItem[] {
+  if (!sort) {
+    return items;
+  }
+  const value = SORT_VALUE[sort];
+  const ascending = sort === 'position';
+  return [...items].sort((a, b) => {
+    const av = value(a);
+    const bv = value(b);
+    if (av === null && bv === null) {
+      return 0;
+    }
+    if (av === null) {
+      return 1;
+    }
+    if (bv === null) {
+      return -1;
+    }
+    return ascending ? av - bv : bv - av;
+  });
 }

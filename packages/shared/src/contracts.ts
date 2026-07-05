@@ -54,6 +54,7 @@ export interface TrackedKeywordItem {
   traffic: number | null;
   difficulty: number | null;
   opportunity: number | null;
+  scoredAt: string | null;
 }
 
 export interface KeywordSuggestion {

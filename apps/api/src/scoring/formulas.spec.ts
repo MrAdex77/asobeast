@@ -1,6 +1,7 @@
 import {
   competitorsScore,
   computeDifficulty,
+  computeOpportunity,
   computeTraffic,
   freshnessScore,
   KeywordStats,
@@ -88,6 +89,30 @@ describe('scoring formulas', () => {
     expect(lengthScore(midKeyword)).toBeCloseTo(8.22, 2);
     expect(computeDifficulty(midKeyword)).toBeCloseTo(4.8, 2);
     expect(computeTraffic(midKeyword)).toBeCloseTo(5.04, 2);
+  });
+
+  describe('computeOpportunity', () => {
+    it('is null when traffic or difficulty is missing', () => {
+      expect(computeOpportunity(null, 5, 10)).toBeNull();
+      expect(computeOpportunity(5, null, 10)).toBeNull();
+    });
+
+    it('returns the base value outside boost and cut zones', () => {
+      expect(computeOpportunity(8, 4, 1)).toBeCloseTo(4.8, 2);
+      expect(computeOpportunity(8, 4, null)).toBeCloseTo(4.8, 2);
+    });
+
+    it('boosts winnable positions between 4 and 30', () => {
+      expect(computeOpportunity(8, 4, 10)).toBeCloseTo(6, 2);
+    });
+
+    it('cuts unranked keywords with high difficulty', () => {
+      expect(computeOpportunity(8, 8, null)).toBeCloseTo(0.8, 2);
+    });
+
+    it('clamps to a maximum of 10', () => {
+      expect(computeOpportunity(10, 0, 10)).toBeCloseTo(10, 2);
+    });
   });
 
   it('falls back to partial suggest priority when no exact match', () => {

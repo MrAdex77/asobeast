@@ -115,3 +115,23 @@ export const computeTraffic = (stats: KeywordStats): number =>
       WEIGHTS.traffic.strength * strengthScore(stats) +
       WEIGHTS.traffic.length * lengthScore(stats),
   );
+
+const round2 = (v: number): number => Math.round(v * 100) / 100;
+
+export const computeOpportunity = (
+  traffic: number | null,
+  difficulty: number | null,
+  position: number | null,
+): number | null => {
+  if (traffic === null || difficulty === null) {
+    return null;
+  }
+  const base = (traffic * (10 - difficulty)) / 10;
+  if (position !== null && position >= 4 && position <= 30) {
+    return round2(clamp(base * 1.25));
+  }
+  if (position === null && difficulty >= 8) {
+    return round2(clamp(base * 0.5));
+  }
+  return round2(clamp(base));
+};
