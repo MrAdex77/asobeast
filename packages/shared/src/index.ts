@@ -21,6 +21,14 @@ export const KEYWORD_SUGGESTION_STRATEGIES = [
 export type KeywordSuggestionStrategy =
   (typeof KEYWORD_SUGGESTION_STRATEGIES)[number];
 
+export const KEYWORD_SORTS = [
+  'opportunity',
+  'traffic',
+  'difficulty',
+  'position',
+] as const;
+export type KeywordSort = (typeof KEYWORD_SORTS)[number];
+
 export const KEYWORD_SOURCES = [
   'TITLE',
   'SUBTITLE',

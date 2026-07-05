@@ -1,5 +1,6 @@
 import { KeywordMetric, KeywordRanking } from '@prisma/client';
 import { TrackedKeywordItem } from '@asobeast/shared';
+import { computeOpportunity } from '../scoring/formulas';
 
 const DELTA_WINDOW_DAYS = 7;
 
@@ -10,7 +11,7 @@ export interface TrackedKeywordRow {
   keyword: {
     text: string;
     rankings: Pick<KeywordRanking, 'position' | 'date'>[];
-    metrics: Pick<KeywordMetric, 'traffic' | 'difficulty'>[];
+    metrics: Pick<KeywordMetric, 'traffic' | 'difficulty' | 'date'>[];
   };
 }
 
@@ -37,15 +38,19 @@ export function toTrackedKeywordItem(
 ): TrackedKeywordItem {
   const latest = row.keyword.rankings[0] ?? null;
   const metric = row.keyword.metrics[0] ?? null;
+  const latestPosition = latest?.position ?? null;
+  const traffic = metric?.traffic ?? null;
+  const difficulty = metric?.difficulty ?? null;
   return {
     keywordId: row.keywordId,
     text: row.keyword.text,
     source: row.source,
     active: row.active,
-    latestPosition: latest?.position ?? null,
+    latestPosition,
     positionDelta7d: positionDelta7d(row.keyword.rankings),
-    traffic: metric?.traffic ?? null,
-    difficulty: metric?.difficulty ?? null,
-    opportunity: null,
+    traffic,
+    difficulty,
+    opportunity: computeOpportunity(traffic, difficulty, latestPosition),
+    scoredAt: metric ? metric.date.toISOString().slice(0, 10) : null,
   };
 }

@@ -3,11 +3,13 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { AppsService } from '../apps/apps.service';
 import { RankingsService } from '../rankings/rankings.service';
+import { ScoringService } from '../scoring/scoring.service';
 import {
   CheckKeywordPayload,
   JOBS,
   QUEUES,
   RefreshAppPayload,
+  ScoreKeywordPayload,
 } from './jobs.types';
 
 const ITUNES_RPM = Number(process.env.SCRAPE_ITUNES_RPM) || 15;
@@ -22,6 +24,7 @@ export class AppStoreWorker extends WorkerHost {
   constructor(
     private readonly apps: AppsService,
     private readonly rankings: RankingsService,
+    private readonly scoring: ScoringService,
   ) {
     super();
   }
@@ -53,7 +56,10 @@ export class AppStoreWorker extends WorkerHost {
         );
         return;
       case JOBS.SCORE_KEYWORD:
-        throw new Error('SCORE_KEYWORD is not implemented until Phase 6');
+        await this.scoring.scoreKeyword(
+          (job.data as ScoreKeywordPayload).keywordId,
+        );
+        return;
       default:
         throw new Error(`Unknown job ${job.name}`);
     }

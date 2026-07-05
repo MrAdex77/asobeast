@@ -24,11 +24,20 @@ export class PipelineWorker extends WorkerHost implements OnModuleInit {
       { pattern: this.config.get('CRON_DAILY', { infer: true }), tz: 'UTC' },
       { name: JOBS.DAILY },
     );
+    await this.pipelineQueue.upsertJobScheduler(
+      'weekly',
+      { pattern: this.config.get('CRON_SCORING', { infer: true }), tz: 'UTC' },
+      { name: JOBS.SCORING },
+    );
   }
 
   async process(job: Job): Promise<void> {
     if (job.name === JOBS.DAILY) {
       await this.pipeline.fanOutDaily();
+      return;
+    }
+    if (job.name === JOBS.SCORING) {
+      await this.pipeline.fanOutScoring();
       return;
     }
     throw new Error(`Unknown pipeline job ${job.name}`);

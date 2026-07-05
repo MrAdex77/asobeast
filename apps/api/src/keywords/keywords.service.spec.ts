@@ -1,11 +1,25 @@
+import { Queue } from 'bullmq';
 import { Store } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
 import { KeywordsService } from './keywords.service';
 
 describe('KeywordsService.syncFromSnapshot', () => {
+  const buildQueue = () => ({ add: jest.fn() });
+
+  const buildService = (prisma: unknown, queue: { add: jest.Mock }) =>
+    new KeywordsService(
+      prisma as PrismaService,
+      undefined as unknown as StoreProviderRegistry,
+      queue as unknown as Queue,
+    );
+
   const buildPrisma = () => {
     let keywordId = 0;
     return {
+      keywordMetric: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
       app: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'app1',
@@ -37,7 +51,7 @@ describe('KeywordsService.syncFromSnapshot', () => {
 
   it('tracks only title and subtitle candidates with create-only upserts', async () => {
     const prisma = buildPrisma();
-    const service = new KeywordsService(prisma as unknown as PrismaService);
+    const service = buildService(prisma, buildQueue());
 
     await service.syncFromSnapshot('app1');
 
@@ -61,7 +75,7 @@ describe('KeywordsService.syncFromSnapshot', () => {
       subtitle: 'kilo lima mike november oscar papa quebec romeo sierra tango',
       summary: null,
     });
-    const service = new KeywordsService(prisma as unknown as PrismaService);
+    const service = buildService(prisma, buildQueue());
 
     await service.syncFromSnapshot('app1');
 
@@ -71,7 +85,7 @@ describe('KeywordsService.syncFromSnapshot', () => {
   it('does nothing when the app has no snapshot', async () => {
     const prisma = buildPrisma();
     prisma.appSnapshot.findFirst.mockResolvedValue(null);
-    const service = new KeywordsService(prisma as unknown as PrismaService);
+    const service = buildService(prisma, buildQueue());
 
     await service.syncFromSnapshot('app1');
 

@@ -1,17 +1,21 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { KeywordSource, Store } from '@prisma/client';
+import { Queue } from 'bullmq';
 import {
   KeywordFieldResult,
+  KeywordSort,
   KeywordSuggestion,
   KeywordSuggestionStrategy,
   normalizeText,
   TrackedKeywordItem,
 } from '@asobeast/shared';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
+import { isoWeekKey, JOBS, QUEUES, scoreJobId } from '../jobs/jobs.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
 import { extractCandidates } from './extraction';
@@ -38,15 +42,34 @@ export class KeywordsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly registry: StoreProviderRegistry,
+    @InjectQueue(QUEUES.APP_STORE) private readonly appStoreQueue: Queue,
   ) {}
 
-  async listTracked(appId: string): Promise<TrackedKeywordItem[]> {
+  private async enqueueFirstScore(keywordId: string): Promise<void> {
+    const existing = await this.prisma.keywordMetric.findFirst({
+      where: { keywordId },
+      select: { keywordId: true },
+    });
+    if (existing) {
+      return;
+    }
+    await this.appStoreQueue.add(
+      JOBS.SCORE_KEYWORD,
+      { keywordId },
+      { jobId: scoreJobId(keywordId, isoWeekKey()) },
+    );
+  }
+
+  async listTracked(
+    appId: string,
+    sort?: KeywordSort,
+  ): Promise<TrackedKeywordItem[]> {
     await this.ensureApp(appId);
     const rows = await this.prisma.trackedKeyword.findMany({
       where: { appId },
       ...this.trackedArgs(appId),
     });
-    return rows.map(toTrackedKeywordItem);
+    return sortTracked(rows.map(toTrackedKeywordItem), sort);
   }
 
   async addManual(
@@ -75,6 +98,7 @@ export class KeywordsService {
         },
         update: { active: true },
       });
+      await this.enqueueFirstScore(keyword.id);
     }
 
     return this.listTracked(appId);
@@ -148,6 +172,7 @@ export class KeywordsService {
         },
         update: { source: 'KEYWORD_FIELD', active: true },
       });
+      await this.enqueueFirstScore(keyword.id);
     }
 
     const uniqueSet = new Set(unique);
@@ -369,6 +394,7 @@ export class KeywordsService {
         },
         update: {},
       });
+      await this.enqueueFirstScore(keyword.id);
     }
   }
 
@@ -444,11 +470,46 @@ export class KeywordsService {
             metrics: {
               orderBy: { date: 'desc' as const },
               take: 1,
-              select: { traffic: true, difficulty: true },
+              select: { traffic: true, difficulty: true, date: true },
             },
           },
         },
       },
     };
   }
+}
+
+const SORT_VALUE: Record<
+  KeywordSort,
+  (item: TrackedKeywordItem) => number | null
+> = {
+  opportunity: (item) => item.opportunity,
+  traffic: (item) => item.traffic,
+  difficulty: (item) => item.difficulty,
+  position: (item) => item.latestPosition,
+};
+
+function sortTracked(
+  items: TrackedKeywordItem[],
+  sort?: KeywordSort,
+): TrackedKeywordItem[] {
+  if (!sort) {
+    return items;
+  }
+  const value = SORT_VALUE[sort];
+  const ascending = sort === 'position';
+  return [...items].sort((a, b) => {
+    const av = value(a);
+    const bv = value(b);
+    if (av === null && bv === null) {
+      return 0;
+    }
+    if (av === null) {
+      return 1;
+    }
+    if (bv === null) {
+      return -1;
+    }
+    return ascending ? av - bv : bv - av;
+  });
 }

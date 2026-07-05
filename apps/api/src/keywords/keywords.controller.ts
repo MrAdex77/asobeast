@@ -20,6 +20,7 @@ import {
 import { StoreErrorFilter } from '../apps/store-error.filter';
 import { AddKeywordsDto } from './dto/add-keywords.dto';
 import { KeywordFieldDto } from './dto/keyword-field.dto';
+import { ListKeywordsQueryDto } from './dto/list-keywords-query.dto';
 import { SuggestionsQueryDto } from './dto/suggestions-query.dto';
 import { ToggleKeywordDto } from './dto/toggle-keyword.dto';
 import { KeywordsService } from './keywords.service';
@@ -32,8 +33,11 @@ export class KeywordsController {
 
   @Get('keywords')
   @ApiOperation({ summary: 'List tracked keywords for an app' })
-  list(@Param('id') id: string): Promise<TrackedKeywordItem[]> {
-    return this.keywords.listTracked(id);
+  list(
+    @Param('id') id: string,
+    @Query() query: ListKeywordsQueryDto,
+  ): Promise<TrackedKeywordItem[]> {
+    return this.keywords.listTracked(id, query.sort);
   }
 
   @Get('keywords/suggestions')
