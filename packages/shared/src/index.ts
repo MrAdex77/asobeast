@@ -43,11 +43,6 @@ export type KeywordSource = (typeof KEYWORD_SOURCES)[number];
 
 export const DEFAULT_COUNTRY = 'us';
 
-export interface HealthStatus {
-  status: 'ok' | 'error';
-  db: 'up' | 'down';
-}
-
 export * from './url-parser';
 export * from './contracts';
 export * from './text';
