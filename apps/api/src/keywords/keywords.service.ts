@@ -1,9 +1,11 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { KeywordSource, Store } from '@prisma/client';
+import { Queue } from 'bullmq';
 import {
   KeywordFieldResult,
   KeywordSuggestion,
@@ -12,6 +14,7 @@ import {
   TrackedKeywordItem,
 } from '@asobeast/shared';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
+import { isoWeekKey, JOBS, QUEUES, scoreJobId } from '../jobs/jobs.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
 import { extractCandidates } from './extraction';
@@ -38,7 +41,23 @@ export class KeywordsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly registry: StoreProviderRegistry,
+    @InjectQueue(QUEUES.APP_STORE) private readonly appStoreQueue: Queue,
   ) {}
+
+  private async enqueueFirstScore(keywordId: string): Promise<void> {
+    const existing = await this.prisma.keywordMetric.findFirst({
+      where: { keywordId },
+      select: { keywordId: true },
+    });
+    if (existing) {
+      return;
+    }
+    await this.appStoreQueue.add(
+      JOBS.SCORE_KEYWORD,
+      { keywordId },
+      { jobId: scoreJobId(keywordId, isoWeekKey()) },
+    );
+  }
 
   async listTracked(appId: string): Promise<TrackedKeywordItem[]> {
     await this.ensureApp(appId);
@@ -75,6 +94,7 @@ export class KeywordsService {
         },
         update: { active: true },
       });
+      await this.enqueueFirstScore(keyword.id);
     }
 
     return this.listTracked(appId);
@@ -148,6 +168,7 @@ export class KeywordsService {
         },
         update: { source: 'KEYWORD_FIELD', active: true },
       });
+      await this.enqueueFirstScore(keyword.id);
     }
 
     const uniqueSet = new Set(unique);
@@ -369,6 +390,7 @@ export class KeywordsService {
         },
         update: {},
       });
+      await this.enqueueFirstScore(keyword.id);
     }
   }
 

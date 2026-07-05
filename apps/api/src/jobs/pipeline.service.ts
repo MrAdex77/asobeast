@@ -3,15 +3,11 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { PrismaService } from '../prisma/prisma.service';
-import { JOBS, QUEUES } from './jobs.types';
+import { isoWeekKey, JOBS, QUEUES, scoreJobId, utcDateKey } from './jobs.types';
 
 export interface FanOutSummary {
   apps: number;
   keywords: number;
-}
-
-function utcDateKey(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 @Injectable()
@@ -62,6 +58,34 @@ export class PipelineService {
     ];
 
     return this.enqueue(appIds, keywordIds);
+  }
+
+  async fanOutScoring(): Promise<number> {
+    const keywords = await this.prisma.trackedKeyword.findMany({
+      where: { active: true, app: { workspaceId: DEFAULT_WORKSPACE_ID } },
+      select: { keywordId: true },
+      distinct: ['keywordId'],
+    });
+
+    const week = isoWeekKey();
+    for (const { keywordId } of keywords) {
+      await this.appStoreQueue.add(
+        JOBS.SCORE_KEYWORD,
+        { keywordId },
+        { jobId: scoreJobId(keywordId, week) },
+      );
+    }
+
+    this.logger.log(`fan out scoring ${keywords.length}`);
+    return keywords.length;
+  }
+
+  async enqueueScore(keywordId: string): Promise<void> {
+    await this.appStoreQueue.add(
+      JOBS.SCORE_KEYWORD,
+      { keywordId },
+      { jobId: scoreJobId(keywordId, utcDateKey()) },
+    );
   }
 
   private async enqueue(
