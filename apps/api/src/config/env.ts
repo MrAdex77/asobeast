@@ -15,6 +15,7 @@ export const EnvSchema = z.object({
     .default('postgresql://asobeast:asobeast@localhost:5432/asobeast'),
   REDIS_HOST: z.string().min(1).default('localhost'),
   REDIS_PORT: z.coerce.number().int().positive().default(6379),
+  REDIS_DB: z.coerce.number().int().min(0).default(0),
   PORT: z.coerce.number().int().positive().default(4000),
   DEFAULT_COUNTRY: z.string().min(1).default('us'),
   CRON_DAILY: z.string().min(1).default('0 3 * * *'),

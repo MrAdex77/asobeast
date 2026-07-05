@@ -104,6 +104,7 @@ docker compose -f docker-compose.dev.yml up -d
 DATABASE_URL=postgresql://asobeast:asobeast@localhost:5432/asobeast
 REDIS_HOST=localhost
 REDIS_PORT=6379
+REDIS_DB=0                   # bull queue db index; e2e tests use a separate index
 PORT=4000
 DEFAULT_COUNTRY=us
 CRON_DAILY=0 3 * * *        # daily pipeline, UTC
