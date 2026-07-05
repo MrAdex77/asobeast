@@ -7,6 +7,7 @@ import { AppSummary, VisibilityHistory } from '@asobeast/shared';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import { obliterateQueues } from './obliterate-queues';
 import { DEFAULT_WORKSPACE_ID } from '../src/common/workspace';
 import { PrismaService } from '../src/prisma/prisma.service';
 
@@ -57,6 +58,7 @@ describe('AnalyticsController (e2e)', () => {
   });
 
   afterAll(async () => {
+    await obliterateQueues(app);
     await app.close();
   });
 
