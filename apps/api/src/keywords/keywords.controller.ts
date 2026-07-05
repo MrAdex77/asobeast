@@ -13,12 +13,14 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
+  KeywordComparison,
   KeywordFieldResult,
   KeywordSuggestion,
   TrackedKeywordItem,
 } from '@asobeast/shared';
 import { StoreErrorFilter } from '../apps/store-error.filter';
 import { AddKeywordsDto } from './dto/add-keywords.dto';
+import { CompareQueryDto } from './dto/compare-query.dto';
 import { KeywordFieldDto } from './dto/keyword-field.dto';
 import { ListKeywordsQueryDto } from './dto/list-keywords-query.dto';
 import { SuggestionsQueryDto } from './dto/suggestions-query.dto';
@@ -38,6 +40,15 @@ export class KeywordsController {
     @Query() query: ListKeywordsQueryDto,
   ): Promise<TrackedKeywordItem[]> {
     return this.keywords.listTracked(id, query.sort);
+  }
+
+  @Get('keywords/compare')
+  @ApiOperation({ summary: 'Compare keyword positions against competitors' })
+  compare(
+    @Param('id') id: string,
+    @Query() query: CompareQueryDto,
+  ): Promise<KeywordComparison> {
+    return this.keywords.compare(id, query.onlyGaps);
   }
 
   @Get('keywords/suggestions')
