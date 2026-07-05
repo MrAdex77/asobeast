@@ -92,3 +92,50 @@ describe('KeywordsService.syncFromSnapshot', () => {
     expect(prisma.trackedKeyword.upsert).not.toHaveBeenCalled();
   });
 });
+
+describe('KeywordsService.suggest competitors', () => {
+  const buildService = (prisma: unknown) =>
+    new KeywordsService(
+      prisma as PrismaService,
+      undefined as unknown as StoreProviderRegistry,
+      { add: jest.fn() } as unknown as Queue,
+    );
+
+  it('counts overlapping competitor terms and drops tracked ones', async () => {
+    const prisma = {
+      app: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'app1',
+          store: Store.APP_STORE,
+          country: 'us',
+          storeAppId: 'store1',
+        }),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            snapshots: [{ title: 'Habit Tracker', subtitle: 'Daily goals' }],
+          },
+          {
+            snapshots: [{ title: 'Habit Planner', subtitle: 'Daily streak' }],
+          },
+        ]),
+      },
+      trackedKeyword: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ keyword: { text: 'streak' } }]),
+      },
+    };
+    const service = buildService(prisma);
+
+    const suggestions = await service.suggest('app1', 'competitors', 30);
+
+    const byText = new Map(suggestions.map((s) => [s.text, s.usedByCount]));
+    expect(byText.get('habit')).toBe(2);
+    expect(byText.get('daily')).toBe(2);
+    expect(byText.has('streak')).toBe(false);
+    expect(suggestions.every((s) => s.strategy === 'competitors')).toBe(true);
+    expect(suggestions[0].usedByCount).toBeGreaterThanOrEqual(
+      suggestions[suggestions.length - 1].usedByCount ?? 0,
+    );
+  });
+});

@@ -215,7 +215,56 @@ export class KeywordsService {
     if (strategy === 'similar') {
       return this.suggestFromSimilar(app, trackedTexts, limit);
     }
+    if (strategy === 'competitors') {
+      return this.suggestFromCompetitors(appId, trackedTexts, limit);
+    }
     return this.suggestFromMetadata(appId, trackedTexts, limit);
+  }
+
+  private async suggestFromCompetitors(
+    appId: string,
+    trackedTexts: Set<string>,
+    limit: number,
+  ): Promise<KeywordSuggestion[]> {
+    const competitors = await this.prisma.app.findMany({
+      where: { primaryAppId: appId },
+      select: {
+        snapshots: {
+          orderBy: { capturedAt: 'desc' },
+          take: 1,
+          select: { title: true, subtitle: true },
+        },
+      },
+    });
+
+    const counts = new Map<string, number>();
+    for (const competitor of competitors) {
+      const snapshot = competitor.snapshots[0];
+      if (!snapshot) {
+        continue;
+      }
+      const texts = new Set(
+        extractCandidates({
+          title: snapshot.title,
+          subtitle: snapshot.subtitle ?? undefined,
+        }).map((candidate) => candidate.text),
+      );
+      for (const text of texts) {
+        if (trackedTexts.has(text)) {
+          continue;
+        }
+        counts.set(text, (counts.get(text) ?? 0) + 1);
+      }
+    }
+
+    return [...counts.entries()]
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, limit)
+      .map(([text, usedByCount]) => ({
+        text,
+        strategy: 'competitors' as const,
+        usedByCount,
+      }));
   }
 
   private async suggestFromMetadata(
