@@ -157,6 +157,15 @@ export interface AppSummary {
   competitors: number;
 }
 
+export interface VisibilityPoint {
+  date: string;
+  visibility: number;
+}
+
+export interface VisibilityHistory {
+  points: VisibilityPoint[];
+}
+
 export interface SnapshotChange {
   field: string;
   before: string | number | null;

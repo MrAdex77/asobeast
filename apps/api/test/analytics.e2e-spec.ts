@@ -3,7 +3,7 @@ import { join } from 'path';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Store } from '@prisma/client';
-import { AppSummary } from '@asobeast/shared';
+import { AppSummary, VisibilityHistory } from '@asobeast/shared';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
@@ -200,5 +200,37 @@ describe('AnalyticsController (e2e)', () => {
     expect(summary.trackedKeywords).toBe(4);
     expect(summary.competitors).toBe(0);
     expect(summary.lastRefreshAt).toBe(D0.toISOString());
+  });
+
+  it('returns a history whose last point matches current visibility', async () => {
+    const id = await seed();
+
+    const summaryResponse = await request(app.getHttpServer())
+      .get(`/apps/${id}/summary`)
+      .expect(200);
+    const current = (summaryResponse.body as AppSummary).visibility.current;
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${id}/visibility-history`)
+      .query({ from: '2026-06-20', to: '2026-07-01' })
+      .expect(200);
+    const history = response.body as VisibilityHistory;
+
+    expect(history.points.map((point) => point.date)).toEqual([
+      '2026-06-23',
+      '2026-06-30',
+    ]);
+    const last = history.points[history.points.length - 1];
+    expect(last.date).toBe('2026-06-30');
+    expect(last.visibility).toBeCloseTo(current, 1);
+  });
+
+  it('rejects ranges beyond the 180 day cap', async () => {
+    const id = await seed();
+
+    await request(app.getHttpServer())
+      .get(`/apps/${id}/visibility-history`)
+      .query({ from: '2025-01-01', to: '2026-07-01' })
+      .expect(400);
   });
 });

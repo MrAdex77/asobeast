@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   AppSummary,
   CoverageSummary,
@@ -7,11 +11,13 @@ import {
   normalizeText,
   RankDistribution,
   UncoveredKeyword,
+  VisibilityHistory,
   VisibilitySummary,
 } from '@asobeast/shared';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeOpportunity } from '../scoring/formulas';
+import { VisibilityHistoryQueryDto } from './dto/visibility-history-query.dto';
 import { visibility, VisibilityKeyword } from './visibility';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -22,6 +28,8 @@ const MOVER_LIMIT = 5;
 const UNRANKED_RANK = Number.MAX_SAFE_INTEGER;
 const HIGH_OPPORTUNITY = 6;
 const COVERAGE_LIMIT = 5;
+const HISTORY_DEFAULT_DAYS = 30;
+const HISTORY_MAX_DAYS = 180;
 
 interface Metric {
   traffic: number | null;
@@ -45,6 +53,15 @@ interface TrackedRow {
 
 const addDays = (date: Date, days: number): Date =>
   new Date(date.getTime() + days * DAY_MS);
+
+const startOfUtcDay = (date: Date): Date =>
+  new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+
+const utcToday = (): Date => startOfUtcDay(new Date());
+
+const toDateKey = (date: Date): string => date.toISOString().slice(0, 10);
 
 const isSameDay = (a: Date, b: Date): boolean => a.getTime() === b.getTime();
 
@@ -118,6 +135,41 @@ export class AnalyticsService {
       trackedKeywords: rows.length,
       competitors,
     };
+  }
+
+  async history(
+    appId: string,
+    query: VisibilityHistoryQueryDto,
+  ): Promise<VisibilityHistory> {
+    await this.ensureApp(appId);
+
+    const to = query.to ? startOfUtcDay(new Date(query.to)) : utcToday();
+    const from = query.from
+      ? startOfUtcDay(new Date(query.from))
+      : addDays(to, -HISTORY_DEFAULT_DAYS);
+
+    if (to.getTime() - from.getTime() > HISTORY_MAX_DAYS * DAY_MS) {
+      throw new BadRequestException(
+        `Range must not exceed ${HISTORY_MAX_DAYS} days`,
+      );
+    }
+
+    const rows = await this.trackedRows(appId, from, to);
+    const dates = new Set<number>();
+    for (const row of rows) {
+      for (const ranking of row.keyword.rankings) {
+        dates.add(ranking.date.getTime());
+      }
+    }
+
+    const points = [...dates]
+      .sort((a, b) => a - b)
+      .map((time) => {
+        const date = new Date(time);
+        return { date: toDateKey(date), visibility: visibilityAt(rows, date) };
+      });
+
+    return { points };
   }
 
   private visibilitySummary(
