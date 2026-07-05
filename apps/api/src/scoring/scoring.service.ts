@@ -23,6 +23,9 @@ export class ScoringService {
 
   async scoreKeyword(keywordId: string): Promise<void> {
     const stats = await this.collector.collect(keywordId);
+    if (!stats) {
+      return;
+    }
     const traffic = computeTraffic(stats);
     const difficulty = computeDifficulty(stats);
     const date = utcToday();

@@ -49,4 +49,19 @@ describe('ScoringService', () => {
       today,
     );
   });
+
+  it('skips the upsert when the keyword is gone', async () => {
+    const upsert = jest.fn<Promise<void>, [UpsertArgs]>();
+    const collect = jest.fn<Promise<KeywordStats | null>, [string]>();
+    collect.mockResolvedValue(null);
+    const prisma = {
+      keywordMetric: { upsert },
+    } as unknown as PrismaService;
+    const collector = { collect } as unknown as StatsCollectorService;
+    const service = new ScoringService(prisma, collector);
+
+    await service.scoreKeyword('gone');
+
+    expect(upsert).not.toHaveBeenCalled();
+  });
 });

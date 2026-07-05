@@ -61,6 +61,18 @@ describe('StatsCollectorService', () => {
     expect(stats.suggest).toEqual({ priority: 7000 });
   });
 
+  it('returns null when the keyword no longer exists', async () => {
+    const { registry, search, suggestFn } = buildProvider([]);
+    const prisma = {
+      keyword: { findUnique: jest.fn().mockResolvedValue(null) },
+    } as unknown as PrismaService;
+    const service = new StatsCollectorService(prisma, registry);
+
+    expect(await service.collect('gone')).toBeNull();
+    expect(search).not.toHaveBeenCalled();
+    expect(suggestFn).not.toHaveBeenCalled();
+  });
+
   it('falls back to best partial priority when the term is absent', async () => {
     const { registry } = buildProvider([
       { term: 'puzzle game free', priority: 4000 },

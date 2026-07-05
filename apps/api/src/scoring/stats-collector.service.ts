@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
 import { SearchItem } from '../store-providers/types';
@@ -16,13 +16,13 @@ export class StatsCollectorService {
     private readonly registry: StoreProviderRegistry,
   ) {}
 
-  async collect(keywordId: string): Promise<KeywordStats> {
+  async collect(keywordId: string): Promise<KeywordStats | null> {
     const keyword = await this.prisma.keyword.findUnique({
       where: { id: keywordId },
       select: { text: true, store: true, country: true },
     });
     if (!keyword) {
-      throw new NotFoundException(`Keyword ${keywordId} not found`);
+      return null;
     }
 
     const provider = this.registry.get(keyword.store);
