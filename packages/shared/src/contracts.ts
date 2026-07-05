@@ -18,6 +18,7 @@ export interface CompetitorItem {
   store: Store;
   name: string | null;
   iconUrl: string | null;
+  latestSnapshot: AppSnapshotSummary | null;
 }
 
 export interface AppDetail {

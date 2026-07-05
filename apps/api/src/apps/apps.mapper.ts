@@ -21,12 +21,16 @@ export function toSnapshotSummary(snapshot: AppSnapshot): AppSnapshotSummary {
   };
 }
 
-export function toCompetitorItem(app: App): CompetitorItem {
+export function toCompetitorItem(
+  app: App,
+  snapshot: AppSnapshot | null,
+): CompetitorItem {
   return {
     id: app.id,
     store: app.store,
     name: app.name,
     iconUrl: app.iconUrl,
+    latestSnapshot: snapshot ? toSnapshotSummary(snapshot) : null,
   };
 }
 
@@ -49,10 +53,12 @@ export function toAppListItem(
   };
 }
 
+export type CompetitorWithSnapshot = App & { snapshots: AppSnapshot[] };
+
 export function toAppDetail(
   app: App,
   snapshot: AppSnapshot | null,
-  competitors: App[],
+  competitors: CompetitorWithSnapshot[],
 ): AppDetail {
   return {
     id: app.id,
@@ -63,6 +69,8 @@ export function toAppDetail(
     iconUrl: app.iconUrl,
     createdAt: app.createdAt.toISOString(),
     latestSnapshot: snapshot ? toSnapshotSummary(snapshot) : null,
-    competitors: competitors.map(toCompetitorItem),
+    competitors: competitors.map((competitor) =>
+      toCompetitorItem(competitor, competitor.snapshots[0] ?? null),
+    ),
   };
 }
