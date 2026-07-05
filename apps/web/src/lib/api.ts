@@ -4,6 +4,7 @@ import type {
   AppListItem,
   AppSummary,
   KeywordSort,
+  SnapshotDiffResult,
   TrackedKeywordItem,
 } from "@asobeast/shared";
 
@@ -51,4 +52,12 @@ export function getKeywords(
 
 export function getSummary(appId: string): Promise<AppSummary> {
   return apiFetch<AppSummary>(`/apps/${appId}/summary`);
+}
+
+export function refreshApp(id: string): Promise<SnapshotDiffResult> {
+  return apiFetch<SnapshotDiffResult>(`/apps/${id}/refresh`, { method: "POST" });
+}
+
+export async function runDaily(id: string): Promise<void> {
+  await apiFetch<unknown>(`/apps/${id}/run-daily`, { method: "POST" });
 }
