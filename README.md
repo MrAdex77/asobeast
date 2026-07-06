@@ -33,7 +33,7 @@ Then open:
 
 `docker compose up` starts Postgres, Redis, the API (which runs database migrations and seeds the default workspace on boot) and the web app. Import an App Store app from the UI and its keywords start tracking immediately.
 
-> The web image bakes `NEXT_PUBLIC_API_URL` in at build time (default `http://localhost:4000`). If you expose the API on a different origin, change the `web` build arg in `docker-compose.yml` and rebuild, or put both apps behind a single reverse proxy.
+> The web image bakes `NEXT_PUBLIC_API_URL` in at build time for browser requests (default `http://localhost:4000`). Server-rendered pages can use `API_INTERNAL_URL` at runtime, which `docker-compose.yml` sets to `http://api:4000`.
 
 ## Development
 
@@ -98,6 +98,7 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:4000` | API base URL, inlined into the web build at build time. |
+| `API_INTERNAL_URL` | same as `NEXT_PUBLIC_API_URL` | Optional server-side API base URL for Docker or reverse-proxy deployments. |
 
 ## Limitations
 
@@ -105,7 +106,7 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 - **Scrapers can break.** asobeast reads public store endpoints; when Apple changes them a parser can fail. Parse failures fail the job (BullMQ retries with backoff) and never take down request handling.
 - **Informal rate limits.** The iTunes endpoints tolerate roughly 20 requests per minute per IP; asobeast stays well under that by design. Do not point many instances at the store from one IP.
 - **Bull Board has no auth.** The `/admin/queues` dashboard is unauthenticated — keep it off the public internet or set `BULL_BOARD_ENABLED=false`.
-- **`NEXT_PUBLIC_API_URL` is baked at build time**, so changing the API origin means rebuilding the web image.
+- **`NEXT_PUBLIC_API_URL` is baked at build time**, so changing the browser-facing API origin means rebuilding the web image.
 - **No authentication or multi tenancy in v1.** Tenant owned rows carry a `workspaceId` and v1 uses a single seeded workspace.
 
 ## Roadmap
