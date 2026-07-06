@@ -1,6 +1,6 @@
 import { execSync } from 'child_process';
 import { join } from 'path';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Store } from '@prisma/client';
 import { AppSummary, VisibilityHistory } from '@asobeast/shared';
@@ -38,9 +38,6 @@ describe('AnalyticsController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, transform: true }),
-    );
     await app.init();
 
     prisma = app.get(PrismaService);

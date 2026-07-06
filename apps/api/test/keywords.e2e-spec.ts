@@ -1,6 +1,6 @@
 import { execSync } from 'child_process';
 import { join } from 'path';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Store } from '@prisma/client';
 import {
@@ -12,7 +12,7 @@ import {
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
-import { obliterateQueues } from './obliterate-queues';
+import { obliterateQueues, pauseQueues } from './obliterate-queues';
 import { DEFAULT_WORKSPACE_ID } from '../src/common/workspace';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { StoreProviderRegistry } from '../src/store-providers/store-provider.registry';
@@ -78,10 +78,8 @@ describe('KeywordsController (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, transform: true }),
-    );
     await app.init();
+    await pauseQueues(app);
 
     prisma = app.get(PrismaService);
     await prisma.workspace.upsert({

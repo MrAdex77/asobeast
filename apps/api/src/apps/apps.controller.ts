@@ -6,7 +6,6 @@ import {
   HttpCode,
   Param,
   Post,
-  UseFilters,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
@@ -18,11 +17,9 @@ import {
 import { AppsService } from './apps.service';
 import { AddCompetitorDto } from './dto/add-competitor.dto';
 import { ImportAppDto } from './dto/import-app.dto';
-import { StoreErrorFilter } from './store-error.filter';
 
 @ApiTags('apps')
 @Controller('apps')
-@UseFilters(StoreErrorFilter)
 export class AppsController {
   constructor(private readonly apps: AppsService) {}
 

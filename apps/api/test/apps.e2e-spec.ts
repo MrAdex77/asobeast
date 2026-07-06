@@ -1,9 +1,9 @@
 import { execSync } from 'child_process';
 import { join } from 'path';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Store } from '@prisma/client';
-import { AppDetail } from '@asobeast/shared';
+import { ApiErrorEnvelope, AppDetail } from '@asobeast/shared';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
@@ -88,9 +88,6 @@ describe('AppsController (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, transform: true }),
-    );
     await app.init();
 
     prisma = app.get(PrismaService);
@@ -144,26 +141,62 @@ describe('AppsController (e2e)', () => {
     expect(await prisma.appSnapshot.count()).toBe(2);
   });
 
-  it('returns 501 for a Google Play url', async () => {
+  const expectEnvelope = (
+    body: ApiErrorEnvelope,
+    statusCode: number,
+    path: string,
+  ): void => {
+    expect(body.statusCode).toBe(statusCode);
+    expect(typeof body.error).toBe('string');
+    expect(typeof body.message).toBe('string');
+    expect(body.path).toBe(path);
+    expect(typeof body.timestamp).toBe('string');
+  };
+
+  it('returns a 400 envelope for a malformed body', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/apps')
+      .send({ url: 42, extra: 'nope' })
+      .expect(400);
+
+    expectEnvelope(response.body as ApiErrorEnvelope, 400, '/apps');
+  });
+
+  it('returns a 404 envelope for an unknown app id', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/apps/00000000-0000-0000-0000-000000000000')
+      .expect(404);
+
+    expectEnvelope(
+      response.body as ApiErrorEnvelope,
+      404,
+      '/apps/00000000-0000-0000-0000-000000000000',
+    );
+  });
+
+  it('returns a 501 envelope for a Google Play url', async () => {
     const response = await request(app.getHttpServer())
       .post('/apps')
       .send({ url: GOOGLE_PLAY_URL })
       .expect(501);
-    const body = response.body as { message: string };
+    const body = response.body as ApiErrorEnvelope;
 
+    expectEnvelope(body, 501, '/apps');
     expect(body.message).toBe(
       'Google Play support is planned; asobeast currently tracks App Store apps only',
     );
   });
 
-  it('returns 400 for an invalid url', async () => {
-    await request(app.getHttpServer())
+  it('returns a 400 envelope for an invalid url', async () => {
+    const response = await request(app.getHttpServer())
       .post('/apps')
       .send({ url: 'not-a-store-url' })
       .expect(400);
+
+    expectEnvelope(response.body as ApiErrorEnvelope, 400, '/apps');
   });
 
-  it('returns 502 when the store request fails', async () => {
+  it('returns a 502 envelope when the store request fails', async () => {
     registry.failWith = new StoreRequestError(
       Store.APP_STORE,
       'getApp',
@@ -174,9 +207,9 @@ describe('AppsController (e2e)', () => {
       .post('/apps')
       .send({ url: APP_STORE_URL })
       .expect(502);
-    const body = response.body as { store: string; message: string };
+    const body = response.body as ApiErrorEnvelope;
 
-    expect(body.store).toBe('APP_STORE');
+    expectEnvelope(body, 502, '/apps');
     expect(body.message).toContain('boom');
   });
 
