@@ -8,7 +8,12 @@ import type {
   TrackedKeywordItem,
 } from "@asobeast/shared";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+const PUBLIC_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+const INTERNAL_BASE = process.env.API_INTERNAL_URL ?? PUBLIC_BASE;
+
+function apiBase(): string {
+  return typeof window === "undefined" ? INTERNAL_BASE : PUBLIC_BASE;
+}
 
 export class ApiError extends Error {
   constructor(public readonly envelope: ApiErrorEnvelope) {
@@ -18,7 +23,7 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${apiBase()}${path}`, {
     ...init,
     headers: { "content-type": "application/json", ...init?.headers },
     cache: "no-store",

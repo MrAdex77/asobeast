@@ -9,7 +9,6 @@ import {
   Post,
   Put,
   Query,
-  UseFilters,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
@@ -18,7 +17,6 @@ import {
   KeywordSuggestion,
   TrackedKeywordItem,
 } from '@asobeast/shared';
-import { StoreErrorFilter } from '../apps/store-error.filter';
 import { AddKeywordsDto } from './dto/add-keywords.dto';
 import { CompareQueryDto } from './dto/compare-query.dto';
 import { KeywordFieldDto } from './dto/keyword-field.dto';
@@ -29,7 +27,6 @@ import { KeywordsService } from './keywords.service';
 
 @ApiTags('keywords')
 @Controller('apps/:id')
-@UseFilters(StoreErrorFilter)
 export class KeywordsController {
   constructor(private readonly keywords: KeywordsService) {}
 

@@ -6,7 +6,6 @@ import {
   HttpCode,
   Param,
   Post,
-  UseFilters,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
@@ -18,11 +17,9 @@ import {
 import { AppsService } from './apps.service';
 import { AddCompetitorDto } from './dto/add-competitor.dto';
 import { ImportAppDto } from './dto/import-app.dto';
-import { StoreErrorFilter } from './store-error.filter';
 
 @ApiTags('apps')
 @Controller('apps')
-@UseFilters(StoreErrorFilter)
 export class AppsController {
   constructor(private readonly apps: AppsService) {}
 
@@ -61,6 +58,7 @@ export class AppsController {
   }
 
   @Post(':id/competitors')
+  @ApiTags('competitors')
   @ApiOperation({ summary: 'Add a competitor app from a store URL' })
   addCompetitor(
     @Param('id') id: string,
@@ -70,6 +68,7 @@ export class AppsController {
   }
 
   @Get(':id/competitors')
+  @ApiTags('competitors')
   @ApiOperation({ summary: 'List competitors for an app' })
   listCompetitors(@Param('id') id: string): Promise<CompetitorItem[]> {
     return this.apps.listCompetitors(id);
@@ -77,6 +76,7 @@ export class AppsController {
 
   @Delete(':id/competitors/:competitorId')
   @HttpCode(204)
+  @ApiTags('competitors')
   @ApiOperation({ summary: 'Remove a competitor from an app' })
   removeCompetitor(
     @Param('id') id: string,

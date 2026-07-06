@@ -1,7 +1,10 @@
 import type { HealthStatus } from "@asobeast/shared";
 import { Badge } from "./Badge";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+const BASE =
+  process.env.API_INTERNAL_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:4000";
 
 export async function ApiStatus() {
   let health: HealthStatus | null = null;
