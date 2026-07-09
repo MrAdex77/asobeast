@@ -7,7 +7,7 @@ import {
   parseAsBoolean,
   parseAsString,
   parseAsStringLiteral,
-} from "nuqs";
+} from "nuqs/server";
 import { RANGE_PRESETS, VISIBILITY_RANGES } from "./ranges";
 
 export const sortParser = parseAsStringLiteral(KEYWORD_SORTS).withDefault(
