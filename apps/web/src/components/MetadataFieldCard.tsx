@@ -7,10 +7,13 @@ import {
   type LintSeverity,
   type MetadataField,
 } from "@asobeast/shared";
-import { Badge, type BadgeTone } from "./Badge";
+import { Badge } from "@/components/ui/badge";
 
-const SEVERITY_TONE: Record<LintSeverity, BadgeTone> = {
-  error: "danger",
+const SEVERITY_VARIANT: Record<
+  LintSeverity,
+  "destructive" | "warning" | "info"
+> = {
+  error: "destructive",
   warn: "warning",
   info: "info",
 };
@@ -67,7 +70,9 @@ export function MetadataFieldCard({
               key={`${issue.rule}-${index}`}
               className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400"
             >
-              <Badge tone={SEVERITY_TONE[issue.severity]}>{issue.rule}</Badge>
+              <Badge variant={SEVERITY_VARIANT[issue.severity]}>
+                {issue.rule}
+              </Badge>
               {issue.message}
             </li>
           ))}

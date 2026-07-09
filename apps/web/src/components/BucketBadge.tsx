@@ -1,16 +1,19 @@
 import type { KeywordBucket } from "@asobeast/shared";
-import { Badge, type BadgeTone } from "./Badge";
+import { Badge } from "@/components/ui/badge";
 
-const TONE: Record<KeywordBucket, BadgeTone> = {
+const VARIANT: Record<
+  KeywordBucket,
+  "success" | "info" | "secondary" | "warning"
+> = {
   primary: "success",
   secondary: "info",
-  longtail: "neutral",
+  longtail: "secondary",
   aspirational: "warning",
 };
 
 export function BucketBadge({ bucket }: { bucket: KeywordBucket | null }) {
   if (!bucket) {
-    return <span className="text-zinc-400">—</span>;
+    return <span className="text-muted-foreground">—</span>;
   }
-  return <Badge tone={TONE[bucket]}>{bucket}</Badge>;
+  return <Badge variant={VARIANT[bucket]}>{bucket}</Badge>;
 }

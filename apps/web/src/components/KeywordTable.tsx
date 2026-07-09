@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { KeywordSort, TrackedKeywordItem } from "@asobeast/shared";
-import { Badge } from "./Badge";
+import { Badge } from "@/components/ui/badge";
 import { BucketBadge } from "./BucketBadge";
 import { RelevanceCell } from "./RelevanceCell";
 
@@ -99,7 +99,9 @@ export function KeywordTable({
                 {keyword.text}
               </td>
               <td className="px-4 py-3">
-                <Badge>{keyword.source.toLowerCase()}</Badge>
+                <Badge variant="secondary">
+                  {keyword.source.toLowerCase()}
+                </Badge>
               </td>
               <td className="px-4 py-3">
                 <BucketBadge bucket={keyword.bucket} />
