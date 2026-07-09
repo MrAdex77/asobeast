@@ -24,6 +24,7 @@ import { StoreProviderRegistry } from '../store-providers/store-provider.registr
 import { classifyBuckets } from './buckets';
 import { extractCandidates } from './extraction';
 import { toTrackedKeywordItem } from './keywords.mapper';
+import { seasonalSuggestions } from './seasonal-suggestions';
 
 const AUTO_TRACK_LIMIT = 15;
 const MAX_KEYWORD_WORDS = 5;
@@ -324,6 +325,9 @@ export class KeywordsService {
     }
     if (strategy === 'competitors') {
       return this.suggestFromCompetitors(appId, trackedTexts, limit);
+    }
+    if (strategy === 'seasonal') {
+      return seasonalSuggestions(new Date(), trackedTexts, limit);
     }
     return this.suggestFromMetadata(appId, trackedTexts, limit);
   }

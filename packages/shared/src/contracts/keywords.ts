@@ -21,6 +21,7 @@ export interface KeywordSuggestion {
   strategy: KeywordSuggestionStrategy;
   priority?: number;
   usedByCount?: number;
+  event?: string;
 }
 
 export interface KeywordFieldResult {
