@@ -11,6 +11,10 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
 });
+const priceFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+});
 
 const STORE_LABELS: Record<Store, string> = {
   APP_STORE: "App Store",
@@ -27,6 +31,10 @@ export function formatCompact(value: number): string {
 
 export function formatRating(value: number): string {
   return value.toFixed(1);
+}
+
+export function formatPrice(value: number): string {
+  return value === 0 ? "Free" : priceFormatter.format(value);
 }
 
 export function formatDate(value: string | null): string {
