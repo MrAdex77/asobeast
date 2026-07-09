@@ -23,6 +23,7 @@ import { formatDate, formatPosition } from "@/lib/format";
 import { keywordsOptions } from "@/lib/queries";
 import { sortParser } from "@/lib/search-params";
 import { cn } from "@/lib/utils";
+import { KeywordRowActions } from "./KeywordRowActions";
 import { SourceBadge } from "./SourceBadge";
 
 const SORT_COLUMNS: { key: KeywordSort; label: string; emphasize?: boolean }[] =
@@ -236,7 +237,9 @@ export function KeywordsTable({ id }: { id: string }) {
                   <TableCell>
                     <DeltaChip value={keyword.positionDelta7d} />
                   </TableCell>
-                  <TableCell />
+                  <TableCell>
+                    <KeywordRowActions appId={id} keyword={keyword} />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
