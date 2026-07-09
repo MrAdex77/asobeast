@@ -5,6 +5,7 @@ import type {
   AppListItem,
   AppSummary,
   AuditInputAnswers,
+  CompetitorAnalysis,
   KeywordSort,
   MetadataAuditResult,
   SnapshotDiffResult,
@@ -76,6 +77,23 @@ export function getAudit(appId: string): Promise<AppAuditResult> {
 
 export function getMetadataAudit(appId: string): Promise<MetadataAuditResult> {
   return apiFetch<MetadataAuditResult>(`/apps/${appId}/metadata/audit`);
+}
+
+export function getCompetitorAnalysis(
+  appId: string,
+): Promise<CompetitorAnalysis> {
+  return apiFetch<CompetitorAnalysis>(`/apps/${appId}/competitors/analysis`);
+}
+
+export function updateKeyword(
+  appId: string,
+  keywordId: string,
+  body: { active?: boolean; relevance?: number | null },
+): Promise<TrackedKeywordItem> {
+  return apiFetch<TrackedKeywordItem>(`/apps/${appId}/keywords/${keywordId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
 }
 
 export function saveAuditInputs(
