@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
-import { Suspense } from "react";
-import { ApiStatus } from "@/components/ApiStatus";
+import { HealthBadge } from "@/components/layout/HealthBadge";
+import { SiteHeader } from "@/components/layout/SiteHeader";
+import { Toaster } from "@/components/ui/sonner";
+import { Providers } from "./providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,30 +29,23 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col font-sans">
-        <header className="border-b border-zinc-200 dark:border-zinc-800">
-          <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
-            <Link
-              href="/"
-              className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100"
-            >
-              asobeast
-            </Link>
-          </div>
-        </header>
-        <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
-          {children}
-        </main>
-        <footer className="border-t border-zinc-200 dark:border-zinc-800">
-          <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4 text-xs text-zinc-500 dark:text-zinc-400">
-            <span>asobeast · App Store · US</span>
-            <Suspense fallback={<span>api …</span>}>
-              <ApiStatus />
-            </Suspense>
-          </div>
-        </footer>
+        <Providers>
+          <SiteHeader />
+          <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
+            {children}
+          </main>
+          <footer className="border-t">
+            <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4 text-xs text-muted-foreground">
+              <span>asobeast · App Store · US</span>
+              <HealthBadge />
+            </div>
+          </footer>
+          <Toaster />
+        </Providers>
       </body>
     </html>
   );

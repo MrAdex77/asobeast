@@ -1,14 +1,10 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { FanOutSummary } from '@asobeast/shared';
 import { Queue } from 'bullmq';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { PrismaService } from '../prisma/prisma.service';
 import { isoWeekKey, JOBS, QUEUES, scoreJobId, utcDateKey } from './jobs.types';
-
-export interface FanOutSummary {
-  apps: number;
-  keywords: number;
-}
 
 @Injectable()
 export class PipelineService {
