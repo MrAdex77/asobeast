@@ -147,6 +147,17 @@ describe('KeywordsController (e2e)', () => {
       )?.active,
     ).toBe(false);
 
+    const relevanceResponse = await request(app.getHttpServer())
+      .patch(`/apps/${id}/keywords/${manual?.keywordId}`)
+      .send({ relevance: 95 })
+      .expect(200);
+    expect((relevanceResponse.body as TrackedKeywordItem).relevance).toBe(95);
+
+    await request(app.getHttpServer())
+      .patch(`/apps/${id}/keywords/${manual?.keywordId}`)
+      .send({ relevance: 150 })
+      .expect(400);
+
     await request(app.getHttpServer())
       .delete(`/apps/${id}/keywords/${manual?.keywordId}`)
       .expect(204);
@@ -184,6 +195,9 @@ describe('KeywordsController (e2e)', () => {
     for (const item of firstBody.tracked) {
       expect(item.source).toBe('KEYWORD_FIELD');
       expect(item.active).toBe(true);
+      expect(item).toHaveProperty('volume');
+      expect(item).toHaveProperty('relevance');
+      expect(item).toHaveProperty('bucket');
     }
 
     const second = await request(app.getHttpServer())

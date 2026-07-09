@@ -13,6 +13,7 @@ import {
   KeywordSort,
   KeywordSuggestion,
   KeywordSuggestionStrategy,
+  KEYWORD_FIELD_CHAR_LIMIT,
   normalizeText,
   TrackedKeywordItem,
 } from '@asobeast/shared';
@@ -20,13 +21,14 @@ import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { isoWeekKey, JOBS, QUEUES, scoreJobId } from '../jobs/jobs.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
+import { classifyBuckets } from './buckets';
 import { extractCandidates } from './extraction';
 import { toTrackedKeywordItem } from './keywords.mapper';
+import { seasonalSuggestions } from './seasonal-suggestions';
 
 const AUTO_TRACK_LIMIT = 15;
 const MAX_KEYWORD_WORDS = 5;
 const RANKING_HISTORY_LIMIT = 60;
-const KEYWORD_FIELD_CHAR_LIMIT = 100;
 const SEARCH_SEED_LIMIT = 5;
 
 const SOURCE_WEIGHT: Record<KeywordSource, number> = {
@@ -67,11 +69,33 @@ export class KeywordsService {
     sort?: KeywordSort,
   ): Promise<TrackedKeywordItem[]> {
     await this.ensureApp(appId);
-    const rows = await this.prisma.trackedKeyword.findMany({
+    const [rows, snapshotText] = await Promise.all([
+      this.prisma.trackedKeyword.findMany({
+        where: { appId },
+        ...this.trackedArgs(appId),
+      }),
+      this.snapshotText(appId),
+    ]);
+    return sortTracked(
+      classifyBuckets(
+        rows.map((row) => toTrackedKeywordItem(row, snapshotText)),
+      ),
+      sort,
+    );
+  }
+
+  private async snapshotText(appId: string): Promise<string> {
+    const snapshot = await this.prisma.appSnapshot.findFirst({
       where: { appId },
-      ...this.trackedArgs(appId),
+      orderBy: { capturedAt: 'desc' },
+      select: { title: true, subtitle: true, summary: true },
     });
-    return sortTracked(rows.map(toTrackedKeywordItem), sort);
+    if (!snapshot) {
+      return '';
+    }
+    return [snapshot.title, snapshot.subtitle, snapshot.summary]
+      .filter((part): part is string => Boolean(part))
+      .join(' ');
   }
 
   async compare(appId: string, onlyGaps: boolean): Promise<KeywordComparison> {
@@ -184,16 +208,19 @@ export class KeywordsService {
     return this.listTracked(appId);
   }
 
-  async toggle(
+  async updateKeyword(
     appId: string,
     keywordId: string,
-    active: boolean,
+    data: { active?: boolean; relevance?: number | null },
   ): Promise<TrackedKeywordItem> {
     await this.ensureApp(appId);
     await this.ensureTracked(appId, keywordId);
     await this.prisma.trackedKeyword.update({
       where: { appId_keywordId: { appId, keywordId } },
-      data: { active },
+      data: {
+        ...(data.active === undefined ? {} : { active: data.active }),
+        ...('relevance' in data ? { relevance: data.relevance } : {}),
+      },
     });
     return this.getTrackedItem(appId, keywordId);
   }
@@ -266,12 +293,13 @@ export class KeywordsService {
       });
     }
 
+    const snapshotText = await this.snapshotText(appId);
     const tracked = (
       await this.prisma.trackedKeyword.findMany({
         where: { appId, source: 'KEYWORD_FIELD', active: true },
         ...this.trackedArgs(appId),
       })
-    ).map(toTrackedKeywordItem);
+    ).map((row) => toTrackedKeywordItem(row, snapshotText));
 
     return {
       tracked,
@@ -297,6 +325,9 @@ export class KeywordsService {
     }
     if (strategy === 'competitors') {
       return this.suggestFromCompetitors(appId, trackedTexts, limit);
+    }
+    if (strategy === 'seasonal') {
+      return seasonalSuggestions(new Date(), trackedTexts, limit);
     }
     return this.suggestFromMetadata(appId, trackedTexts, limit);
   }
@@ -570,14 +601,13 @@ export class KeywordsService {
     appId: string,
     keywordId: string,
   ): Promise<TrackedKeywordItem> {
-    const row = await this.prisma.trackedKeyword.findFirst({
-      where: { appId, keywordId },
-      ...this.trackedArgs(appId),
-    });
-    if (!row) {
+    const item = (await this.listTracked(appId)).find(
+      (tracked) => tracked.keywordId === keywordId,
+    );
+    if (!item) {
       throw new NotFoundException(`Keyword ${keywordId} is not tracked`);
     }
-    return toTrackedKeywordItem(row);
+    return item;
   }
 
   private trackedArgs(appId: string) {
@@ -587,6 +617,7 @@ export class KeywordsService {
         keywordId: true,
         source: true,
         active: true,
+        relevance: true,
         keyword: {
           select: {
             text: true,

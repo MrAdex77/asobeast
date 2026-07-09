@@ -44,6 +44,7 @@ model App {
   snapshots    AppSnapshot[]
   tracked      TrackedKeyword[]
   rankings     KeywordRanking[]
+  auditInput   AuditInput?
   createdAt    DateTime         @default(now())
 
   @@unique([workspaceId, store, storeAppId, country])
@@ -92,10 +93,18 @@ model TrackedKeyword {
   keyword   Keyword       @relation(fields: [keywordId], references: [id], onDelete: Cascade)
   source    KeywordSource
   active    Boolean       @default(true)
+  relevance Int?
   createdAt DateTime      @default(now())
 
   @@id([appId, keywordId])
   @@index([keywordId])
+}
+
+model AuditInput {
+  appId     String   @id
+  app       App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  answers   Json
+  updatedAt DateTime @updatedAt
 }
 
 model KeywordMetric {

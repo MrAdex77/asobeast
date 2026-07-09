@@ -6,6 +6,9 @@ import { AppService } from './app.service';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AppsModule } from './apps/apps.module';
+import { AuditModule } from './audit/audit.module';
+import { CompetitorsModule } from './competitors/competitors.module';
+import { MetadataModule } from './metadata/metadata.module';
 import { validateEnv } from './config/env';
 import { HealthModule } from './health/health.module';
 import { JobsModule } from './jobs/jobs.module';
@@ -22,6 +25,9 @@ import { PrismaModule } from './prisma/prisma.module';
     JobsModule,
     AppsModule,
     AnalyticsModule,
+    AuditModule,
+    MetadataModule,
+    CompetitorsModule,
   ],
   controllers: [AppController],
   providers: [

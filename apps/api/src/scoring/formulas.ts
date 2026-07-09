@@ -1,3 +1,5 @@
+import { KeywordSource, tokenize } from '@asobeast/shared';
+
 export const clamp = (v: number, lo = 0, hi = 10): number =>
   Math.min(hi, Math.max(lo, v));
 
@@ -116,22 +118,64 @@ export const computeTraffic = (stats: KeywordStats): number =>
       WEIGHTS.traffic.length * lengthScore(stats),
   );
 
-const round2 = (v: number): number => Math.round(v * 100) / 100;
+const round1 = (v: number): number => Math.round(v * 10) / 10;
+
+export const OPPORTUNITY_WEIGHTS = {
+  volume: 0.4,
+  difficulty: 0.3,
+  relevance: 0.3,
+} as const;
+
+export const ASOBEAST_DEFAULTS = {
+  relevanceBySource: {
+    TITLE: 90,
+    SUBTITLE: 90,
+    KEYWORD_FIELD: 90,
+    MANUAL: 80,
+    DESCRIPTION: 70,
+    SUGGESTED: 60,
+    COMPETITOR: 50,
+  } satisfies Record<KeywordSource, number>,
+  relevanceOverlapBonus: 10,
+} as const;
+
+export const toVolume = (traffic: number): number =>
+  clamp(traffic * 10, 0, 100);
+
+export const toDifficulty100 = (difficulty: number): number =>
+  clamp(difficulty * 10, 0, 100);
+
+export const defaultRelevance = (
+  source: KeywordSource,
+  keywordText: string,
+  snapshotText: string,
+): number => {
+  const base = ASOBEAST_DEFAULTS.relevanceBySource[source];
+  const tokens = tokenize(keywordText);
+  const snapshotTokens = new Set(tokenize(snapshotText));
+  let relevance = base;
+  if (tokens.length > 0) {
+    const overlap = tokens.filter((token) => snapshotTokens.has(token)).length;
+    if (overlap === tokens.length) {
+      relevance = base + ASOBEAST_DEFAULTS.relevanceOverlapBonus;
+    } else if (overlap === 0) {
+      relevance = base - ASOBEAST_DEFAULTS.relevanceOverlapBonus;
+    }
+  }
+  return clamp(relevance, 1, 100);
+};
 
 export const computeOpportunity = (
-  traffic: number | null,
-  difficulty: number | null,
-  position: number | null,
+  volume: number | null,
+  difficulty100: number | null,
+  relevance: number,
 ): number | null => {
-  if (traffic === null || difficulty === null) {
+  if (volume === null || difficulty100 === null) {
     return null;
   }
-  const base = (traffic * (10 - difficulty)) / 10;
-  if (position !== null && position >= 4 && position <= 30) {
-    return round2(clamp(base * 1.25));
-  }
-  if (position === null && difficulty >= 8) {
-    return round2(clamp(base * 0.5));
-  }
-  return round2(clamp(base));
+  const score =
+    volume * OPPORTUNITY_WEIGHTS.volume +
+    (100 - difficulty100) * OPPORTUNITY_WEIGHTS.difficulty +
+    relevance * OPPORTUNITY_WEIGHTS.relevance;
+  return round1(clamp(score, 0, 100));
 };

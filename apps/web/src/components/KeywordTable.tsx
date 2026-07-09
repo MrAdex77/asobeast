@@ -1,16 +1,22 @@
 import Link from "next/link";
 import type { KeywordSort, TrackedKeywordItem } from "@asobeast/shared";
 import { Badge } from "./Badge";
+import { BucketBadge } from "./BucketBadge";
+import { RelevanceCell } from "./RelevanceCell";
 
 const SORT_COLUMNS: { key: KeywordSort; label: string }[] = [
   { key: "position", label: "Position" },
-  { key: "traffic", label: "Traffic" },
+  { key: "traffic", label: "Volume" },
   { key: "difficulty", label: "Difficulty" },
   { key: "opportunity", label: "Opportunity" },
 ];
 
 function num(value: number | null): string {
   return value === null ? "—" : String(Math.round(value));
+}
+
+function difficulty100(value: number | null): string {
+  return value === null ? "—" : String(Math.round(value * 10));
 }
 
 function Delta({ value }: { value: number | null }) {
@@ -71,6 +77,7 @@ export function KeywordTable({
           <tr>
             <th className="px-4 py-3 font-medium">Keyword</th>
             <th className="px-4 py-3 font-medium">Source</th>
+            <th className="px-4 py-3 font-medium">Bucket</th>
             {SORT_COLUMNS.map((column) => (
               <th key={column.key} className="px-4 py-3 font-medium">
                 <SortHeader
@@ -81,6 +88,7 @@ export function KeywordTable({
                 />
               </th>
             ))}
+            <th className="px-4 py-3 font-medium">Relevance</th>
             <th className="px-4 py-3 font-medium">7d</th>
           </tr>
         </thead>
@@ -93,12 +101,26 @@ export function KeywordTable({
               <td className="px-4 py-3">
                 <Badge>{keyword.source.toLowerCase()}</Badge>
               </td>
+              <td className="px-4 py-3">
+                <BucketBadge bucket={keyword.bucket} />
+              </td>
               <td className="px-4 py-3 tabular-nums">
                 {keyword.latestPosition ?? "—"}
               </td>
-              <td className="px-4 py-3 tabular-nums">{num(keyword.traffic)}</td>
-              <td className="px-4 py-3 tabular-nums">{num(keyword.difficulty)}</td>
-              <td className="px-4 py-3 tabular-nums">{num(keyword.opportunity)}</td>
+              <td className="px-4 py-3 tabular-nums">{num(keyword.volume)}</td>
+              <td className="px-4 py-3 tabular-nums">
+                {difficulty100(keyword.difficulty)}
+              </td>
+              <td className="px-4 py-3 tabular-nums">
+                {num(keyword.opportunity)}
+              </td>
+              <td className="px-4 py-3 tabular-nums">
+                <RelevanceCell
+                  appId={appId}
+                  keywordId={keyword.keywordId}
+                  relevance={keyword.relevance}
+                />
+              </td>
               <td className="px-4 py-3 tabular-nums">
                 <Delta value={keyword.positionDelta7d} />
               </td>
