@@ -1,0 +1,97 @@
+import type { KeywordSort, KeywordSuggestionStrategy } from "@asobeast/shared";
+import { queryOptions } from "@tanstack/react-query";
+import {
+  getApp,
+  getApps,
+  getComparison,
+  getCompetitors,
+  getHealth,
+  getKeywords,
+  getRankings,
+  getSuggestions,
+  getSummary,
+  getVisibilityHistory,
+  type RangeParams,
+  type RankingParams,
+} from "./api";
+
+export const appKeys = {
+  all: ["apps"] as const,
+  detail: (id: string) => [...appKeys.all, id] as const,
+  summary: (id: string) => [...appKeys.detail(id), "summary"] as const,
+  keywords: (id: string, sort?: KeywordSort) =>
+    [...appKeys.detail(id), "keywords", { sort }] as const,
+  suggestions: (id: string, strategy: KeywordSuggestionStrategy) =>
+    [...appKeys.detail(id), "suggestions", strategy] as const,
+  compare: (id: string, onlyGaps: boolean) =>
+    [...appKeys.detail(id), "compare", { onlyGaps }] as const,
+  rankings: (id: string, params: RankingParams) =>
+    [...appKeys.detail(id), "rankings", params] as const,
+  visibility: (id: string, params: RangeParams) =>
+    [...appKeys.detail(id), "visibility", params] as const,
+  competitors: (id: string) => [...appKeys.detail(id), "competitors"] as const,
+};
+
+export const healthKey = ["health"] as const;
+
+export const appsListOptions = queryOptions({
+  queryKey: appKeys.all,
+  queryFn: getApps,
+});
+
+export const appDetailOptions = (id: string) =>
+  queryOptions({
+    queryKey: appKeys.detail(id),
+    queryFn: () => getApp(id),
+  });
+
+export const appSummaryOptions = (id: string) =>
+  queryOptions({
+    queryKey: appKeys.summary(id),
+    queryFn: () => getSummary(id),
+  });
+
+export const keywordsOptions = (id: string, sort?: KeywordSort) =>
+  queryOptions({
+    queryKey: appKeys.keywords(id, sort),
+    queryFn: () => getKeywords(id, sort),
+  });
+
+export const suggestionsOptions = (
+  id: string,
+  strategy: KeywordSuggestionStrategy,
+) =>
+  queryOptions({
+    queryKey: appKeys.suggestions(id, strategy),
+    queryFn: () => getSuggestions(id, strategy),
+  });
+
+export const comparisonOptions = (id: string, onlyGaps: boolean) =>
+  queryOptions({
+    queryKey: appKeys.compare(id, onlyGaps),
+    queryFn: () => getComparison(id, onlyGaps),
+  });
+
+export const rankingsOptions = (id: string, params: RankingParams) =>
+  queryOptions({
+    queryKey: appKeys.rankings(id, params),
+    queryFn: () => getRankings(id, params),
+  });
+
+export const visibilityOptions = (id: string, params: RangeParams) =>
+  queryOptions({
+    queryKey: appKeys.visibility(id, params),
+    queryFn: () => getVisibilityHistory(id, params),
+  });
+
+export const competitorsOptions = (id: string) =>
+  queryOptions({
+    queryKey: appKeys.competitors(id),
+    queryFn: () => getCompetitors(id),
+  });
+
+export const healthOptions = queryOptions({
+  queryKey: healthKey,
+  queryFn: getHealth,
+  refetchInterval: 30_000,
+});
