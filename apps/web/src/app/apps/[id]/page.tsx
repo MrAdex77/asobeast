@@ -4,9 +4,11 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { EmptyState } from "@/components/EmptyState";
 import { KeywordTable } from "@/components/KeywordTable";
 import { StatCards } from "@/components/overview/StatCards";
+import { VisibilityChart } from "@/components/overview/VisibilityChart";
 import { getKeywords } from "@/lib/api";
 import { getQueryClient } from "@/lib/get-query-client";
-import { appSummaryOptions } from "@/lib/queries";
+import { appSummaryOptions, visibilityOptions } from "@/lib/queries";
+import { presetToRange } from "@/lib/ranges";
 
 function parseSort(value: string | string[] | undefined): KeywordSort | undefined {
   return typeof value === "string" &&
@@ -27,6 +29,7 @@ export default async function AppOverviewPage({
 
   const queryClient = getQueryClient();
   void queryClient.prefetchQuery(appSummaryOptions(id));
+  void queryClient.prefetchQuery(visibilityOptions(id, presetToRange("30d")));
   const keywords = await getKeywords(id, sort).catch(
     () => [] as TrackedKeywordItem[],
   );
@@ -35,6 +38,7 @@ export default async function AppOverviewPage({
     <HydrationBoundary state={dehydrate(queryClient)}>
       <div className="flex flex-col gap-8">
         <StatCards id={id} />
+        <VisibilityChart id={id} />
 
         <section className="flex flex-col gap-3">
           <h2 className="text-lg font-medium">Keywords</h2>

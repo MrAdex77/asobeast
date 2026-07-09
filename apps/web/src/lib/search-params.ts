@@ -8,9 +8,7 @@ import {
   parseAsString,
   parseAsStringLiteral,
 } from "nuqs";
-
-export const RANGE_PRESETS = ["7d", "30d", "90d"] as const;
-export type RangePreset = (typeof RANGE_PRESETS)[number];
+import { RANGE_PRESETS, VISIBILITY_RANGES } from "./ranges";
 
 export const sortParser = parseAsStringLiteral(KEYWORD_SORTS).withDefault(
   "opportunity",
@@ -18,6 +16,9 @@ export const sortParser = parseAsStringLiteral(KEYWORD_SORTS).withDefault(
 
 export const rangeParser =
   parseAsStringLiteral(RANGE_PRESETS).withDefault("30d");
+
+export const visibilityRangeParser =
+  parseAsStringLiteral(VISIBILITY_RANGES).withDefault("30d");
 
 export const keywordIdsParser = parseAsArrayOf(parseAsString).withDefault([]);
 

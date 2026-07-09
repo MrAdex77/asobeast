@@ -11,6 +11,11 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
 });
+const dayMonthFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: "UTC",
+  month: "short",
+  day: "numeric",
+});
 const priceFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -40,6 +45,14 @@ export function formatPrice(value: number): string {
 export function formatDate(value: string | null): string {
   if (!value) return "—";
   return dateFormatter.format(new Date(value));
+}
+
+export function formatDayMonth(value: string): string {
+  return dayMonthFormatter.format(new Date(value));
+}
+
+export function formatPosition(value: number | null): string {
+  return value === null ? ">100" : String(value);
 }
 
 export function storeLabel(store: Store): string {
