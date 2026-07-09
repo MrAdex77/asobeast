@@ -67,11 +67,31 @@ export class KeywordsService {
     sort?: KeywordSort,
   ): Promise<TrackedKeywordItem[]> {
     await this.ensureApp(appId);
-    const rows = await this.prisma.trackedKeyword.findMany({
+    const [rows, snapshotText] = await Promise.all([
+      this.prisma.trackedKeyword.findMany({
+        where: { appId },
+        ...this.trackedArgs(appId),
+      }),
+      this.snapshotText(appId),
+    ]);
+    return sortTracked(
+      rows.map((row) => toTrackedKeywordItem(row, snapshotText)),
+      sort,
+    );
+  }
+
+  private async snapshotText(appId: string): Promise<string> {
+    const snapshot = await this.prisma.appSnapshot.findFirst({
       where: { appId },
-      ...this.trackedArgs(appId),
+      orderBy: { capturedAt: 'desc' },
+      select: { title: true, subtitle: true, summary: true },
     });
-    return sortTracked(rows.map(toTrackedKeywordItem), sort);
+    if (!snapshot) {
+      return '';
+    }
+    return [snapshot.title, snapshot.subtitle, snapshot.summary]
+      .filter((part): part is string => Boolean(part))
+      .join(' ');
   }
 
   async compare(appId: string, onlyGaps: boolean): Promise<KeywordComparison> {
@@ -266,12 +286,13 @@ export class KeywordsService {
       });
     }
 
+    const snapshotText = await this.snapshotText(appId);
     const tracked = (
       await this.prisma.trackedKeyword.findMany({
         where: { appId, source: 'KEYWORD_FIELD', active: true },
         ...this.trackedArgs(appId),
       })
-    ).map(toTrackedKeywordItem);
+    ).map((row) => toTrackedKeywordItem(row, snapshotText));
 
     return {
       tracked,
@@ -570,14 +591,17 @@ export class KeywordsService {
     appId: string,
     keywordId: string,
   ): Promise<TrackedKeywordItem> {
-    const row = await this.prisma.trackedKeyword.findFirst({
-      where: { appId, keywordId },
-      ...this.trackedArgs(appId),
-    });
+    const [row, snapshotText] = await Promise.all([
+      this.prisma.trackedKeyword.findFirst({
+        where: { appId, keywordId },
+        ...this.trackedArgs(appId),
+      }),
+      this.snapshotText(appId),
+    ]);
     if (!row) {
       throw new NotFoundException(`Keyword ${keywordId} is not tracked`);
     }
-    return toTrackedKeywordItem(row);
+    return toTrackedKeywordItem(row, snapshotText);
   }
 
   private trackedArgs(appId: string) {
@@ -587,6 +611,7 @@ export class KeywordsService {
         keywordId: true,
         source: true,
         active: true,
+        relevance: true,
         keyword: {
           select: {
             text: true,

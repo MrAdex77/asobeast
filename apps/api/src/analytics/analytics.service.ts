@@ -16,7 +16,13 @@ import {
 } from '@asobeast/shared';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { PrismaService } from '../prisma/prisma.service';
-import { computeOpportunity } from '../scoring/formulas';
+import {
+  computeOpportunity,
+  defaultRelevance,
+  toDifficulty100,
+  toVolume,
+} from '../scoring/formulas';
+import { KeywordSource } from '@prisma/client';
 import { VisibilityHistoryQueryDto } from './dto/visibility-history-query.dto';
 import { visibility, VisibilityKeyword } from './visibility';
 
@@ -26,7 +32,7 @@ const MOVER_WINDOW_DAYS = 7;
 const MOVER_TOLERANCE_MS = DAY_MS;
 const MOVER_LIMIT = 5;
 const UNRANKED_RANK = Number.MAX_SAFE_INTEGER;
-const HIGH_OPPORTUNITY = 6;
+const HIGH_OPPORTUNITY = 60;
 const COVERAGE_LIMIT = 5;
 const HISTORY_DEFAULT_DAYS = 30;
 const HISTORY_MAX_DAYS = 180;
@@ -44,6 +50,8 @@ interface Ranking {
 
 interface TrackedRow {
   keywordId: string;
+  source: KeywordSource;
+  relevance: number | null;
   keyword: {
     text: string;
     metrics: Metric[];
@@ -285,6 +293,7 @@ export class AnalyticsService {
     const title = snapshot?.title ?? '';
     const subtitle = snapshot?.subtitle ?? '';
     const description = snapshot?.description ?? '';
+    const snapshotText = [title, subtitle, description].join(' ');
 
     let inTitle = 0;
     let inSubtitle = 0;
@@ -306,13 +315,14 @@ export class AnalyticsService {
       const metric = referenceDate
         ? metricAt(row.keyword.metrics, referenceDate)
         : null;
-      const position = referenceDate
-        ? positionAt(row.keyword.rankings, referenceDate)
-        : null;
+      const traffic = metric?.traffic ?? null;
+      const difficulty = metric?.difficulty ?? null;
+      const relevance =
+        row.relevance ?? defaultRelevance(row.source, text, snapshotText);
       const opportunity = computeOpportunity(
-        metric?.traffic ?? null,
-        metric?.difficulty ?? null,
-        position,
+        traffic === null ? null : toVolume(traffic),
+        difficulty === null ? null : toDifficulty100(difficulty),
+        relevance,
       );
       if (opportunity !== null && opportunity >= HIGH_OPPORTUNITY) {
         uncovered.push({ keywordId: row.keywordId, text, opportunity });
@@ -348,6 +358,8 @@ export class AnalyticsService {
       orderBy: { createdAt: 'asc' },
       select: {
         keywordId: true,
+        source: true,
+        relevance: true,
         keyword: {
           select: {
             text: true,

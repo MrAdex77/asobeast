@@ -1,6 +1,11 @@
 import { KeywordMetric, KeywordRanking } from '@prisma/client';
 import { TrackedKeywordItem } from '@asobeast/shared';
-import { computeOpportunity } from '../scoring/formulas';
+import {
+  computeOpportunity,
+  defaultRelevance,
+  toDifficulty100,
+  toVolume,
+} from '../scoring/formulas';
 
 const DELTA_WINDOW_DAYS = 7;
 
@@ -8,6 +13,7 @@ export interface TrackedKeywordRow {
   keywordId: string;
   source: TrackedKeywordItem['source'];
   active: boolean;
+  relevance: number | null;
   keyword: {
     text: string;
     rankings: Pick<KeywordRanking, 'position' | 'date'>[];
@@ -35,12 +41,19 @@ function positionDelta7d(
 
 export function toTrackedKeywordItem(
   row: TrackedKeywordRow,
+  snapshotText = '',
 ): TrackedKeywordItem {
   const latest = row.keyword.rankings[0] ?? null;
   const metric = row.keyword.metrics[0] ?? null;
   const latestPosition = latest?.position ?? null;
   const traffic = metric?.traffic ?? null;
   const difficulty = metric?.difficulty ?? null;
+  const volume = traffic === null ? null : toVolume(traffic);
+  const difficulty100 =
+    difficulty === null ? null : toDifficulty100(difficulty);
+  const relevance =
+    row.relevance ??
+    defaultRelevance(row.source, row.keyword.text, snapshotText);
   return {
     keywordId: row.keywordId,
     text: row.keyword.text,
@@ -50,9 +63,9 @@ export function toTrackedKeywordItem(
     positionDelta7d: positionDelta7d(row.keyword.rankings),
     traffic,
     difficulty,
-    volume: null,
-    relevance: null,
-    opportunity: computeOpportunity(traffic, difficulty, latestPosition),
+    volume,
+    relevance,
+    opportunity: computeOpportunity(volume, difficulty100, relevance),
     bucket: null,
     scoredAt: metric ? metric.date.toISOString().slice(0, 10) : null,
   };

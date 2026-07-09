@@ -3,12 +3,15 @@ import {
   computeDifficulty,
   computeOpportunity,
   computeTraffic,
+  defaultRelevance,
   freshnessScore,
   KeywordStats,
   lengthScore,
   strengthScore,
   suggestScore,
   titleMatchScore,
+  toDifficulty100,
+  toVolume,
 } from './formulas';
 
 const genericKeyword: KeywordStats = {
@@ -91,27 +94,50 @@ describe('scoring formulas', () => {
     expect(computeTraffic(midKeyword)).toBeCloseTo(5.04, 2);
   });
 
+  describe('scale bridging', () => {
+    it('maps traffic to a 0-100 volume', () => {
+      expect(toVolume(8)).toBeCloseTo(80, 2);
+      expect(toVolume(12)).toBeCloseTo(100, 2);
+    });
+
+    it('maps difficulty to a 0-100 scale', () => {
+      expect(toDifficulty100(4)).toBeCloseTo(40, 2);
+      expect(toDifficulty100(11)).toBeCloseTo(100, 2);
+    });
+  });
+
+  describe('defaultRelevance', () => {
+    it('adds the overlap bonus when the keyword is fully in the snapshot', () => {
+      expect(
+        defaultRelevance('TITLE', 'habit tracker', 'daily habit tracker'),
+      ).toBe(100);
+    });
+
+    it('subtracts the bonus when there is zero overlap', () => {
+      expect(defaultRelevance('COMPETITOR', 'sudoku', 'habit tracker')).toBe(
+        40,
+      );
+    });
+
+    it('keeps the base for partial overlap', () => {
+      expect(
+        defaultRelevance('SUGGESTED', 'habit journal', 'habit tracker'),
+      ).toBe(60);
+    });
+  });
+
   describe('computeOpportunity', () => {
-    it('is null when traffic or difficulty is missing', () => {
-      expect(computeOpportunity(null, 5, 10)).toBeNull();
-      expect(computeOpportunity(5, null, 10)).toBeNull();
+    it('is null when volume or difficulty is missing', () => {
+      expect(computeOpportunity(null, 40, 90)).toBeNull();
+      expect(computeOpportunity(80, null, 90)).toBeNull();
     });
 
-    it('returns the base value outside boost and cut zones', () => {
-      expect(computeOpportunity(8, 4, 1)).toBeCloseTo(4.8, 2);
-      expect(computeOpportunity(8, 4, null)).toBeCloseTo(4.8, 2);
+    it('applies the ported 0.4/0.3/0.3 weights', () => {
+      expect(computeOpportunity(80, 40, 90)).toBeCloseTo(77, 1);
     });
 
-    it('boosts winnable positions between 4 and 30', () => {
-      expect(computeOpportunity(8, 4, 10)).toBeCloseTo(6, 2);
-    });
-
-    it('cuts unranked keywords with high difficulty', () => {
-      expect(computeOpportunity(8, 8, null)).toBeCloseTo(0.8, 2);
-    });
-
-    it('clamps to a maximum of 10', () => {
-      expect(computeOpportunity(10, 0, 10)).toBeCloseTo(10, 2);
+    it('clamps to a maximum of 100', () => {
+      expect(computeOpportunity(100, 0, 100)).toBeCloseTo(100, 1);
     });
   });
 
