@@ -1,8 +1,10 @@
 import type {
   ApiErrorEnvelope,
+  AppAuditResult,
   AppDetail,
   AppListItem,
   AppSummary,
+  AuditInputAnswers,
   KeywordSort,
   SnapshotDiffResult,
   TrackedKeywordItem,
@@ -65,4 +67,18 @@ export function refreshApp(id: string): Promise<SnapshotDiffResult> {
 
 export async function runDaily(id: string): Promise<void> {
   await apiFetch<unknown>(`/apps/${id}/run-daily`, { method: "POST" });
+}
+
+export function getAudit(appId: string): Promise<AppAuditResult> {
+  return apiFetch<AppAuditResult>(`/apps/${appId}/audit`);
+}
+
+export function saveAuditInputs(
+  appId: string,
+  answers: AuditInputAnswers,
+): Promise<AppAuditResult> {
+  return apiFetch<AppAuditResult>(`/apps/${appId}/audit/inputs`, {
+    method: "PUT",
+    body: JSON.stringify(answers),
+  });
 }
