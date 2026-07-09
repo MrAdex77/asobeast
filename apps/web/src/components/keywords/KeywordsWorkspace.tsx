@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddKeywordsDialog } from "./AddKeywordsDialog";
 import { KeywordsTable } from "./KeywordsTable";
+import { SuggestionsPanel } from "./SuggestionsPanel";
 
 export function KeywordsWorkspace({ id }: { id: string }) {
   return (
@@ -23,6 +24,7 @@ export function KeywordsWorkspace({ id }: { id: string }) {
         </AddKeywordsDialog>
       </div>
       <KeywordsTable id={id} />
+      <SuggestionsPanel id={id} />
     </div>
   );
 }
