@@ -5,9 +5,10 @@ import { ExternalLink } from "lucide-react";
 import type { AppDetail } from "@asobeast/shared";
 import { AppIcon } from "@/components/AppIcon";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { appDetailOptions } from "@/lib/queries";
 import { storeLabel } from "@/lib/format";
+import { RefreshAction } from "./RefreshAction";
+import { RunDailyAction } from "./RunDailyAction";
 
 function storeUrl(detail: AppDetail): string {
   if (detail.store === "GOOGLE_PLAY") {
@@ -43,12 +44,8 @@ export function AppHeader({ id }: { id: string }) {
       </div>
 
       <div className="flex gap-2">
-        <Button variant="outline" disabled>
-          Refresh
-        </Button>
-        <Button variant="outline" disabled>
-          Run daily
-        </Button>
+        <RefreshAction appId={detail.id} />
+        <RunDailyAction appId={detail.id} />
       </div>
     </header>
   );
