@@ -1,8 +1,6 @@
 import { notFound } from "next/navigation";
 import type { KeywordCoverageRow } from "@asobeast/shared";
 import { BucketBadge } from "@/components/BucketBadge";
-import { Card } from "@/components/Card";
-import { EmptyState } from "@/components/EmptyState";
 import { KeywordFieldSuggestionCard } from "@/components/KeywordFieldSuggestionCard";
 import { MetadataFieldCard } from "@/components/MetadataFieldCard";
 import { ApiError, getMetadataAudit } from "@/lib/api";
@@ -71,11 +69,9 @@ export default async function MetadataPage({
   });
   if (!result) {
     return (
-      <Card className="border-dashed">
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Metadata audit is not available for this app yet.
-        </p>
-      </Card>
+      <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+        Metadata audit is not available for this app yet.
+      </div>
     );
   }
 
@@ -95,10 +91,9 @@ export default async function MetadataPage({
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-medium">Keyword coverage</h2>
         {result.coverage.length === 0 ? (
-          <EmptyState
-            title="No tracked keywords"
-            description="Track keywords to see how your metadata covers them."
-          />
+          <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
+            Track keywords to see how your metadata covers them.
+          </div>
         ) : (
           <CoverageTable rows={result.coverage} />
         )}

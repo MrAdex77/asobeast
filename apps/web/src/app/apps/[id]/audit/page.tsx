@@ -6,16 +6,18 @@ import type {
   AuditInputAnswers,
   AuditRecommendation,
 } from "@asobeast/shared";
-import { Badge, type BadgeTone } from "@/components/Badge";
-import { Card } from "@/components/Card";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { AuditInputsForm } from "@/components/AuditInputsForm";
 import { ApiError, getAudit } from "@/lib/api";
 
-const STATUS_TONE: Record<AuditCheckStatus, BadgeTone> = {
+type BadgeVariant = "success" | "warning" | "destructive" | "secondary";
+
+const STATUS_VARIANT: Record<AuditCheckStatus, BadgeVariant> = {
   pass: "success",
   warn: "warning",
-  fail: "danger",
-  unanswered: "neutral",
+  fail: "destructive",
+  unanswered: "secondary",
 };
 
 const CHECK_TO_ANSWER: Record<string, keyof AuditInputAnswers> = {
@@ -60,7 +62,9 @@ function FactorRow({ factor }: { factor: AuditFactorResult }) {
         <span className="flex items-center gap-2 font-medium">
           {factor.label}
           <span className="text-xs text-zinc-400">weight {factor.weight}</span>
-          {factor.needsInput ? <Badge tone="warning">needs input</Badge> : null}
+          {factor.needsInput ? (
+            <Badge variant="warning">needs input</Badge>
+          ) : null}
         </span>
         <span className="flex items-center gap-3">
           <span className="hidden h-2 w-32 overflow-hidden rounded-full bg-zinc-100 sm:block dark:bg-zinc-800">
@@ -86,8 +90,10 @@ function FactorRow({ factor }: { factor: AuditFactorResult }) {
               </span>
             </span>
             <span className="flex shrink-0 items-center gap-2">
-              <Badge>{check.kind}</Badge>
-              <Badge tone={STATUS_TONE[check.status]}>{check.status}</Badge>
+              <Badge variant="outline">{check.kind}</Badge>
+              <Badge variant={STATUS_VARIANT[check.status]}>
+                {check.status}
+              </Badge>
             </span>
           </li>
         ))}
@@ -105,27 +111,27 @@ function RecommendationList({
 }) {
   return (
     <Card>
-      <span className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-        {title}
-      </span>
-      {items.length === 0 ? (
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-          Nothing here — great work.
-        </p>
-      ) : (
-        <ul className="mt-2 flex flex-col gap-2 text-sm">
-          {items.slice(0, 5).map((item) => (
-            <li key={`${item.factorId}-${item.checkId}`}>
-              <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                {item.label}
-              </span>
-              <span className="block text-zinc-500 dark:text-zinc-400">
-                {item.detail}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <CardContent>
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {title}
+        </span>
+        {items.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Nothing here — great work.
+          </p>
+        ) : (
+          <ul className="mt-2 flex flex-col gap-2 text-sm">
+            {items.slice(0, 5).map((item) => (
+              <li key={`${item.factorId}-${item.checkId}`}>
+                <span className="font-medium">{item.label}</span>
+                <span className="block text-muted-foreground">
+                  {item.detail}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
     </Card>
   );
 }
@@ -142,11 +148,9 @@ export default async function AuditPage({
   });
   if (!audit) {
     return (
-      <Card className="border-dashed">
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Audit is not available for this app yet.
-        </p>
-      </Card>
+      <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+        Audit is not available for this app yet.
+      </div>
     );
   }
 
@@ -154,15 +158,17 @@ export default async function AuditPage({
     <div className="flex flex-col gap-8">
       <section className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-center">
         <Card className="text-center">
-          <span className="text-xs uppercase tracking-wide text-zinc-400">
-            ASO score
-          </span>
-          <div className="text-4xl font-semibold text-zinc-900 dark:text-zinc-100">
-            {audit.overall === null ? "—" : Math.round(audit.overall)}
-            <span className="text-lg text-zinc-400">/100</span>
-          </div>
+          <CardContent>
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">
+              ASO score
+            </span>
+            <div className="text-4xl font-semibold">
+              {audit.overall === null ? "—" : Math.round(audit.overall)}
+              <span className="text-lg text-muted-foreground">/100</span>
+            </div>
+          </CardContent>
         </Card>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+        <p className="text-sm text-muted-foreground">
           Automated coverage: {audit.coveredWeight} of {audit.totalWeight}{" "}
           weight scored. Unanswered factors renormalize out of the overall.
         </p>

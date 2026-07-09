@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { KeywordFieldSuggestion } from "@asobeast/shared";
-import { Card } from "./Card";
+import { Card, CardContent } from "@/components/ui/card";
 
 export function KeywordFieldSuggestionCard({
   suggestion,
@@ -23,6 +23,7 @@ export function KeywordFieldSuggestionCard({
 
   return (
     <Card>
+      <CardContent className="flex flex-col gap-0">
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
           Suggested keyword field
@@ -49,6 +50,7 @@ export function KeywordFieldSuggestionCard({
           </button>
         </>
       )}
+      </CardContent>
     </Card>
   );
 }
