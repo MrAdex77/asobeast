@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { notFound } from "next/navigation";
-import { AppActions } from "@/components/AppActions";
-import { AppIcon } from "@/components/AppIcon";
-import { AppTabs } from "@/components/AppTabs";
-import { Badge } from "@/components/Badge";
-import { getApp } from "@/lib/api";
+import { AppHeader } from "@/components/app-detail/AppHeader";
+import { SectionNav } from "@/components/app-detail/SectionNav";
+import { ApiError } from "@/lib/api";
+import { getQueryClient } from "@/lib/get-query-client";
+import { appDetailOptions, appSummaryOptions } from "@/lib/queries";
 
 export default async function AppDetailLayout({
   params,
@@ -14,27 +15,26 @@ export default async function AppDetailLayout({
   children: ReactNode;
 }) {
   const { id } = await params;
-  const detail = await getApp(id).catch(() => null);
-  if (!detail) notFound();
+  const queryClient = getQueryClient();
 
-  const storeLabel = detail.store === "APP_STORE" ? "App Store" : "Google Play";
+  try {
+    await queryClient.fetchQuery(appDetailOptions(id));
+  } catch (error) {
+    if (error instanceof ApiError && error.envelope.statusCode === 404) {
+      notFound();
+    }
+    throw error;
+  }
+
+  void queryClient.prefetchQuery(appSummaryOptions(id));
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <AppIcon src={detail.iconUrl} name={detail.name} size={64} />
-          <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {detail.name ?? "Untitled app"}
-            </h1>
-            <Badge tone="info">{storeLabel}</Badge>
-          </div>
-        </div>
-        <AppActions appId={detail.id} />
-      </header>
-      <AppTabs appId={detail.id} />
-      {children}
-    </div>
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <div className="flex flex-col gap-6">
+        <AppHeader id={id} />
+        <SectionNav id={id} />
+        {children}
+      </div>
+    </HydrationBoundary>
   );
 }

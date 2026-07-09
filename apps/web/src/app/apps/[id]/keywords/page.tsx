@@ -1,7 +1,7 @@
-export default function CompetitorsPage() {
+export default function KeywordsPage() {
   return (
     <div className="rounded-xl border border-dashed py-16 text-center text-sm text-muted-foreground">
-      Competitor management and the comparison matrix are built in phase F6.
+      The keyword workspace is built in phase F4.
     </div>
   );
 }
