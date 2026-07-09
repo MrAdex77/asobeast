@@ -13,6 +13,7 @@ import {
   KeywordSort,
   KeywordSuggestion,
   KeywordSuggestionStrategy,
+  KEYWORD_FIELD_CHAR_LIMIT,
   normalizeText,
   TrackedKeywordItem,
 } from '@asobeast/shared';
@@ -27,7 +28,6 @@ import { toTrackedKeywordItem } from './keywords.mapper';
 const AUTO_TRACK_LIMIT = 15;
 const MAX_KEYWORD_WORDS = 5;
 const RANKING_HISTORY_LIMIT = 60;
-const KEYWORD_FIELD_CHAR_LIMIT = 100;
 const SEARCH_SEED_LIMIT = 5;
 
 const SOURCE_WEIGHT: Record<KeywordSource, number> = {
