@@ -4,7 +4,7 @@
 
 **asobeast** is an open source, self hosted ASO (App Store Optimization) toolkit for indie developers and small teams. It imports an app from a store URL, stores metadata snapshots, extracts and tracks keywords, checks keyword rankings daily, scores keywords (traffic, difficulty, opportunity) and shows everything through a Next.js frontend talking to a NestJS API. All store requests run on the machine that hosts the app. Region v1: US only. **Store v1: Apple App Store only** (Google Play is architecturally prepared but stubbed).
 
-The implementation plan lives in `docs/plan/`. Work phase by phase, step by step; each step maps to exactly one git commit whose message is given in the plan.
+The implementation plan lives in `docs/plan/`. Work phase by phase, step by step; each step maps to exactly one git commit whose message is given in the plan. The frontend upgrade plan lives in `docs/frontend-plan/` and follows the same rules, one branch and one PR per phase.
 
 ## Tech stack
 
@@ -31,6 +31,8 @@ apps/
       rankings/           rank capture + history
       scoring/            pure formulas + stats collection
       analytics/          visibility, summary
+      audit/              aso audit rubric engine + endpoints
+      metadata/           metadata audit + keyword coverage
       jobs/               BullMQ queues, workers, schedulers
     prisma/               schema.prisma, migrations, seed.ts
   web/                    Next.js frontend (src/app, src/lib/api.ts)
@@ -62,7 +64,7 @@ docker compose -f docker-compose.dev.yml up -d
 ## Git conventions (strict)
 
 - Conventional commits: `type(scope): subject`. Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `build`, `ci`, `perf`.
-- Scopes: `repo` (workspace level), `api`, `web`, `shared`, `docker`, `ci`, plus API domain scopes `db`, `providers`, `apps`, `keywords`, `rankings`, `scoring`, `competitors`, `analytics`, `jobs` (domain scopes always mean code inside `apps/api`).
+- Scopes: `repo` (workspace level), `api`, `web`, `shared`, `docker`, `ci`, plus API domain scopes `db`, `providers`, `apps`, `keywords`, `rankings`, `scoring`, `competitors`, `analytics`, `jobs`, `audit`, `metadata` (domain scopes always mean code inside `apps/api`).
 - Subject: imperative, lowercase, no trailing period, max 72 chars. One plan step = one commit with the exact message from the plan; body only for deviations.
 - Before every commit: `pnpm lint && pnpm test` green (plus `pnpm build` when configs or dependencies changed).
 - Never commit `.env` files, `node_modules`, `dist`, `.next`, `.turbo`.
@@ -91,7 +93,7 @@ docker compose -f docker-compose.dev.yml up -d
 2. **The iOS keyword field (100 chars) is private.** It never appears on the store page and cannot be scraped; the owner pastes it manually (source `KEYWORD_FIELD`).
 3. **Rate limits.** The iTunes endpoints informally tolerate roughly 20 requests per minute per IP; the `appstore` worker runs concurrency 1 with a limiter from `SCRAPE_ITUNES_RPM` (default 15). Never call store endpoints in bulk outside the queue (the only exception: small, user initiated suggestion lookups).
 4. **One search serves everyone.** A single store search per keyword yields positions for the primary app and all its competitors. Never one search per app.
-5. **Opportunity is per app, not per keyword.** Traffic and difficulty persist in `KeywordMetric`; opportunity depends on the app's current position and is computed in the read layer only.
+5. **Opportunity is per app, not per keyword.** Traffic and difficulty persist in `KeywordMetric`; opportunity depends on the app's keyword relevance and is computed in the read layer only (aso-skills formula).
 6. **Position semantics.** 1 based; `null` means "checked, not found within `depth`" (default 100). Store the row even when null.
 7. **Multi tenancy is prepared, not implemented.** Tenant owned rows carry `workspaceId`; v1 uses the seeded default workspace; no auth in v1.
 8. **Scrapers break.** Parse failures fail the job (BullMQ retries with backoff) and must never take down request handling.
