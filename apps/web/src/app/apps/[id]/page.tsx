@@ -3,6 +3,8 @@ import type { KeywordSort, TrackedKeywordItem } from "@asobeast/shared";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { EmptyState } from "@/components/EmptyState";
 import { KeywordTable } from "@/components/KeywordTable";
+import { CoverageCard } from "@/components/overview/CoverageCard";
+import { MoversCard } from "@/components/overview/MoversCard";
 import { RankDistributionChart } from "@/components/overview/RankDistributionChart";
 import { StatCards } from "@/components/overview/StatCards";
 import { VisibilityChart } from "@/components/overview/VisibilityChart";
@@ -37,10 +39,20 @@ export default async function AppOverviewPage({
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-6">
         <StatCards id={id} />
-        <VisibilityChart id={id} />
-        <RankDistributionChart id={id} />
+
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <VisibilityChart id={id} />
+          </div>
+          <RankDistributionChart id={id} />
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <MoversCard id={id} />
+          <CoverageCard id={id} />
+        </div>
 
         <section className="flex flex-col gap-3">
           <h2 className="text-lg font-medium">Keywords</h2>
