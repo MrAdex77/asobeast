@@ -4,6 +4,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { appsListOptions } from "@/lib/queries";
 import { AppCard } from "./AppCard";
+import { ImportAppDialog } from "./ImportAppDialog";
 
 export function AppsDashboard() {
   const { data: apps } = useSuspenseQuery(appsListOptions);
@@ -12,7 +13,9 @@ export function AppsDashboard() {
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">Apps</h1>
-        <Button disabled>Import app</Button>
+        <ImportAppDialog>
+          <Button>Import app</Button>
+        </ImportAppDialog>
       </div>
 
       {apps.length === 0 ? (
