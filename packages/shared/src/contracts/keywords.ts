@@ -1,4 +1,4 @@
-import { KeywordSource, KeywordSuggestionStrategy } from '../index';
+import { KeywordBucket, KeywordSource, KeywordSuggestionStrategy } from '../index';
 
 export interface TrackedKeywordItem {
   keywordId: string;
@@ -9,7 +9,10 @@ export interface TrackedKeywordItem {
   positionDelta7d: number | null;
   traffic: number | null;
   difficulty: number | null;
+  volume: number | null;
+  relevance: number | null;
   opportunity: number | null;
+  bucket: KeywordBucket | null;
   scoredAt: string | null;
 }
 

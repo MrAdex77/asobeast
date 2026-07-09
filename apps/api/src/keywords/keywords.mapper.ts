@@ -50,7 +50,10 @@ export function toTrackedKeywordItem(
     positionDelta7d: positionDelta7d(row.keyword.rankings),
     traffic,
     difficulty,
+    volume: null,
+    relevance: null,
     opportunity: computeOpportunity(traffic, difficulty, latestPosition),
+    bucket: null,
     scoredAt: metric ? metric.date.toISOString().slice(0, 10) : null,
   };
 }

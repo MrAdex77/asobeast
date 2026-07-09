@@ -18,9 +18,28 @@ export const KEYWORD_SUGGESTION_STRATEGIES = [
   'search',
   'similar',
   'competitors',
+  'seasonal',
 ] as const;
 export type KeywordSuggestionStrategy =
   (typeof KEYWORD_SUGGESTION_STRATEGIES)[number];
+
+export const KEYWORD_BUCKETS = [
+  'primary',
+  'secondary',
+  'longtail',
+  'aspirational',
+] as const;
+export type KeywordBucket = (typeof KEYWORD_BUCKETS)[number];
+
+export const KEYWORD_BUCKET_TARGETS: Record<
+  KeywordBucket,
+  { min: number; max: number }
+> = {
+  primary: { min: 3, max: 5 },
+  secondary: { min: 5, max: 10 },
+  longtail: { min: 10, max: 20 },
+  aspirational: { min: 3, max: 5 },
+};
 
 export const KEYWORD_SORTS = [
   'opportunity',
@@ -46,3 +65,4 @@ export const DEFAULT_COUNTRY = 'us';
 export * from './url-parser';
 export * from './contracts';
 export * from './text';
+export * from './aso';
