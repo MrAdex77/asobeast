@@ -6,6 +6,7 @@ import type {
   AppSummary,
   AuditInputAnswers,
   KeywordSort,
+  MetadataAuditResult,
   SnapshotDiffResult,
   TrackedKeywordItem,
 } from "@asobeast/shared";
@@ -71,6 +72,10 @@ export async function runDaily(id: string): Promise<void> {
 
 export function getAudit(appId: string): Promise<AppAuditResult> {
   return apiFetch<AppAuditResult>(`/apps/${appId}/audit`);
+}
+
+export function getMetadataAudit(appId: string): Promise<MetadataAuditResult> {
+  return apiFetch<MetadataAuditResult>(`/apps/${appId}/metadata/audit`);
 }
 
 export function saveAuditInputs(
