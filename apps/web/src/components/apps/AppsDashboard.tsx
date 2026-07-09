@@ -19,11 +19,16 @@ export function AppsDashboard() {
       </div>
 
       {apps.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed py-16 text-center">
-          <p className="font-medium">No apps yet</p>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Import an app from an App Store URL to start tracking its keywords.
-          </p>
+        <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed py-16 text-center">
+          <div className="flex flex-col gap-1">
+            <p className="font-medium">No apps yet</p>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              Import an app from an App Store URL to start tracking its keywords.
+            </p>
+          </div>
+          <ImportAppDialog>
+            <Button>Import your first app</Button>
+          </ImportAppDialog>
         </div>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
