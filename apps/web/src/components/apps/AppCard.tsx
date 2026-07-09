@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { MoreVertical } from "lucide-react";
 import type { AppListItem } from "@asobeast/shared";
 import { AppIcon } from "@/components/AppIcon";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatDate, formatNumber, formatRating, storeLabel } from "@/lib/format";
+import { DeleteAppMenu } from "./DeleteAppMenu";
 
 export function AppCard({ app }: { app: AppListItem }) {
   const name = app.name ?? "Untitled app";
@@ -20,9 +19,7 @@ export function AppCard({ app }: { app: AppListItem }) {
       </Link>
 
       <div className="absolute top-2 right-2 z-20">
-        <Button variant="ghost" size="icon-sm" disabled aria-label="App actions">
-          <MoreVertical />
-        </Button>
+        <DeleteAppMenu id={app.id} name={name} />
       </div>
 
       <div className="flex items-start gap-4">
