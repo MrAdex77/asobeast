@@ -3,6 +3,7 @@ import type { KeywordSort, TrackedKeywordItem } from "@asobeast/shared";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { EmptyState } from "@/components/EmptyState";
 import { KeywordTable } from "@/components/KeywordTable";
+import { RankDistributionChart } from "@/components/overview/RankDistributionChart";
 import { StatCards } from "@/components/overview/StatCards";
 import { VisibilityChart } from "@/components/overview/VisibilityChart";
 import { getKeywords } from "@/lib/api";
@@ -39,6 +40,7 @@ export default async function AppOverviewPage({
       <div className="flex flex-col gap-8">
         <StatCards id={id} />
         <VisibilityChart id={id} />
+        <RankDistributionChart id={id} />
 
         <section className="flex flex-col gap-3">
           <h2 className="text-lg font-medium">Keywords</h2>
