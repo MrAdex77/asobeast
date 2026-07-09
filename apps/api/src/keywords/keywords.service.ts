@@ -20,6 +20,7 @@ import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { isoWeekKey, JOBS, QUEUES, scoreJobId } from '../jobs/jobs.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
+import { classifyBuckets } from './buckets';
 import { extractCandidates } from './extraction';
 import { toTrackedKeywordItem } from './keywords.mapper';
 
@@ -75,7 +76,9 @@ export class KeywordsService {
       this.snapshotText(appId),
     ]);
     return sortTracked(
-      rows.map((row) => toTrackedKeywordItem(row, snapshotText)),
+      classifyBuckets(
+        rows.map((row) => toTrackedKeywordItem(row, snapshotText)),
+      ),
       sort,
     );
   }
@@ -204,16 +207,19 @@ export class KeywordsService {
     return this.listTracked(appId);
   }
 
-  async toggle(
+  async updateKeyword(
     appId: string,
     keywordId: string,
-    active: boolean,
+    data: { active?: boolean; relevance?: number | null },
   ): Promise<TrackedKeywordItem> {
     await this.ensureApp(appId);
     await this.ensureTracked(appId, keywordId);
     await this.prisma.trackedKeyword.update({
       where: { appId_keywordId: { appId, keywordId } },
-      data: { active },
+      data: {
+        ...(data.active === undefined ? {} : { active: data.active }),
+        ...('relevance' in data ? { relevance: data.relevance } : {}),
+      },
     });
     return this.getTrackedItem(appId, keywordId);
   }
@@ -591,17 +597,13 @@ export class KeywordsService {
     appId: string,
     keywordId: string,
   ): Promise<TrackedKeywordItem> {
-    const [row, snapshotText] = await Promise.all([
-      this.prisma.trackedKeyword.findFirst({
-        where: { appId, keywordId },
-        ...this.trackedArgs(appId),
-      }),
-      this.snapshotText(appId),
-    ]);
-    if (!row) {
+    const item = (await this.listTracked(appId)).find(
+      (tracked) => tracked.keywordId === keywordId,
+    );
+    if (!item) {
       throw new NotFoundException(`Keyword ${keywordId} is not tracked`);
     }
-    return toTrackedKeywordItem(row, snapshotText);
+    return item;
   }
 
   private trackedArgs(appId: string) {

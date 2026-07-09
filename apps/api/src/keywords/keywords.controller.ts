@@ -22,7 +22,7 @@ import { CompareQueryDto } from './dto/compare-query.dto';
 import { KeywordFieldDto } from './dto/keyword-field.dto';
 import { ListKeywordsQueryDto } from './dto/list-keywords-query.dto';
 import { SuggestionsQueryDto } from './dto/suggestions-query.dto';
-import { ToggleKeywordDto } from './dto/toggle-keyword.dto';
+import { UpdateKeywordDto } from './dto/update-keyword.dto';
 import { KeywordsService } from './keywords.service';
 
 @ApiTags('keywords')
@@ -67,13 +67,15 @@ export class KeywordsController {
   }
 
   @Patch('keywords/:keywordId')
-  @ApiOperation({ summary: 'Toggle a tracked keyword active flag' })
-  toggle(
+  @ApiOperation({
+    summary: 'Update a tracked keyword active flag or relevance',
+  })
+  update(
     @Param('id') id: string,
     @Param('keywordId') keywordId: string,
-    @Body() dto: ToggleKeywordDto,
+    @Body() dto: UpdateKeywordDto,
   ): Promise<TrackedKeywordItem> {
-    return this.keywords.toggle(id, keywordId, dto.active);
+    return this.keywords.updateKeyword(id, keywordId, dto);
   }
 
   @Delete('keywords/:keywordId')
