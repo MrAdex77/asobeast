@@ -10,7 +10,6 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardAction,
@@ -20,6 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RangePicker } from "@/components/rankings/RangePicker";
 import { formatDayMonth } from "@/lib/format";
 import { visibilityOptions } from "@/lib/queries";
 import {
@@ -95,18 +95,11 @@ export function VisibilityChart({ id }: { id: string }) {
         <CardDescription>Visibility history</CardDescription>
         <CardTitle>Search visibility over time</CardTitle>
         <CardAction>
-          <div className="flex gap-1">
-            {VISIBILITY_RANGES.map((preset) => (
-              <Button
-                key={preset}
-                size="sm"
-                variant={range === preset ? "default" : "outline"}
-                onClick={() => setRange(preset)}
-              >
-                {preset}
-              </Button>
-            ))}
-          </div>
+          <RangePicker
+            presets={VISIBILITY_RANGES}
+            value={range}
+            onChange={setRange}
+          />
         </CardAction>
       </CardHeader>
       <CardContent>
