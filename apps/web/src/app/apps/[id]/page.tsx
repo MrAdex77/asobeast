@@ -1,7 +1,13 @@
+import { Suspense } from "react";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { CoverageCard } from "@/components/overview/CoverageCard";
 import { MoversCard } from "@/components/overview/MoversCard";
 import { RankDistributionChart } from "@/components/overview/RankDistributionChart";
+import {
+  ChartCardSkeleton,
+  PanelCardSkeleton,
+  StatCardsSkeleton,
+} from "@/components/overview/skeletons";
 import { StatCards } from "@/components/overview/StatCards";
 import { VisibilityChart } from "@/components/overview/VisibilityChart";
 import { getQueryClient } from "@/lib/get-query-client";
@@ -22,18 +28,26 @@ export default async function AppOverviewPage({
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <div className="flex flex-col gap-6">
-        <StatCards id={id} />
+        <Suspense fallback={<StatCardsSkeleton />}>
+          <StatCards id={id} />
+        </Suspense>
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <VisibilityChart id={id} />
           </div>
-          <RankDistributionChart id={id} />
+          <Suspense fallback={<ChartCardSkeleton />}>
+            <RankDistributionChart id={id} />
+          </Suspense>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <MoversCard id={id} />
-          <CoverageCard id={id} />
+          <Suspense fallback={<PanelCardSkeleton />}>
+            <MoversCard id={id} />
+          </Suspense>
+          <Suspense fallback={<PanelCardSkeleton />}>
+            <CoverageCard id={id} />
+          </Suspense>
         </div>
       </div>
     </HydrationBoundary>

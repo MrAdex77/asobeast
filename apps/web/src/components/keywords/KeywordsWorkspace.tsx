@@ -1,10 +1,12 @@
 "use client";
 
+import { Suspense } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddKeywordsDialog } from "./AddKeywordsDialog";
 import { KeywordFieldEditor } from "./KeywordFieldEditor";
 import { KeywordsTable } from "./KeywordsTable";
+import { KeywordsTableSkeleton } from "./skeletons";
 import { SuggestionsPanel } from "./SuggestionsPanel";
 
 export function KeywordsWorkspace({ id }: { id: string }) {
@@ -24,7 +26,9 @@ export function KeywordsWorkspace({ id }: { id: string }) {
           </Button>
         </AddKeywordsDialog>
       </div>
-      <KeywordsTable id={id} />
+      <Suspense fallback={<KeywordsTableSkeleton />}>
+        <KeywordsTable id={id} />
+      </Suspense>
       <SuggestionsPanel id={id} />
       <KeywordFieldEditor id={id} />
     </div>

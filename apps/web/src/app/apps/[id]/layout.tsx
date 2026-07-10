@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { notFound } from "next/navigation";
 import { AppHeader } from "@/components/app-detail/AppHeader";
+import { AppHeaderSkeleton } from "@/components/app-detail/skeletons";
 import { SectionNav } from "@/components/app-detail/SectionNav";
 import { ApiError } from "@/lib/api";
 import { getQueryClient } from "@/lib/get-query-client";
@@ -31,7 +32,9 @@ export default async function AppDetailLayout({
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <div className="flex flex-col gap-6">
-        <AppHeader id={id} />
+        <Suspense fallback={<AppHeaderSkeleton />}>
+          <AppHeader id={id} />
+        </Suspense>
         <SectionNav id={id} />
         {children}
       </div>
