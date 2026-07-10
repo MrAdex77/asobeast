@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { competitorsOptions } from "@/lib/queries";
 import { AddCompetitorForm } from "./AddCompetitorForm";
+import { ComparisonMatrix } from "./ComparisonMatrix";
 import { CompetitorList } from "./CompetitorList";
 
 export function CompetitorsView({ id }: { id: string }) {
@@ -27,15 +28,11 @@ export function CompetitorsView({ id }: { id: string }) {
         </CardContent>
       </Card>
 
-      {competitors.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-          Add a competitor to discover keyword gaps — phrases they rank for and
-          you do not. One search serves every app, so tracking competitors costs
-          no extra scraping.
-        </div>
-      ) : (
+      {competitors.length > 0 ? (
         <CompetitorList id={id} competitors={competitors} />
-      )}
+      ) : null}
+
+      <ComparisonMatrix id={id} />
     </div>
   );
 }
