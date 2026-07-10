@@ -7,16 +7,18 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { keywordsOptions, rankingsOptions } from "@/lib/queries";
-import { presetToRange } from "@/lib/ranges";
+import { presetToRange, RANGE_PRESETS } from "@/lib/ranges";
 import { keywordIdsParser, rangeParser } from "@/lib/search-params";
 import { buildRankingChart, MAX_SERIES } from "./pivot";
 import { KeywordPicker } from "./KeywordPicker";
+import { RangePicker } from "./RangePicker";
 import { RankingChart } from "./RankingChart";
 import { DEFAULT_SELECTION, topByOpportunity } from "./selection";
 
@@ -36,7 +38,7 @@ function EmptyKeywords({ id }: { id: string }) {
 }
 
 export function RankingsView({ id }: { id: string }) {
-  const [range] = useQueryState("range", rangeParser);
+  const [range, setRange] = useQueryState("range", rangeParser);
   const [selected, setSelected] = useQueryState("keywords", keywordIdsParser);
   const { data: tracked } = useSuspenseQuery(keywordsOptions(id));
 
@@ -61,6 +63,13 @@ export function RankingsView({ id }: { id: string }) {
       <CardHeader>
         <CardDescription>Ranking history</CardDescription>
         <CardTitle>Keyword positions over time</CardTitle>
+        <CardAction>
+          <RangePicker
+            presets={RANGE_PRESETS}
+            value={range}
+            onChange={setRange}
+          />
+        </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
