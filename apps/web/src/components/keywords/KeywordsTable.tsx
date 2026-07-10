@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -170,6 +171,10 @@ export function KeywordsTable({ id }: { id: string }) {
 
         <div className="overflow-x-auto rounded-xl border">
           <Table>
+            <TableCaption className="sr-only">
+              Tracked keywords with source, position, traffic, difficulty,
+              opportunity and 7 day change.
+            </TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead>Keyword</TableHead>

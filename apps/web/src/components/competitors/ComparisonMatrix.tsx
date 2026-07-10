@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -99,6 +100,10 @@ export function ComparisonMatrix({ id }: { id: string }) {
         ) : (
           <div className="overflow-x-auto rounded-xl border">
             <Table>
+              <TableCaption className="sr-only">
+                Your keyword positions compared with each tracked competitor.
+                Gap rows are keywords a competitor ranks for and you do not.
+              </TableCaption>
               <TableHeader>
                 <TableRow className="bg-card">
                   <TableHead className="sticky left-0 z-20 bg-inherit">

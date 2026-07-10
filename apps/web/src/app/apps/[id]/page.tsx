@@ -32,7 +32,7 @@ export default async function AppOverviewPage({
           <StatCards id={id} />
         </Suspense>
 
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 lg:grid-cols-3 [&>*]:min-w-0">
           <div className="lg:col-span-2">
             <VisibilityChart id={id} />
           </div>
