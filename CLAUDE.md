@@ -35,7 +35,16 @@ apps/
       metadata/           metadata audit + keyword coverage
       jobs/               BullMQ queues, workers, schedulers
     prisma/               schema.prisma, migrations, seed.ts
-  web/                    Next.js frontend (src/app, src/lib/api.ts)
+  web/                    Next.js frontend
+    src/
+      app/                App Router: page/layout/loading/error/not-found per segment
+                          (/, /apps/[id] + keywords, rankings, competitors, audit, metadata)
+      components/
+        ui/               shadcn generated primitives (owned, editable)
+        layout/           SiteHeader, ThemeToggle, HealthBadge, ErrorState
+        apps/ app-detail/ overview/ keywords/ rankings/ competitors/ audit/  feature + skeleton components
+      lib/                api.ts (typed transport), queries.ts (query keys + options + invalidation),
+                          get-query-client.ts, search-params.ts (nuqs parsers), ranges.ts, format.ts, utils.ts
 packages/
   shared/                 @asobeast/shared: contract types, Store union, url parser, constants
   typescript-config/      @asobeast/typescript-config: base.json, nest.json, next.json
@@ -86,6 +95,15 @@ docker compose -f docker-compose.dev.yml up -d
 3. `@asobeast/shared` is a **compiled package** (tsup, cjs + esm + dts). Do not switch it to raw TS exports; NestJS's CommonJS build cannot consume just in time TS packages cleanly.
 4. Internal dependencies use `"@asobeast/shared": "workspace:*"`. Turborepo's `build` task has `"dependsOn": ["^build"]`, so consumers always see fresh output; `pnpm dev` keeps tsup in watch mode.
 5. Never import across packages by relative path.
+
+## Frontend rules (apps/web)
+
+1. **One transport, typed by shared.** `src/lib/api.ts` is the only place that talks to the API (typed `apiFetch` + one function per endpoint, every call typed by an `@asobeast/shared` contract). Never redefine a response shape locally and never import Prisma types.
+2. **The query cache owns freshness.** `src/lib/queries.ts` holds the `appKeys` hierarchy, the `queryOptions` factories and the mutation invalidation helpers (`invalidateKeywordMutation`, `invalidateCompetitorMutation`, …) — the single place invalidation sets are written down. Pages prefetch into a shared `getQueryClient()` and render a `HydrationBoundary`; client feature components use `useSuspenseQuery`/`useMutation`. **`router.refresh()` is banned** — after a mutation, invalidate or seed the cache.
+3. **URL is the state.** Sort, date-range presets, selected keyword ids and filters live in `searchParams` via `nuqs` parsers in `src/lib/search-params.ts` (built from shared unions). No duplicate `useState` for view state.
+4. **Boundaries per section.** Every route segment has `loading.tsx` (geometry-matched skeleton) and `error.tsx` (shared `ErrorState`, recovers via `unstable_retry`); every `useSuspenseQuery` consumer sits under a local `Suspense` boundary, not the whole page.
+5. **Domain rendering.** Position is 1-based; `null` means "checked, not found within depth 100" → render `>100`, never `0`. Ranking charts use a reversed Y axis (1 on top). Dates are UTC `date` strings formatted with `Intl.DateTimeFormat` pinned to UTC. Traffic/difficulty/opportunity are 0–100 scores. `refresh` returns a snapshot diff to show; `run-daily` and `score` return 202 queued — toast "queued" and let the cache refetch.
+6. **Theming & a11y.** shadcn primitives live in `components/ui` (owned, editable); dark mode via `next-themes` class strategy. Icon-only buttons carry `aria-label`, dialogs carry a description, tables carry a caption, charts keep `accessibilityLayer`, and colour is never the only signal.
 
 ## Domain rules that are easy to get wrong
 

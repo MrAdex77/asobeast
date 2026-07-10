@@ -11,7 +11,14 @@
 - **Keyword scoring** — traffic and difficulty persist per keyword; opportunity is computed per app from its current position. Scoring uses the Apple autocomplete "suggest" priority signal.
 - **Competitors** — track rival apps and compare keyword coverage with gap analysis.
 - **Analytics** — per app visibility score, a dashboard summary and a visibility history series.
-- **Web UI** — Next.js frontend for imports, keywords, competitors and summaries.
+- **Web dashboard** — a Next.js App Router frontend covering every API capability:
+  - **Apps grid** — import from a store URL, delete with confirmation, skeleton/empty/error states.
+  - **App overview** — stat cards, a themed visibility area chart, a rank distribution chart, keyword movers and metadata coverage; refresh (with a snapshot diff dialog) and run-daily actions.
+  - **Keywords workspace** — a sortable table (position, traffic, difficulty, opportunity) with per-row toggle/score/delete, an add dialog, keyword suggestions across all strategies, and the private 100-character iOS keyword field editor.
+  - **Rankings** — a multi-series ranking history chart with a reversed axis (position 1 on top, `>100` for not-found), keyword picker and date-range presets.
+  - **Competitors** — competitor management plus a comparison matrix with a gap filter.
+  - **Audit & metadata** — the ASO audit rubric and metadata coverage views.
+  - Light/dark mode (system default), URL-addressable state (sort, ranges, selections, filters survive reload), and per-section loading and error boundaries.
 - **API + Swagger** — every endpoint is documented; interactive docs at `/docs`, OpenAPI JSON at `/docs-json`.
 
 ## Quick start
@@ -113,7 +120,6 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 
 - Google Play support (implement the stubbed provider, add a `gplay` worker and its rate limit).
 - More regions.
-- Frontend charts over the ranking and visibility history series.
 - Alerts on rank drops and competitor metadata changes.
 - Authentication and real multi workspace tenancy for a hosted version.
 
