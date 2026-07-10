@@ -1,5 +1,5 @@
 import type { KeywordSort, KeywordSuggestionStrategy } from "@asobeast/shared";
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
   getApp,
   getApps,
@@ -19,6 +19,8 @@ export const appKeys = {
   all: ["apps"] as const,
   detail: (id: string) => [...appKeys.all, id] as const,
   summary: (id: string) => [...appKeys.detail(id), "summary"] as const,
+  keywordsRoot: (id: string) => [...appKeys.detail(id), "keywords"] as const,
+  compareRoot: (id: string) => [...appKeys.detail(id), "compare"] as const,
   keywords: (id: string, sort?: KeywordSort) =>
     [...appKeys.detail(id), "keywords", { sort }] as const,
   suggestions: (id: string, strategy: KeywordSuggestionStrategy) =>
@@ -95,3 +97,16 @@ export const healthOptions = queryOptions({
   queryFn: getHealth,
   refetchInterval: 30_000,
 });
+
+export function invalidateKeywords(client: QueryClient, id: string): void {
+  void client.invalidateQueries({ queryKey: appKeys.keywordsRoot(id) });
+}
+
+export function invalidateKeywordMutation(
+  client: QueryClient,
+  id: string,
+): void {
+  void client.invalidateQueries({ queryKey: appKeys.keywordsRoot(id) });
+  void client.invalidateQueries({ queryKey: appKeys.summary(id) });
+  void client.invalidateQueries({ queryKey: appKeys.compareRoot(id) });
+}

@@ -1,14 +1,8 @@
-import { KEYWORD_SORTS } from "@asobeast/shared";
-import type { KeywordSort, TrackedKeywordItem } from "@asobeast/shared";
-import { KeywordTable } from "@/components/KeywordTable";
-import { getKeywords } from "@/lib/api";
-
-function parseSort(value: string | string[] | undefined): KeywordSort | undefined {
-  return typeof value === "string" &&
-    (KEYWORD_SORTS as readonly string[]).includes(value)
-    ? (value as KeywordSort)
-    : undefined;
-}
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { KeywordsWorkspace } from "@/components/keywords/KeywordsWorkspace";
+import { getQueryClient } from "@/lib/get-query-client";
+import { keywordsOptions } from "@/lib/queries";
+import { sortParser } from "@/lib/search-params";
 
 export default async function KeywordsPage({
   params,
@@ -18,19 +12,14 @@ export default async function KeywordsPage({
   searchParams: Promise<{ sort?: string | string[] }>;
 }) {
   const { id } = await params;
-  const sort = parseSort((await searchParams).sort);
-  const keywords = await getKeywords(id, sort).catch(
-    () => [] as TrackedKeywordItem[],
+  const sort = sortParser.parseServerSide((await searchParams).sort);
+
+  const queryClient = getQueryClient();
+  await queryClient.prefetchQuery(keywordsOptions(id, sort));
+
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <KeywordsWorkspace id={id} />
+    </HydrationBoundary>
   );
-
-  if (keywords.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-        No tracked keywords yet. Run the daily pipeline or add keywords to start
-        tracking rankings.
-      </div>
-    );
-  }
-
-  return <KeywordTable appId={id} sort={sort} keywords={keywords} />;
 }
