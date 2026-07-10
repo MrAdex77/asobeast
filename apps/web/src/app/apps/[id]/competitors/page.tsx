@@ -1,7 +1,24 @@
-export default function CompetitorsPage() {
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { CompetitorsView } from "@/components/competitors/CompetitorsView";
+import { getQueryClient } from "@/lib/get-query-client";
+import { comparisonOptions, competitorsOptions } from "@/lib/queries";
+
+export default async function CompetitorsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+
+  const queryClient = getQueryClient();
+  await Promise.all([
+    queryClient.prefetchQuery(competitorsOptions(id)),
+    queryClient.prefetchQuery(comparisonOptions(id, false)),
+  ]);
+
   return (
-    <div className="rounded-xl border border-dashed py-16 text-center text-sm text-muted-foreground">
-      Competitor management and the comparison matrix are built in phase F6.
-    </div>
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <CompetitorsView id={id} />
+    </HydrationBoundary>
   );
 }
