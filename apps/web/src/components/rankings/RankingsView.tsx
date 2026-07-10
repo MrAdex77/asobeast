@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useQueryState } from "nuqs";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,9 +14,11 @@ import {
 } from "@/components/ui/card";
 import { keywordsOptions, rankingsOptions } from "@/lib/queries";
 import { presetToRange } from "@/lib/ranges";
-import { rangeParser } from "@/lib/search-params";
+import { keywordIdsParser, rangeParser } from "@/lib/search-params";
 import { buildRankingChart, MAX_SERIES } from "./pivot";
+import { KeywordPicker } from "./KeywordPicker";
 import { RankingChart } from "./RankingChart";
+import { DEFAULT_SELECTION, topByOpportunity } from "./selection";
 
 function EmptyKeywords({ id }: { id: string }) {
   return (
@@ -34,14 +37,24 @@ function EmptyKeywords({ id }: { id: string }) {
 
 export function RankingsView({ id }: { id: string }) {
   const [range] = useQueryState("range", rangeParser);
+  const [selected, setSelected] = useQueryState("keywords", keywordIdsParser);
   const { data: tracked } = useSuspenseQuery(keywordsOptions(id));
-  const { data } = useSuspenseQuery(rankingsOptions(id, presetToRange(range)));
+
+  const effective =
+    selected.length > 0
+      ? selected
+      : topByOpportunity(tracked, DEFAULT_SELECTION);
+
+  const { data } = useSuspenseQuery(
+    rankingsOptions(id, { ...presetToRange(range), keywordIds: effective }),
+  );
 
   if (tracked.length === 0) {
     return <EmptyKeywords id={id} />;
   }
 
   const chart = buildRankingChart(data.series);
+  const labels = new Map(tracked.map((item) => [item.keywordId, item.text]));
 
   return (
     <Card>
@@ -50,6 +63,29 @@ export function RankingsView({ id }: { id: string }) {
         <CardTitle>Keyword positions over time</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <KeywordPicker id={id} value={effective} onChange={setSelected} />
+          {effective.map((keywordId) => (
+            <button
+              key={keywordId}
+              type="button"
+              onClick={() =>
+                setSelected(effective.filter((item) => item !== keywordId))
+              }
+              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs hover:bg-muted"
+            >
+              <span
+                className="size-2 shrink-0 rounded-full"
+                style={{ backgroundColor: chart.config[keywordId]?.color }}
+              />
+              <span className="max-w-40 truncate">
+                {labels.get(keywordId) ?? keywordId}
+              </span>
+              <X className="size-3 opacity-60" />
+            </button>
+          ))}
+        </div>
+
         {chart.rows.length > 0 ? (
           <>
             <RankingChart data={chart} />
