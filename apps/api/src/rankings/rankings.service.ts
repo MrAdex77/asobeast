@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { RankingSeries, SERP_DEPTH, SerpSnapshot } from '@asobeast/shared';
+import { AlertsDispatcher } from '../alerts/alerts.dispatcher';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
+import { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
 import { RankingHistoryQueryDto } from './dto/ranking-history-query.dto';
@@ -26,6 +29,8 @@ export class RankingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly registry: StoreProviderRegistry,
+    private readonly config: ConfigService<Env, true>,
+    private readonly alerts: AlertsDispatcher,
   ) {}
 
   async checkKeyword(keywordId: string): Promise<void> {
@@ -47,6 +52,7 @@ export class RankingsService {
         app: {
           select: {
             id: true,
+            name: true,
             storeAppId: true,
             competitors: { select: { id: true, storeAppId: true } },
           },
@@ -55,8 +61,10 @@ export class RankingsService {
     });
 
     const apps = new Map<string, string>();
+    const primaryNames = new Map<string, string | null>();
     for (const { app } of tracked) {
       apps.set(app.id, app.storeAppId);
+      primaryNames.set(app.id, app.name);
       for (const competitor of app.competitors) {
         apps.set(competitor.id, competitor.storeAppId);
       }
@@ -79,11 +87,25 @@ export class RankingsService {
     const date = utcToday();
     for (const [appId, storeAppId] of apps) {
       const position = positionByStoreAppId.get(storeAppId) ?? null;
+      const existing = await this.prisma.keywordRanking.findUnique({
+        where: { appId_keywordId_date: { appId, keywordId, date } },
+        select: { position: true },
+      });
       await this.prisma.keywordRanking.upsert({
         where: { appId_keywordId_date: { appId, keywordId, date } },
         create: { appId, keywordId, date, position, depth: RANK_DEPTH },
         update: { position, depth: RANK_DEPTH },
       });
+
+      const changed = existing === null || existing.position !== position;
+      if (primaryNames.has(appId) && changed) {
+        await this.dispatchRankAlert(
+          { id: appId, name: primaryNames.get(appId) ?? null },
+          { id: keyword.id, text: keyword.text },
+          date,
+          position,
+        );
+      }
     }
 
     const entries = results.slice(0, SERP_DEPTH).map((item, index) => ({
@@ -101,6 +123,53 @@ export class RankingsService {
       this.prisma.serpEntry.deleteMany({ where: { keywordId, date } }),
       this.prisma.serpEntry.createMany({ data: entries }),
     ]);
+  }
+
+  private async dispatchRankAlert(
+    app: { id: string; name: string | null },
+    keyword: { id: string; text: string },
+    date: Date,
+    position: number | null,
+  ): Promise<void> {
+    const previous = await this.prisma.keywordRanking.findFirst({
+      where: { appId: app.id, keywordId: keyword.id, date: { lt: date } },
+      orderBy: { date: 'desc' },
+      select: { position: true },
+    });
+    if (!previous) {
+      return;
+    }
+
+    const threshold = this.config.get('ALERT_RANK_DROP_THRESHOLD', {
+      infer: true,
+    });
+    const from = previous.position;
+    const occurredAt = new Date().toISOString();
+
+    if (from !== null && (position === null || position - from >= threshold)) {
+      await this.alerts.dispatch({
+        event: 'rank.dropped',
+        occurredAt,
+        app,
+        keyword,
+        from,
+        to: position,
+        threshold,
+      });
+      return;
+    }
+
+    if (position !== null && (from === null || from - position >= threshold)) {
+      await this.alerts.dispatch({
+        event: 'rank.improved',
+        occurredAt,
+        app,
+        keyword,
+        from,
+        to: position,
+        threshold,
+      });
+    }
   }
 
   async history(
