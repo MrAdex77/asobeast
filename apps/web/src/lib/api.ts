@@ -17,6 +17,7 @@ import type {
   RankingSeries,
   RunDailyResult,
   ScoreEnqueueResult,
+  SerpSnapshot,
   SnapshotDiffResult,
   TrackedKeywordItem,
   VisibilityHistory,
@@ -180,6 +181,14 @@ export function getRankings(
   return apiFetch<RankingSeries>(
     withQuery(`/apps/${appId}/rankings`, params),
   );
+}
+
+export function getSerp(
+  keywordId: string,
+  date?: string,
+): Promise<SerpSnapshot> {
+  const query = date ? `?date=${date}` : "";
+  return apiFetch<SerpSnapshot>(`/keywords/${keywordId}/serp${query}`);
 }
 
 export function refreshApp(id: string): Promise<SnapshotDiffResult> {

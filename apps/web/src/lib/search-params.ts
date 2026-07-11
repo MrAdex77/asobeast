@@ -27,3 +27,5 @@ export const onlyGapsParser = parseAsBoolean.withDefault(false);
 export const suggestionStrategyParser = parseAsStringLiteral(
   KEYWORD_SUGGESTION_STRATEGIES,
 ).withDefault("metadata");
+
+export const serpParser = parseAsString.withDefault("");

@@ -8,6 +8,7 @@ import {
   getHealth,
   getKeywords,
   getRankings,
+  getSerp,
   getSuggestions,
   getSummary,
   getVisibilityHistory,
@@ -32,6 +33,7 @@ export const appKeys = {
   visibility: (id: string, params: RangeParams) =>
     [...appKeys.detail(id), "visibility", params] as const,
   competitors: (id: string) => [...appKeys.detail(id), "competitors"] as const,
+  serp: (keywordId: string) => ["serp", keywordId] as const,
 };
 
 export const healthKey = ["health"] as const;
@@ -90,6 +92,12 @@ export const competitorsOptions = (id: string) =>
   queryOptions({
     queryKey: appKeys.competitors(id),
     queryFn: () => getCompetitors(id),
+  });
+
+export const serpOptions = (keywordId: string) =>
+  queryOptions({
+    queryKey: appKeys.serp(keywordId),
+    queryFn: () => getSerp(keywordId),
   });
 
 export const healthOptions = queryOptions({
