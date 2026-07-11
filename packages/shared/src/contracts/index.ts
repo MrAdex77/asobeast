@@ -3,6 +3,7 @@ export * from './apps';
 export * from './jobs';
 export * from './keywords';
 export * from './rankings';
+export * from './category-ranks';
 export * from './analytics';
 export * from './audit';
 export * from './metadata';
