@@ -15,7 +15,7 @@ describe('RankingsService.checkKeyword', () => {
     return items;
   };
 
-  const setup = () => {
+  const setup = (options?: { tracked?: unknown[] }) => {
     const search = jest.fn().mockResolvedValue(buildSearchResults());
     const upsert = jest
       .fn<
@@ -23,6 +23,36 @@ describe('RankingsService.checkKeyword', () => {
         [{ create: { appId: string; position: number | null } }]
       >()
       .mockResolvedValue(undefined);
+    const deleteMany = jest
+      .fn<{ op: string }, [{ where: { keywordId: string; date: Date } }]>()
+      .mockReturnValue({ op: 'delete' });
+    const createMany = jest
+      .fn<
+        { op: string },
+        [
+          {
+            data: Array<{
+              keywordId: string;
+              position: number;
+              storeAppId: string;
+            }>;
+          },
+        ]
+      >()
+      .mockReturnValue({ op: 'create' });
+    const $transaction = jest.fn().mockResolvedValue([]);
+    const tracked = options?.tracked ?? [
+      {
+        app: {
+          id: 'primary',
+          storeAppId: 'primary-store',
+          competitors: [
+            { id: 'competitorA', storeAppId: 'competitor-store' },
+            { id: 'competitorB', storeAppId: 'absent-store' },
+          ],
+        },
+      },
+    ];
     const prisma = {
       keyword: {
         findUnique: jest.fn().mockResolvedValue({
@@ -33,27 +63,18 @@ describe('RankingsService.checkKeyword', () => {
         }),
       },
       trackedKeyword: {
-        findMany: jest.fn().mockResolvedValue([
-          {
-            app: {
-              id: 'primary',
-              storeAppId: 'primary-store',
-              competitors: [
-                { id: 'competitorA', storeAppId: 'competitor-store' },
-                { id: 'competitorB', storeAppId: 'absent-store' },
-              ],
-            },
-          },
-        ]),
+        findMany: jest.fn().mockResolvedValue(tracked),
       },
       keywordRanking: { upsert },
+      serpEntry: { deleteMany, createMany },
+      $transaction,
     };
     const registry = { get: () => ({ search }) };
     const service = new RankingsService(
       prisma as unknown as PrismaService,
       registry as unknown as StoreProviderRegistry,
     );
-    return { service, search, upsert };
+    return { service, search, upsert, deleteMany, createMany, $transaction };
   };
 
   it('records positions for the primary and its competitors from one search', async () => {
@@ -74,5 +95,152 @@ describe('RankingsService.checkKeyword', () => {
     expect(positions.get('competitorA')).toBe(31);
     expect(positions.get('competitorB')).toBeNull();
     expect(upsert).toHaveBeenCalledTimes(3);
+  });
+
+  it('persists the top ten entries with 1-based positions', async () => {
+    const { service, createMany, deleteMany, $transaction } = setup();
+
+    await service.checkKeyword('kw1');
+
+    expect($transaction).toHaveBeenCalledTimes(1);
+    expect(deleteMany.mock.calls[0][0].where.keywordId).toBe('kw1');
+    expect(deleteMany.mock.calls[0][0].where.date).toBeInstanceOf(Date);
+    const entries = createMany.mock.calls[0][0].data;
+    expect(entries).toHaveLength(10);
+    expect(entries[0].position).toBe(1);
+    expect(entries[9].position).toBe(10);
+    expect(entries[6].storeAppId).toBe('primary-store');
+    expect(entries.every((entry) => entry.keywordId === 'kw1')).toBe(true);
+  });
+
+  it('replaces rather than duplicates when re-run on the same day', async () => {
+    const { service, deleteMany, createMany } = setup();
+
+    await service.checkKeyword('kw1');
+    await service.checkKeyword('kw1');
+
+    expect(deleteMany).toHaveBeenCalledTimes(2);
+    expect(createMany).toHaveBeenCalledTimes(2);
+  });
+
+  it('writes no entries when nothing tracks the keyword', async () => {
+    const { service, search, deleteMany, createMany } = setup({ tracked: [] });
+
+    await service.checkKeyword('kw1');
+
+    expect(search).not.toHaveBeenCalled();
+    expect(deleteMany).not.toHaveBeenCalled();
+    expect(createMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('RankingsService.serp', () => {
+  const setup = (options?: {
+    keyword?: unknown;
+    entries?: unknown[];
+    latest?: { date: Date } | null;
+    apps?: unknown[];
+  }) => {
+    const prisma = {
+      keyword: {
+        findUnique: jest.fn().mockResolvedValue(
+          options && 'keyword' in options
+            ? options.keyword
+            : {
+                id: 'kw1',
+                text: 'habit tracker',
+                store: Store.APP_STORE,
+                country: 'us',
+              },
+        ),
+      },
+      serpEntry: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValue(
+            options && 'latest' in options
+              ? options.latest
+              : { date: new Date('2026-07-01T00:00:00.000Z') },
+          ),
+        findMany: jest.fn().mockResolvedValue(options?.entries ?? []),
+      },
+      app: {
+        findMany: jest.fn().mockResolvedValue(options?.apps ?? []),
+      },
+    };
+    const service = new RankingsService(
+      prisma as unknown as PrismaService,
+      {} as unknown as StoreProviderRegistry,
+    );
+    return { service, prisma };
+  };
+
+  it('throws when the keyword is missing', async () => {
+    const { service } = setup({ keyword: null });
+    await expect(service.serp('missing', {})).rejects.toThrow(
+      'Keyword missing not found',
+    );
+  });
+
+  it('returns an empty snapshot with null date when never checked', async () => {
+    const { service } = setup({ latest: null });
+    const snapshot = await service.serp('kw1', {});
+    expect(snapshot).toEqual({
+      keywordId: 'kw1',
+      text: 'habit tracker',
+      date: null,
+      entries: [],
+    });
+  });
+
+  it('annotates self, competitor and unknown apps', async () => {
+    const { service } = setup({
+      entries: [
+        {
+          position: 1,
+          storeAppId: 'self-store',
+          title: 'You',
+          developer: 'Me',
+          ratingAvg: 4.5,
+          ratingCount: 100,
+        },
+        {
+          position: 2,
+          storeAppId: 'rival-store',
+          title: 'Rival',
+          developer: 'Them',
+          ratingAvg: 4,
+          ratingCount: 50,
+        },
+        {
+          position: 3,
+          storeAppId: 'unknown-store',
+          title: 'Stranger',
+          developer: null,
+          ratingAvg: null,
+          ratingCount: null,
+        },
+      ],
+      apps: [
+        { id: 'app1', storeAppId: 'self-store', isCompetitor: false },
+        { id: 'app2', storeAppId: 'rival-store', isCompetitor: true },
+      ],
+    });
+
+    const snapshot = await service.serp('kw1', {});
+
+    expect(snapshot.date).toBe('2026-07-01');
+    expect(snapshot.entries[0]).toMatchObject({
+      appId: 'app1',
+      isCompetitor: false,
+    });
+    expect(snapshot.entries[1]).toMatchObject({
+      appId: 'app2',
+      isCompetitor: true,
+    });
+    expect(snapshot.entries[2]).toMatchObject({
+      appId: null,
+      isCompetitor: false,
+    });
   });
 });

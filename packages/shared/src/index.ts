@@ -62,6 +62,8 @@ export type KeywordSource = (typeof KEYWORD_SOURCES)[number];
 
 export const DEFAULT_COUNTRY = 'us';
 
+export const SERP_DEPTH = 10;
+
 export * from './url-parser';
 export * from './contracts';
 export * from './text';

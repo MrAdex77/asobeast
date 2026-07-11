@@ -1,10 +1,11 @@
 "use client";
 
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, ChevronDown } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ListOrdered } from "lucide-react";
 import { useQueryState } from "nuqs";
 import type { KeywordSort, TrackedKeywordItem } from "@asobeast/shared";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -22,9 +23,10 @@ import {
 } from "@/components/ui/tooltip";
 import { formatDate, formatPosition } from "@/lib/format";
 import { keywordsOptions } from "@/lib/queries";
-import { sortParser } from "@/lib/search-params";
+import { serpParser, sortParser } from "@/lib/search-params";
 import { cn } from "@/lib/utils";
 import { KeywordRowActions } from "./KeywordRowActions";
+import { SerpSheet } from "./SerpSheet";
 import { SourceBadge } from "./SourceBadge";
 
 const SORT_COLUMNS: { key: KeywordSort; label: string; emphasize?: boolean }[] =
@@ -141,6 +143,7 @@ function SortHeader({
 
 export function KeywordsTable({ id }: { id: string }) {
   const [sort, setSort] = useQueryState("sort", sortParser);
+  const [, setSerp] = useQueryState("serp", serpParser);
   const { data: keywords } = useSuspenseQuery(keywordsOptions(id, sort));
 
   const activeCount = keywords.filter((keyword) => keyword.active).length;
@@ -243,7 +246,17 @@ export function KeywordsTable({ id }: { id: string }) {
                     <DeltaChip value={keyword.positionDelta7d} />
                   </TableCell>
                   <TableCell>
-                    <KeywordRowActions appId={id} keyword={keyword} />
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`View top 10 for ${keyword.text}`}
+                        onClick={() => void setSerp(keyword.keywordId)}
+                      >
+                        <ListOrdered />
+                      </Button>
+                      <KeywordRowActions appId={id} keyword={keyword} />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -251,6 +264,7 @@ export function KeywordsTable({ id }: { id: string }) {
           </Table>
         </div>
       </div>
+      <SerpSheet appId={id} />
     </TooltipProvider>
   );
 }

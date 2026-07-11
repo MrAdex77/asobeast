@@ -7,3 +7,4 @@ export * from './analytics';
 export * from './audit';
 export * from './metadata';
 export * from './competitors';
+export * from './serp';

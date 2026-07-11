@@ -73,7 +73,7 @@ docker compose -f docker-compose.dev.yml up -d
 ## Git conventions (strict)
 
 - Conventional commits: `type(scope): subject`. Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `build`, `ci`, `perf`.
-- Scopes: `repo` (workspace level), `api`, `web`, `shared`, `docker`, `ci`, plus API domain scopes `db`, `providers`, `apps`, `keywords`, `rankings`, `scoring`, `competitors`, `analytics`, `jobs`, `audit`, `metadata` (domain scopes always mean code inside `apps/api`).
+- Scopes: `repo` (workspace level), `api`, `web`, `shared`, `docker`, `ci`, plus API domain scopes `db`, `providers`, `apps`, `keywords`, `rankings`, `scoring`, `competitors`, `analytics`, `jobs`, `audit`, `metadata`, `changes`, `alerts` (domain scopes always mean code inside `apps/api`).
 - Subject: imperative, lowercase, no trailing period, max 72 chars. One plan step = one commit with the exact message from the plan; body only for deviations.
 - Before every commit: `pnpm lint && pnpm test` green (plus `pnpm build` when configs or dependencies changed).
 - Never commit `.env` files, `node_modules`, `dist`, `.next`, `.turbo`.

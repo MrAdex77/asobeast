@@ -6,6 +6,7 @@ import type {
   AppSummary,
   AuditInputAnswers,
   CompetitorAnalysis,
+  CompetitorDiscovery,
   CompetitorItem,
   HealthStatus,
   KeywordComparison,
@@ -17,6 +18,7 @@ import type {
   RankingSeries,
   RunDailyResult,
   ScoreEnqueueResult,
+  SerpSnapshot,
   SnapshotDiffResult,
   TrackedKeywordItem,
   VisibilityHistory,
@@ -182,6 +184,14 @@ export function getRankings(
   );
 }
 
+export function getSerp(
+  keywordId: string,
+  date?: string,
+): Promise<SerpSnapshot> {
+  const query = date ? `?date=${date}` : "";
+  return apiFetch<SerpSnapshot>(`/keywords/${keywordId}/serp${query}`);
+}
+
 export function refreshApp(id: string): Promise<SnapshotDiffResult> {
   return apiFetch<SnapshotDiffResult>(`/apps/${id}/refresh`, { method: "POST" });
 }
@@ -223,6 +233,16 @@ export function getCompetitorAnalysis(
   appId: string,
 ): Promise<CompetitorAnalysis> {
   return apiFetch<CompetitorAnalysis>(`/apps/${appId}/competitors/analysis`);
+}
+
+export function getCompetitorDiscovery(
+  appId: string,
+  days?: number,
+): Promise<CompetitorDiscovery> {
+  const query = days !== undefined ? `?days=${days}` : "";
+  return apiFetch<CompetitorDiscovery>(
+    `/apps/${appId}/competitors/discovery${query}`,
+  );
 }
 
 export function getAudit(appId: string): Promise<AppAuditResult> {
