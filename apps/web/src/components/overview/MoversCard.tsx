@@ -24,7 +24,7 @@ function MoverList({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
+      <p className="text-sm font-medium text-muted-foreground">{title}</p>
       {movers.length === 0 ? (
         <p className="text-sm text-muted-foreground">No movement this week.</p>
       ) : (

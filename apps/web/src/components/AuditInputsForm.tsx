@@ -1,8 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import type { AuditInputAnswers } from "@asobeast/shared";
+import type { AppAuditResult, AuditInputAnswers } from "@asobeast/shared";
 import { ApiError, saveAuditInputs } from "@/lib/api";
 
 const QUESTIONS: { key: keyof AuditInputAnswers; label: string; group: string }[] =
@@ -32,11 +31,12 @@ const GROUPS = [...new Set(QUESTIONS.map((q) => q.group))];
 export function AuditInputsForm({
   appId,
   initial,
+  onSaved,
 }: {
   appId: string;
   initial: AuditInputAnswers;
+  onSaved: (result: AppAuditResult) => void;
 }) {
-  const router = useRouter();
   const [answers, setAnswers] = useState<AuditInputAnswers>(initial);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
@@ -49,9 +49,9 @@ export function AuditInputsForm({
     setMessage(null);
     startSave(async () => {
       try {
-        await saveAuditInputs(appId, answers);
+        const result = await saveAuditInputs(appId, answers);
         setMessage("Saved");
-        router.refresh();
+        onSaved(result);
       } catch (err) {
         setMessage(err instanceof ApiError ? err.envelope.message : "Save failed");
       }

@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { RankingsView } from "@/components/rankings/RankingsView";
+import { RankingChartSkeleton } from "@/components/rankings/skeletons";
 import { DEFAULT_SELECTION, topByOpportunity } from "@/components/rankings/selection";
 import { getQueryClient } from "@/lib/get-query-client";
 import { keywordsOptions, rankingsOptions } from "@/lib/queries";
@@ -31,7 +33,9 @@ export default async function RankingsPage({
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <RankingsView id={id} />
+      <Suspense fallback={<RankingChartSkeleton />}>
+        <RankingsView id={id} />
+      </Suspense>
     </HydrationBoundary>
   );
 }

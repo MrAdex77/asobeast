@@ -11,6 +11,7 @@ import {
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -46,6 +47,10 @@ export function SnapshotDiffDialog({
 
         {changes.length > 0 ? (
           <Table>
+            <TableCaption className="sr-only">
+              Store listing fields that changed since the last snapshot, with
+              before and after values.
+            </TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead>Field</TableHead>

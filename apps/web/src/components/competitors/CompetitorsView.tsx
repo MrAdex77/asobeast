@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import {
   Card,
@@ -12,10 +13,18 @@ import { competitorsOptions } from "@/lib/queries";
 import { AddCompetitorForm } from "./AddCompetitorForm";
 import { ComparisonMatrix } from "./ComparisonMatrix";
 import { CompetitorList } from "./CompetitorList";
+import {
+  ComparisonMatrixSkeleton,
+  CompetitorListSkeleton,
+} from "./skeletons";
+
+function CompetitorListSection({ id }: { id: string }) {
+  const { data: competitors } = useSuspenseQuery(competitorsOptions(id));
+  if (competitors.length === 0) return null;
+  return <CompetitorList id={id} competitors={competitors} />;
+}
 
 export function CompetitorsView({ id }: { id: string }) {
-  const { data: competitors } = useSuspenseQuery(competitorsOptions(id));
-
   return (
     <div className="flex flex-col gap-6">
       <Card>
@@ -28,11 +37,13 @@ export function CompetitorsView({ id }: { id: string }) {
         </CardContent>
       </Card>
 
-      {competitors.length > 0 ? (
-        <CompetitorList id={id} competitors={competitors} />
-      ) : null}
+      <Suspense fallback={<CompetitorListSkeleton />}>
+        <CompetitorListSection id={id} />
+      </Suspense>
 
-      <ComparisonMatrix id={id} />
+      <Suspense fallback={<ComparisonMatrixSkeleton />}>
+        <ComparisonMatrix id={id} />
+      </Suspense>
     </div>
   );
 }

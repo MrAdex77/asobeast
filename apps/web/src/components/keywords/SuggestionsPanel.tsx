@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import type {
   KeywordSuggestion,
   KeywordSuggestionStrategy,
-  TrackedKeywordItem,
 } from "@asobeast/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
