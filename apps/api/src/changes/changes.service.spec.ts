@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { DiffableChangeSnapshot } from './change-detector';
@@ -22,13 +23,23 @@ function makeSnapshot(
 describe('ChangesService', () => {
   let service: ChangesService;
   const createMany = jest.fn();
+  const findMany = jest.fn<Promise<unknown>, [Record<string, unknown>]>();
+  const findFirst = jest.fn();
 
   beforeEach(async () => {
     createMany.mockReset();
+    findMany.mockReset();
+    findFirst.mockReset();
     const moduleRef = await Test.createTestingModule({
       providers: [
         ChangesService,
-        { provide: PrismaService, useValue: { changeEvent: { createMany } } },
+        {
+          provide: PrismaService,
+          useValue: {
+            changeEvent: { createMany, findMany },
+            app: { findFirst },
+          },
+        },
       ],
     }).compile();
     service = moduleRef.get(ChangesService);
@@ -68,5 +79,74 @@ describe('ChangesService', () => {
 
     expect(changes).toEqual([]);
     expect(createMany).not.toHaveBeenCalled();
+  });
+
+  describe('timeline', () => {
+    it('throws for an unknown app', async () => {
+      findFirst.mockResolvedValue(null);
+      await expect(service.timeline('missing', 90)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('queries own and competitor events and maps them', async () => {
+      findFirst.mockResolvedValue({
+        id: 'app_1',
+        competitors: [{ id: 'comp_1' }],
+      });
+      findMany.mockResolvedValue([
+        {
+          id: 'ev_2',
+          appId: 'comp_1',
+          field: 'subtitle',
+          before: 'Old',
+          after: 'New',
+          capturedAt: new Date('2026-07-10T00:00:00Z'),
+          app: { name: 'Rival', isCompetitor: true },
+        },
+        {
+          id: 'ev_1',
+          appId: 'app_1',
+          field: 'title',
+          before: 'A',
+          after: 'B',
+          capturedAt: new Date('2026-07-09T00:00:00Z'),
+          app: { name: 'Mine', isCompetitor: false },
+        },
+      ]);
+
+      const result = await service.timeline('app_1', 90);
+
+      const args = findMany.mock.calls[0][0] as {
+        where: { appId: { in: string[] } };
+        orderBy: unknown;
+        take: number;
+      };
+      expect(args.where.appId.in).toEqual(['app_1', 'comp_1']);
+      expect(args.orderBy).toEqual({ capturedAt: 'desc' });
+      expect(args.take).toBe(200);
+      expect(result.events).toEqual([
+        {
+          id: 'ev_2',
+          appId: 'comp_1',
+          appName: 'Rival',
+          isCompetitor: true,
+          field: 'subtitle',
+          before: 'Old',
+          after: 'New',
+          capturedAt: '2026-07-10T00:00:00.000Z',
+        },
+        {
+          id: 'ev_1',
+          appId: 'app_1',
+          appName: 'Mine',
+          isCompetitor: false,
+          field: 'title',
+          before: 'A',
+          after: 'B',
+          capturedAt: '2026-07-09T00:00:00.000Z',
+        },
+      ]);
+    });
   });
 });
