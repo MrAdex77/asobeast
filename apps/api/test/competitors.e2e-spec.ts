@@ -3,7 +3,7 @@ import { join } from 'path';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Store } from '@prisma/client';
-import { CompetitorAnalysis } from '@asobeast/shared';
+import { CompetitorAnalysis, CompetitorDiscovery } from '@asobeast/shared';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
@@ -167,5 +167,78 @@ describe('CompetitorsController (e2e)', () => {
     const you = analysis.positionMap.find((p) => p.isYou);
     expect(you?.name).toBe('Habit Tracker');
     expect(analysis.positionMap).toHaveLength(2);
+  });
+
+  it('discovers untracked apps from serp entries, excluding known apps', async () => {
+    const primary = await prisma.app.create({
+      data: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        store: Store.APP_STORE,
+        storeAppId: 'self',
+        country: 'us',
+        name: 'You',
+      },
+    });
+    await prisma.app.create({
+      data: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        store: Store.APP_STORE,
+        storeAppId: 'rival',
+        country: 'us',
+        name: 'Rival',
+        isCompetitor: true,
+        primaryAppId: primary.id,
+      },
+    });
+    const keyword = await prisma.keyword.create({
+      data: { text: 'habit tracker', store: Store.APP_STORE, country: 'us' },
+    });
+    await prisma.trackedKeyword.create({
+      data: {
+        appId: primary.id,
+        keywordId: keyword.id,
+        source: 'MANUAL',
+        active: true,
+      },
+    });
+    await prisma.serpEntry.createMany({
+      data: [
+        {
+          keywordId: keyword.id,
+          date: D0,
+          position: 1,
+          storeAppId: 'self',
+          title: 'You',
+        },
+        {
+          keywordId: keyword.id,
+          date: D0,
+          position: 2,
+          storeAppId: 'rival',
+          title: 'Rival',
+        },
+        {
+          keywordId: keyword.id,
+          date: D0,
+          position: 3,
+          storeAppId: 'stranger',
+          title: 'Stranger',
+          developer: 'Someone',
+        },
+      ],
+    });
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${primary.id}/competitors/discovery?days=90`)
+      .expect(200);
+    const discovery = response.body as CompetitorDiscovery;
+
+    expect(discovery.windowDays).toBe(90);
+    expect(discovery.items).toHaveLength(1);
+    expect(discovery.items[0]).toMatchObject({
+      storeAppId: 'stranger',
+      appearances: 1,
+      bestPosition: 3,
+    });
   });
 });

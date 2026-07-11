@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   CompetitorAnalysis,
+  CompetitorDiscovery,
   CompetitorGapKeyword,
   CompetitorMetadataRow,
   KeywordComparison,
@@ -12,6 +13,17 @@ import { visibility } from '../analytics/visibility';
 import { KeywordsService } from '../keywords/keywords.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { toDifficulty100 } from '../scoring/formulas';
+import { aggregateDiscovery } from './discovery';
+import { DiscoveryQueryDto } from './dto/discovery-query.dto';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function utcToday(): Date {
+  const now = new Date();
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+}
 
 interface AppRow {
   id: string;
@@ -55,6 +67,63 @@ export class CompetitorsService {
       ],
       gaps: this.gaps(comparison, trackedById),
       positionMap: this.positionMap(primary, competitors, comparison),
+    };
+  }
+
+  async discovery(
+    appId: string,
+    query: DiscoveryQueryDto,
+  ): Promise<CompetitorDiscovery> {
+    const app = await this.prisma.app.findFirst({
+      where: { id: appId, workspaceId: DEFAULT_WORKSPACE_ID },
+      select: {
+        storeAppId: true,
+        competitors: { select: { storeAppId: true } },
+        tracked: { where: { active: true }, select: { keywordId: true } },
+      },
+    });
+    if (!app) {
+      throw new NotFoundException(`App ${appId} not found`);
+    }
+
+    const known = [
+      app.storeAppId,
+      ...app.competitors.map((competitor) => competitor.storeAppId),
+    ];
+    const since = new Date(utcToday().getTime() - query.days * DAY_MS);
+
+    const rows = await this.prisma.serpEntry.findMany({
+      where: {
+        keywordId: { in: app.tracked.map((item) => item.keywordId) },
+        date: { gte: since },
+        storeAppId: { notIn: known },
+      },
+      select: {
+        storeAppId: true,
+        title: true,
+        developer: true,
+        ratingAvg: true,
+        ratingCount: true,
+        position: true,
+        date: true,
+        keyword: { select: { text: true } },
+      },
+    });
+
+    return {
+      windowDays: query.days,
+      items: aggregateDiscovery(
+        rows.map((row) => ({
+          storeAppId: row.storeAppId,
+          title: row.title,
+          developer: row.developer,
+          ratingAvg: row.ratingAvg,
+          ratingCount: row.ratingCount,
+          position: row.position,
+          date: row.date,
+          keywordText: row.keyword.text,
+        })),
+      ),
     };
   }
 
