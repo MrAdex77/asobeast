@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { RankingSeries } from '@asobeast/shared';
+import { RankingSeries, SERP_DEPTH } from '@asobeast/shared';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
@@ -84,6 +84,22 @@ export class RankingsService {
         update: { position, depth: RANK_DEPTH },
       });
     }
+
+    const entries = results.slice(0, SERP_DEPTH).map((item, index) => ({
+      keywordId,
+      date,
+      position: index + 1,
+      storeAppId: item.storeAppId,
+      title: item.title,
+      developer: item.developer ?? null,
+      ratingAvg: item.ratingAvg ?? null,
+      ratingCount: item.ratingCount ?? null,
+    }));
+
+    await this.prisma.$transaction([
+      this.prisma.serpEntry.deleteMany({ where: { keywordId, date } }),
+      this.prisma.serpEntry.createMany({ data: entries }),
+    ]);
   }
 
   async history(
