@@ -130,6 +130,7 @@ DEFAULT_COUNTRY=us
 CRON_DAILY=0 3 * * *        # daily pipeline, UTC
 CRON_SCORING=0 4 * * 0      # weekly scoring, UTC (Sunday)
 SCRAPE_ITUNES_RPM=15
+ALERT_RANK_DROP_THRESHOLD=5  # positions a primary app must move to fire a rank alert
 BULL_BOARD_ENABLED=true
 LOG_LEVEL=debug
 ```

@@ -22,10 +22,11 @@ enum KeywordSource {
 }
 
 model Workspace {
-  id        String   @id @default(cuid())
-  name      String   @default("Default")
+  id        String    @id @default(cuid())
+  name      String    @default("Default")
   apps      App[]
-  createdAt DateTime @default(now())
+  webhooks  Webhook[]
+  createdAt DateTime  @default(now())
 }
 
 model App {
@@ -44,6 +45,7 @@ model App {
   snapshots    AppSnapshot[]
   tracked      TrackedKeyword[]
   rankings     KeywordRanking[]
+  changeEvents ChangeEvent[]
   auditInput   AuditInput?
   createdAt    DateTime         @default(now())
 
@@ -74,15 +76,15 @@ model AppSnapshot {
 }
 
 model Keyword {
-  id        String           @id @default(cuid())
-  text      String
-  store     Store
-  country   String           @default("us")
-  metrics   KeywordMetric[]
-  tracked   TrackedKeyword[]
-  rankings  KeywordRanking[]
+  id          String           @id @default(cuid())
+  text        String
+  store       Store
+  country     String           @default("us")
+  metrics     KeywordMetric[]
+  tracked     TrackedKeyword[]
+  rankings    KeywordRanking[]
   serpEntries SerpEntry[]
-  createdAt DateTime         @default(now())
+  createdAt   DateTime         @default(now())
 
   @@unique([text, store, country])
 }
@@ -150,4 +152,29 @@ model SerpEntry {
   @@id([keywordId, date, position])
   @@index([storeAppId, date])
   @@index([keywordId, date])
+}
+
+model ChangeEvent {
+  id         String   @id @default(cuid())
+  appId      String
+  app        App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  field      String
+  before     String?
+  after      String?
+  capturedAt DateTime @default(now())
+
+  @@index([appId, capturedAt])
+}
+
+model Webhook {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  url         String
+  events      String[]
+  secret      String?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  @@index([workspaceId])
 }

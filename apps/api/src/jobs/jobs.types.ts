@@ -1,6 +1,9 @@
+import { AlertPayload } from '@asobeast/shared';
+
 export const QUEUES = {
   PIPELINE: 'pipeline',
   APP_STORE: 'appstore',
+  ALERTS: 'alerts',
 } as const;
 
 export const JOBS = {
@@ -9,10 +12,16 @@ export const JOBS = {
   REFRESH_APP: 'refresh-app',
   CHECK_KEYWORD: 'check-keyword',
   SCORE_KEYWORD: 'score-keyword',
+  DELIVER_ALERT: 'deliver-alert',
 } as const;
 
 export interface RefreshAppPayload {
   appId: string;
+}
+
+export interface DeliverAlertPayload {
+  webhookId: string;
+  payload: AlertPayload;
 }
 
 export interface CheckKeywordPayload {

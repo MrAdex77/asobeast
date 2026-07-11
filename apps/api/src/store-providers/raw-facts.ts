@@ -32,6 +32,10 @@ const stringArray = (value: unknown): string[] =>
 const nonEmptyString = (value: unknown): string | null =>
   typeof value === 'string' && value.trim().length > 0 ? value : null;
 
+export function screenshotsCount(raw: unknown): number | null {
+  return arrayLength(asRecord(raw)?.screenshots);
+}
+
 export function extractAppStoreRawFacts(raw: unknown): RawAppFacts {
   const record = asRecord(raw);
   if (!record) {

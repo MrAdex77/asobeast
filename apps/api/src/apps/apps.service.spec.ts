@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Store } from '@prisma/client';
+import { ChangesService } from '../changes/changes.service';
 import { KeywordsService } from '../keywords/keywords.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
@@ -73,10 +74,12 @@ describe('AppsService.addCompetitor', () => {
     };
     const registry = { get: () => ({ getApp }) };
     const keywords = { syncFromSnapshot: jest.fn() };
+    const changes = { recordRefresh: jest.fn().mockResolvedValue([]) };
     const service = new AppsService(
       prisma as unknown as PrismaService,
       registry as unknown as StoreProviderRegistry,
       keywords as unknown as KeywordsService,
+      changes as unknown as ChangesService,
     );
     return { service, prisma, upsert, keywords, getApp };
   };

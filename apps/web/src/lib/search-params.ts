@@ -10,9 +10,11 @@ import {
   parseAsStringLiteral,
 } from "nuqs/server";
 import {
+  CHANGE_WINDOWS,
   DISCOVERY_WINDOWS,
   RANGE_PRESETS,
   VISIBILITY_RANGES,
+  type ChangeWindow,
   type DiscoveryWindow,
 } from "./ranges";
 
@@ -47,3 +49,15 @@ export const discoveryDaysParser = createParser({
     return String(value);
   },
 }).withDefault(30);
+
+export const changeDaysParser = createParser({
+  parse(value) {
+    const days = Number(value);
+    return (CHANGE_WINDOWS as readonly number[]).includes(days)
+      ? (days as ChangeWindow)
+      : null;
+  },
+  serialize(value: ChangeWindow) {
+    return String(value);
+  },
+}).withDefault(90);

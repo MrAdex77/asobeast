@@ -13,10 +13,13 @@ import {
   SnapshotDiffResult,
   SUPPORTED_STORES,
 } from '@asobeast/shared';
+import { ChangesService } from '../changes/changes.service';
+import { DiffableChangeSnapshot } from '../changes/change-detector';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { KeywordsService } from '../keywords/keywords.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreNotSupportedError } from '../store-providers/errors';
+import { screenshotsCount } from '../store-providers/raw-facts';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
 import { NormalizedApp } from '../store-providers/types';
 import { toAppDetail, toAppListItem, toCompetitorItem } from './apps.mapper';
@@ -30,6 +33,7 @@ export class AppsService {
     private readonly prisma: PrismaService,
     private readonly registry: StoreProviderRegistry,
     private readonly keywords: KeywordsService,
+    private readonly changes: ChangesService,
   ) {}
 
   async importFromUrl(url: string): Promise<AppDetail> {
@@ -254,9 +258,31 @@ export class AppsService {
 
     await this.keywords.syncFromSnapshot(app.id);
 
+    await this.changes.recordRefresh(
+      app.id,
+      previous ? this.toChangeSnapshot(previous, app.iconUrl) : null,
+      this.toChangeSnapshot(snapshot, normalized.iconUrl ?? null),
+    );
+
     return {
       snapshotId: snapshot.id,
       changes: diffSnapshots(previous, snapshot),
+    };
+  }
+
+  private toChangeSnapshot(
+    snapshot: AppSnapshot,
+    iconUrl: string | null,
+  ): DiffableChangeSnapshot {
+    return {
+      title: snapshot.title,
+      subtitle: snapshot.subtitle,
+      summary: snapshot.summary,
+      description: snapshot.description,
+      version: snapshot.version,
+      price: snapshot.price,
+      screenshotsCount: screenshotsCount(snapshot.raw),
+      iconUrl,
     };
   }
 

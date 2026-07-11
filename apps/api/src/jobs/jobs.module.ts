@@ -4,6 +4,7 @@ import { BullBoardModule } from '@bull-board/nestjs';
 import { BullModule } from '@nestjs/bullmq';
 import { DynamicModule, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AlertsModule } from '../alerts/alerts.module';
 import { AppsModule } from '../apps/apps.module';
 import { Env } from '../config/env';
 import { RankingsModule } from '../rankings/rankings.module';
@@ -26,6 +27,7 @@ const bullBoardModules: DynamicModule[] =
         BullBoardModule.forFeature(
           { name: QUEUES.PIPELINE, adapter: BullMQAdapter },
           { name: QUEUES.APP_STORE, adapter: BullMQAdapter },
+          { name: QUEUES.ALERTS, adapter: BullMQAdapter },
         ),
       ];
 
@@ -54,6 +56,7 @@ const bullBoardModules: DynamicModule[] =
     AppsModule,
     RankingsModule,
     ScoringModule,
+    AlertsModule,
     ...bullBoardModules,
   ],
   controllers: [JobsController, ScoringController],

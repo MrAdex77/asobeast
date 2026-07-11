@@ -3,6 +3,7 @@ import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
   getApp,
   getApps,
+  getChanges,
   getComparison,
   getCompetitorDiscovery,
   getCompetitors,
@@ -13,6 +14,7 @@ import {
   getSuggestions,
   getSummary,
   getVisibilityHistory,
+  getWebhooks,
   type RangeParams,
   type RankingParams,
 } from "./api";
@@ -37,7 +39,14 @@ export const appKeys = {
   discoveryRoot: (id: string) => [...appKeys.detail(id), "discovery"] as const,
   discovery: (id: string, days: number) =>
     [...appKeys.detail(id), "discovery", { days }] as const,
+  changesRoot: (id: string) => [...appKeys.detail(id), "changes"] as const,
+  changes: (id: string, days: number) =>
+    [...appKeys.detail(id), "changes", { days }] as const,
   serp: (keywordId: string) => ["serp", keywordId] as const,
+};
+
+export const webhookKeys = {
+  all: ["webhooks"] as const,
 };
 
 export const healthKey = ["health"] as const;
@@ -104,11 +113,22 @@ export const discoveryOptions = (id: string, days: number) =>
     queryFn: () => getCompetitorDiscovery(id, days),
   });
 
+export const changesOptions = (id: string, days: number) =>
+  queryOptions({
+    queryKey: appKeys.changes(id, days),
+    queryFn: () => getChanges(id, days),
+  });
+
 export const serpOptions = (keywordId: string) =>
   queryOptions({
     queryKey: appKeys.serp(keywordId),
     queryFn: () => getSerp(keywordId),
   });
+
+export const webhooksOptions = queryOptions({
+  queryKey: webhookKeys.all,
+  queryFn: getWebhooks,
+});
 
 export const healthOptions = queryOptions({
   queryKey: healthKey,
@@ -135,4 +155,8 @@ export function invalidateCompetitorMutation(
 ): void {
   void client.invalidateQueries({ queryKey: appKeys.detail(id) });
   void client.invalidateQueries({ queryKey: appKeys.discoveryRoot(id) });
+}
+
+export function invalidateWebhookMutation(client: QueryClient): void {
+  void client.invalidateQueries({ queryKey: webhookKeys.all });
 }

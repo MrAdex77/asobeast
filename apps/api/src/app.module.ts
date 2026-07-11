@@ -3,6 +3,7 @@ import { APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AlertsModule } from './alerts/alerts.module';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AppsModule } from './apps/apps.module';
@@ -28,6 +29,7 @@ import { PrismaModule } from './prisma/prisma.module';
     AuditModule,
     MetadataModule,
     CompetitorsModule,
+    AlertsModule,
   ],
   controllers: [AppController],
   providers: [

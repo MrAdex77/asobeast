@@ -1,4 +1,4 @@
-import { extractAppStoreRawFacts } from './raw-facts';
+import { extractAppStoreRawFacts, screenshotsCount } from './raw-facts';
 
 const realPayload = {
   id: 1234567890,
@@ -54,5 +54,24 @@ describe('extractAppStoreRawFacts', () => {
     expect(facts.languages).toEqual([]);
     expect(facts.releaseNotes).toBeNull();
     expect(facts.screenshotCount).toBeNull();
+  });
+});
+
+describe('screenshotsCount', () => {
+  it('counts the screenshots array', () => {
+    expect(screenshotsCount({ screenshots: ['a.png', 'b.png'] })).toBe(2);
+  });
+
+  it('returns null for missing or invalid payloads', () => {
+    for (const garbage of [
+      null,
+      undefined,
+      42,
+      'nope',
+      {},
+      { screenshots: 3 },
+    ]) {
+      expect(screenshotsCount(garbage)).toBeNull();
+    }
   });
 });
