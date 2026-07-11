@@ -6,6 +6,7 @@ import type {
   AppSummary,
   AuditInputAnswers,
   CompetitorAnalysis,
+  CompetitorDiscovery,
   CompetitorItem,
   HealthStatus,
   KeywordComparison,
@@ -232,6 +233,16 @@ export function getCompetitorAnalysis(
   appId: string,
 ): Promise<CompetitorAnalysis> {
   return apiFetch<CompetitorAnalysis>(`/apps/${appId}/competitors/analysis`);
+}
+
+export function getCompetitorDiscovery(
+  appId: string,
+  days?: number,
+): Promise<CompetitorDiscovery> {
+  const query = days !== undefined ? `?days=${days}` : "";
+  return apiFetch<CompetitorDiscovery>(
+    `/apps/${appId}/competitors/discovery${query}`,
+  );
 }
 
 export function getAudit(appId: string): Promise<AppAuditResult> {

@@ -4,6 +4,7 @@ import {
   getApp,
   getApps,
   getComparison,
+  getCompetitorDiscovery,
   getCompetitors,
   getHealth,
   getKeywords,
@@ -33,6 +34,9 @@ export const appKeys = {
   visibility: (id: string, params: RangeParams) =>
     [...appKeys.detail(id), "visibility", params] as const,
   competitors: (id: string) => [...appKeys.detail(id), "competitors"] as const,
+  discoveryRoot: (id: string) => [...appKeys.detail(id), "discovery"] as const,
+  discovery: (id: string, days: number) =>
+    [...appKeys.detail(id), "discovery", { days }] as const,
   serp: (keywordId: string) => ["serp", keywordId] as const,
 };
 
@@ -94,6 +98,12 @@ export const competitorsOptions = (id: string) =>
     queryFn: () => getCompetitors(id),
   });
 
+export const discoveryOptions = (id: string, days: number) =>
+  queryOptions({
+    queryKey: appKeys.discovery(id, days),
+    queryFn: () => getCompetitorDiscovery(id, days),
+  });
+
 export const serpOptions = (keywordId: string) =>
   queryOptions({
     queryKey: appKeys.serp(keywordId),
@@ -124,4 +134,5 @@ export function invalidateCompetitorMutation(
   id: string,
 ): void {
   void client.invalidateQueries({ queryKey: appKeys.detail(id) });
+  void client.invalidateQueries({ queryKey: appKeys.discoveryRoot(id) });
 }

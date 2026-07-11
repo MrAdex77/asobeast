@@ -23,6 +23,20 @@ export function CompetitorListSkeleton() {
   );
 }
 
+export function DiscoveryPanelSkeleton() {
+  return (
+    <div className="flex flex-col gap-3">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div key={index} className="flex items-center gap-4">
+          <Skeleton className="h-4 flex-1" />
+          <Skeleton className="h-4 w-10" />
+          <Skeleton className="h-8 w-20" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ComparisonMatrixSkeleton() {
   return (
     <Card>

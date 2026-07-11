@@ -13,6 +13,7 @@ import { competitorsOptions } from "@/lib/queries";
 import { AddCompetitorForm } from "./AddCompetitorForm";
 import { ComparisonMatrix } from "./ComparisonMatrix";
 import { CompetitorList } from "./CompetitorList";
+import { DiscoveryPanel } from "./DiscoveryPanel";
 import {
   ComparisonMatrixSkeleton,
   CompetitorListSkeleton,
@@ -40,6 +41,8 @@ export function CompetitorsView({ id }: { id: string }) {
       <Suspense fallback={<CompetitorListSkeleton />}>
         <CompetitorListSection id={id} />
       </Suspense>
+
+      <DiscoveryPanel id={id} />
 
       <Suspense fallback={<ComparisonMatrixSkeleton />}>
         <ComparisonMatrix id={id} />
