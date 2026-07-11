@@ -1,4 +1,10 @@
-import { extractAppStoreRawFacts, screenshotsCount } from './raw-facts';
+import {
+  extractAppStoreRawFacts,
+  isPaid,
+  primaryGenreId,
+  primaryGenreName,
+  screenshotsCount,
+} from './raw-facts';
 
 const realPayload = {
   id: 1234567890,
@@ -7,7 +13,9 @@ const realPayload = {
   icon: 'https://example.com/icon.png',
   genres: ['Health & Fitness', 'Productivity'],
   genreIds: ['6013', '6007'],
+  primaryGenreId: 6013,
   primaryGenre: 'Health & Fitness',
+  price: 0,
   contentRating: '4+',
   languages: ['EN', 'ES', 'FR'],
   releaseNotes: 'Bug fixes and performance improvements.',
@@ -54,6 +62,34 @@ describe('extractAppStoreRawFacts', () => {
     expect(facts.languages).toEqual([]);
     expect(facts.releaseNotes).toBeNull();
     expect(facts.screenshotCount).toBeNull();
+  });
+});
+
+describe('genre and price facts', () => {
+  it('reads the primary genre id, name, and paid flag from a real payload', () => {
+    expect(primaryGenreId(realPayload)).toBe(6013);
+    expect(primaryGenreName(realPayload)).toBe('Health & Fitness');
+    expect(isPaid(realPayload)).toBe(false);
+  });
+
+  it('treats a positive price as paid', () => {
+    expect(isPaid({ price: 2.99 })).toBe(true);
+    expect(isPaid({ price: 0 })).toBe(false);
+  });
+
+  it('returns null for missing or invalid genre facts', () => {
+    for (const garbage of [
+      null,
+      undefined,
+      42,
+      'nope',
+      {},
+      { primaryGenre: '  ' },
+    ]) {
+      expect(primaryGenreId(garbage)).toBeNull();
+      expect(primaryGenreName(garbage)).toBeNull();
+      expect(isPaid(garbage)).toBe(false);
+    }
   });
 });
 

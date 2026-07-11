@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { CategoryCollection, OVERALL_GENRE_ID } from '@asobeast/shared';
 import { Store } from '@prisma/client';
 import * as cheerio from 'cheerio';
 import {
@@ -8,9 +9,22 @@ import {
   AppStoreSearchResult,
 } from './app-store.lib';
 import { StoreRequestError } from './errors';
-import { NormalizedApp, SearchItem, StoreProvider, SuggestItem } from './types';
+import {
+  ChartItem,
+  NormalizedApp,
+  SearchItem,
+  StoreProvider,
+  SuggestItem,
+} from './types';
 
 const RETRY_DELAYS_MS = [2000, 5000];
+const CHART_MAX = 200;
+
+const COLLECTION_CONSTANTS: Record<CategoryCollection, string> = {
+  free: 'topfreeapplications',
+  paid: 'toppaidapplications',
+  grossing: 'topgrossingapplications',
+};
 
 @Injectable()
 export class AppStoreProvider implements StoreProvider {
@@ -51,6 +65,26 @@ export class AppStoreProvider implements StoreProvider {
       this.lib.similar({ id: Number(storeAppId), country }),
     );
     return results.map((item) => this.toSearchItem(item));
+  }
+
+  async topCharts(
+    collection: CategoryCollection,
+    genreId: number,
+    num: number,
+    country: string,
+  ): Promise<ChartItem[]> {
+    const results = await this.withRetry('topCharts', () =>
+      this.lib.list({
+        collection: COLLECTION_CONSTANTS[collection],
+        ...(genreId === OVERALL_GENRE_ID ? {} : { category: genreId }),
+        num: Math.min(num, CHART_MAX),
+        country,
+      }),
+    );
+    return results.map((item) => ({
+      storeAppId: String(item.id),
+      title: item.title,
+    }));
   }
 
   private async fetchSubtitle(

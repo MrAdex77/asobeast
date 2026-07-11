@@ -32,6 +32,19 @@ export interface AppStoreSuggestResult {
   priority?: number;
 }
 
+export interface AppStoreListResult {
+  id: number | string;
+  appId?: string;
+  title: string;
+}
+
+export interface AppStoreListOptions {
+  collection: string;
+  category?: number;
+  num: number;
+  country: string;
+}
+
 export interface AppStoreLib {
   app(options: {
     id: number;
@@ -52,6 +65,7 @@ export interface AppStoreLib {
     id: number;
     country: string;
   }): Promise<AppStoreSearchResult[]>;
+  list(options: AppStoreListOptions): Promise<AppStoreListResult[]>;
 }
 
 export const APP_STORE_LIB = Symbol('APP_STORE_LIB');
@@ -75,4 +89,6 @@ export const appStoreLib: AppStoreLib = {
     appStore.search(options) as Promise<AppStoreSearchResult[]>,
   suggest: (options) => appStore.suggest(options),
   similar: (options) => appStore.similar(options),
+  list: (options) =>
+    appStore.list(options as Parameters<typeof appStore.list>[0]),
 };

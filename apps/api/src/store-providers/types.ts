@@ -1,3 +1,4 @@
+import { CategoryCollection } from '@asobeast/shared';
 import { Store } from '@prisma/client';
 
 export interface NormalizedApp {
@@ -32,10 +33,21 @@ export interface SuggestItem {
   priority?: number;
 }
 
+export interface ChartItem {
+  storeAppId: string;
+  title: string;
+}
+
 export interface StoreProvider {
   readonly store: Store;
   getApp(storeAppId: string, country: string): Promise<NormalizedApp>;
   search(term: string, country: string, num: number): Promise<SearchItem[]>;
   suggest(term: string, country: string): Promise<SuggestItem[]>;
   similar(storeAppId: string, country: string): Promise<SearchItem[]>;
+  topCharts(
+    collection: CategoryCollection,
+    genreId: number,
+    num: number,
+    country: string,
+  ): Promise<ChartItem[]>;
 }

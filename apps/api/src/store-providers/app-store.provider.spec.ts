@@ -9,6 +9,7 @@ const makeLib = (overrides: Partial<AppStoreLib> = {}): AppStoreLib => ({
   search: jest.fn(),
   suggest: jest.fn(),
   similar: jest.fn(),
+  list: jest.fn(),
   ...overrides,
 });
 
@@ -167,6 +168,54 @@ describe('AppStoreProvider', () => {
 
     expect(items[0].storeAppId).toBe('7');
     expect(similar).toHaveBeenCalledWith({ id: 1, country: 'us' });
+  });
+
+  it('maps the collection union, passes the genre, and preserves order', async () => {
+    const list = jest.fn().mockResolvedValue([
+      { id: 111, appId: 'com.a', title: 'First' },
+      { id: 222, appId: 'com.b', title: 'Second' },
+    ]);
+    const provider = new AppStoreProvider(makeLib({ list }));
+
+    const items = await provider.topCharts('paid', 6007, 200, 'us');
+
+    expect(items).toEqual([
+      { storeAppId: '111', title: 'First' },
+      { storeAppId: '222', title: 'Second' },
+    ]);
+    expect(list).toHaveBeenCalledWith({
+      collection: 'toppaidapplications',
+      category: 6007,
+      num: 200,
+      country: 'us',
+    });
+  });
+
+  it('omits the category for the overall genre and caps num at 200', async () => {
+    const list = jest.fn().mockResolvedValue([]);
+    const provider = new AppStoreProvider(makeLib({ list }));
+
+    await provider.topCharts('free', 0, 500, 'us');
+
+    expect(list).toHaveBeenCalledWith({
+      collection: 'topfreeapplications',
+      num: 200,
+      country: 'us',
+    });
+  });
+
+  it('wraps top chart failures in StoreRequestError', async () => {
+    jest.useFakeTimers();
+    const list = jest.fn().mockRejectedValue(new Error('boom'));
+    const provider = new AppStoreProvider(makeLib({ list }));
+
+    const promise = provider.topCharts('grossing', 0, 200, 'us');
+    const assertion = expect(promise).rejects.toBeInstanceOf(StoreRequestError);
+    await jest.runAllTimersAsync();
+    await assertion;
+
+    expect(list).toHaveBeenCalledTimes(3);
+    jest.useRealTimers();
   });
 
   it('retries transient failures then succeeds', async () => {
