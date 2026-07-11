@@ -14,6 +14,7 @@ import {
   getSuggestions,
   getSummary,
   getVisibilityHistory,
+  getWebhooks,
   type RangeParams,
   type RankingParams,
 } from "./api";
@@ -42,6 +43,10 @@ export const appKeys = {
   changes: (id: string, days: number) =>
     [...appKeys.detail(id), "changes", { days }] as const,
   serp: (keywordId: string) => ["serp", keywordId] as const,
+};
+
+export const webhookKeys = {
+  all: ["webhooks"] as const,
 };
 
 export const healthKey = ["health"] as const;
@@ -120,6 +125,11 @@ export const serpOptions = (keywordId: string) =>
     queryFn: () => getSerp(keywordId),
   });
 
+export const webhooksOptions = queryOptions({
+  queryKey: webhookKeys.all,
+  queryFn: getWebhooks,
+});
+
 export const healthOptions = queryOptions({
   queryKey: healthKey,
   queryFn: getHealth,
@@ -145,4 +155,8 @@ export function invalidateCompetitorMutation(
 ): void {
   void client.invalidateQueries({ queryKey: appKeys.detail(id) });
   void client.invalidateQueries({ queryKey: appKeys.discoveryRoot(id) });
+}
+
+export function invalidateWebhookMutation(client: QueryClient): void {
+  void client.invalidateQueries({ queryKey: webhookKeys.all });
 }

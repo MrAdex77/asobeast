@@ -23,6 +23,9 @@ import type {
   SnapshotDiffResult,
   TrackedKeywordItem,
   VisibilityHistory,
+  WebhookEvent,
+  WebhookItem,
+  WebhookTestResult,
 } from "@asobeast/shared";
 
 const PUBLIC_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
@@ -270,6 +273,46 @@ export function saveAuditInputs(
 
 export function getMetadataAudit(appId: string): Promise<MetadataAuditResult> {
   return apiFetch<MetadataAuditResult>(`/apps/${appId}/metadata/audit`);
+}
+
+export function getWebhooks(): Promise<WebhookItem[]> {
+  return apiFetch<WebhookItem[]>("/webhooks");
+}
+
+export function createWebhook(body: {
+  url: string;
+  events: WebhookEvent[];
+  secret?: string;
+}): Promise<WebhookItem> {
+  return apiFetch<WebhookItem>("/webhooks", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateWebhook(
+  id: string,
+  body: {
+    url?: string;
+    events?: WebhookEvent[];
+    secret?: string;
+    active?: boolean;
+  },
+): Promise<WebhookItem> {
+  return apiFetch<WebhookItem>(`/webhooks/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteWebhook(id: string): Promise<void> {
+  return apiFetch<void>(`/webhooks/${id}`, { method: "DELETE" });
+}
+
+export function testWebhook(id: string): Promise<WebhookTestResult> {
+  return apiFetch<WebhookTestResult>(`/webhooks/${id}/test`, {
+    method: "POST",
+  });
 }
 
 export function getHealth(): Promise<HealthStatus> {
