@@ -9,6 +9,7 @@ const SECTIONS = [
   { segment: "keywords", label: "Keywords" },
   { segment: "rankings", label: "Rankings" },
   { segment: "competitors", label: "Competitors" },
+  { segment: "changes", label: "Changes" },
   { segment: "audit", label: "Audit" },
   { segment: "metadata", label: "Metadata" },
 ] as const;

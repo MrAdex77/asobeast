@@ -5,6 +5,7 @@ import type {
   AppListItem,
   AppSummary,
   AuditInputAnswers,
+  ChangeTimeline,
   CompetitorAnalysis,
   CompetitorDiscovery,
   CompetitorItem,
@@ -243,6 +244,14 @@ export function getCompetitorDiscovery(
   return apiFetch<CompetitorDiscovery>(
     `/apps/${appId}/competitors/discovery${query}`,
   );
+}
+
+export function getChanges(
+  appId: string,
+  days?: number,
+): Promise<ChangeTimeline> {
+  const query = days !== undefined ? `?days=${days}` : "";
+  return apiFetch<ChangeTimeline>(`/apps/${appId}/changes${query}`);
 }
 
 export function getAudit(appId: string): Promise<AppAuditResult> {
