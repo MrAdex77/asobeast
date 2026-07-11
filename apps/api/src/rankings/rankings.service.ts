@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { RankingSeries, SERP_DEPTH } from '@asobeast/shared';
+import { RankingSeries, SERP_DEPTH, SerpSnapshot } from '@asobeast/shared';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
 import { RankingHistoryQueryDto } from './dto/ranking-history-query.dto';
+import { SerpQueryDto } from './dto/serp-query.dto';
 
 const RANK_DEPTH = 100;
 const HISTORY_DAYS = 30;
@@ -148,6 +149,73 @@ export class RankingsService {
           position: ranking.position,
         })),
       })),
+    };
+  }
+
+  async serp(keywordId: string, query: SerpQueryDto): Promise<SerpSnapshot> {
+    const keyword = await this.prisma.keyword.findUnique({
+      where: { id: keywordId },
+      select: { id: true, text: true, store: true, country: true },
+    });
+    if (!keyword) {
+      throw new NotFoundException(`Keyword ${keywordId} not found`);
+    }
+
+    const date = query.date
+      ? new Date(`${query.date}T00:00:00.000Z`)
+      : ((
+          await this.prisma.serpEntry.findFirst({
+            where: { keywordId },
+            orderBy: { date: 'desc' },
+            select: { date: true },
+          })
+        )?.date ?? null);
+
+    if (!date) {
+      return { keywordId, text: keyword.text, date: null, entries: [] };
+    }
+
+    const entries = await this.prisma.serpEntry.findMany({
+      where: { keywordId, date },
+      orderBy: { position: 'asc' },
+      select: {
+        position: true,
+        storeAppId: true,
+        title: true,
+        developer: true,
+        ratingAvg: true,
+        ratingCount: true,
+      },
+    });
+
+    const apps = await this.prisma.app.findMany({
+      where: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        store: keyword.store,
+        country: keyword.country,
+        storeAppId: { in: entries.map((entry) => entry.storeAppId) },
+      },
+      select: { id: true, storeAppId: true, isCompetitor: true },
+    });
+    const appByStoreAppId = new Map(apps.map((app) => [app.storeAppId, app]));
+
+    return {
+      keywordId,
+      text: keyword.text,
+      date: toDateKey(date),
+      entries: entries.map((entry) => {
+        const app = appByStoreAppId.get(entry.storeAppId);
+        return {
+          position: entry.position,
+          storeAppId: entry.storeAppId,
+          title: entry.title,
+          developer: entry.developer,
+          ratingAvg: entry.ratingAvg,
+          ratingCount: entry.ratingCount,
+          appId: app?.id ?? null,
+          isCompetitor: app?.isCompetitor ?? false,
+        };
+      }),
     };
   }
 
