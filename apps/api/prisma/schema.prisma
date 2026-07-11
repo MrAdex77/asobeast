@@ -81,6 +81,7 @@ model Keyword {
   metrics   KeywordMetric[]
   tracked   TrackedKeyword[]
   rankings  KeywordRanking[]
+  serpEntries SerpEntry[]
   createdAt DateTime         @default(now())
 
   @@unique([text, store, country])
@@ -132,4 +133,21 @@ model KeywordRanking {
   @@id([appId, keywordId, date])
   @@index([keywordId, date])
   @@index([appId, date])
+}
+
+model SerpEntry {
+  keywordId   String
+  keyword     Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  date        DateTime @db.Date
+  position    Int
+  storeAppId  String
+  title       String
+  developer   String?
+  ratingAvg   Float?
+  ratingCount Int?
+  createdAt   DateTime @default(now())
+
+  @@id([keywordId, date, position])
+  @@index([storeAppId, date])
+  @@index([keywordId, date])
 }
