@@ -9,7 +9,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { WebhookItem } from '@asobeast/shared';
+import { WebhookItem, WebhookTestResult } from '@asobeast/shared';
 import { CreateWebhookDto } from './dto/create-webhook.dto';
 import { UpdateWebhookDto } from './dto/update-webhook.dto';
 import { WebhooksService } from './webhooks.service';
@@ -45,5 +45,11 @@ export class WebhooksController {
   @ApiOperation({ summary: 'Delete an alert webhook' })
   remove(@Param('id') id: string): Promise<void> {
     return this.webhooks.remove(id);
+  }
+
+  @Post(':id/test')
+  @ApiOperation({ summary: 'Send a sample payload to a webhook' })
+  test(@Param('id') id: string): Promise<WebhookTestResult> {
+    return this.webhooks.test(id);
   }
 }

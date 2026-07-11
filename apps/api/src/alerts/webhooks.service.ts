@@ -1,15 +1,23 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { WebhookItem } from '@asobeast/shared';
+import {
+  MetadataChangedPayload,
+  WebhookItem,
+  WebhookTestResult,
+} from '@asobeast/shared';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateWebhookDto } from './dto/create-webhook.dto';
 import { UpdateWebhookDto } from './dto/update-webhook.dto';
+import { WebhookDelivery } from './webhook-delivery';
 import { toWebhookItem } from './webhooks.mapper';
 
 @Injectable()
 export class WebhooksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly delivery: WebhookDelivery,
+  ) {}
 
   async list(): Promise<WebhookItem[]> {
     const webhooks = await this.prisma.webhook.findMany({
@@ -58,4 +66,24 @@ export class WebhooksService {
       where: { id, workspaceId: DEFAULT_WORKSPACE_ID },
     });
   }
+
+  async test(id: string): Promise<WebhookTestResult> {
+    const webhook = await this.prisma.webhook.findFirst({
+      where: { id, workspaceId: DEFAULT_WORKSPACE_ID },
+      select: { url: true, secret: true },
+    });
+    if (!webhook) {
+      throw new NotFoundException(`Webhook ${id} not found`);
+    }
+    return this.delivery.attempt(webhook.url, webhook.secret, samplePayload());
+  }
+}
+
+function samplePayload(): MetadataChangedPayload {
+  return {
+    event: 'metadata.changed',
+    occurredAt: new Date().toISOString(),
+    app: { id: 'sample', name: 'Sample App', isCompetitor: false },
+    changes: [{ field: 'title', before: 'Old title', after: 'New title' }],
+  };
 }

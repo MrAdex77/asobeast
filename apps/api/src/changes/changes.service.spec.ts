@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { AlertsDispatcher } from '../alerts/alerts.dispatcher';
 import { PrismaService } from '../prisma/prisma.service';
 import { DiffableChangeSnapshot } from './change-detector';
 import { ChangesService } from './changes.service';
@@ -25,11 +26,16 @@ describe('ChangesService', () => {
   const createMany = jest.fn();
   const findMany = jest.fn<Promise<unknown>, [Record<string, unknown>]>();
   const findFirst = jest.fn();
+  const findUnique = jest.fn();
+  const dispatch = jest.fn();
 
   beforeEach(async () => {
     createMany.mockReset();
     findMany.mockReset();
     findFirst.mockReset();
+    findUnique.mockReset();
+    dispatch.mockReset();
+    findUnique.mockResolvedValue({ name: 'Mine', isCompetitor: false });
     const moduleRef = await Test.createTestingModule({
       providers: [
         ChangesService,
@@ -37,9 +43,10 @@ describe('ChangesService', () => {
           provide: PrismaService,
           useValue: {
             changeEvent: { createMany, findMany },
-            app: { findFirst },
+            app: { findFirst, findUnique },
           },
         },
+        { provide: AlertsDispatcher, useValue: { dispatch } },
       ],
     }).compile();
     service = moduleRef.get(ChangesService);
@@ -61,9 +68,16 @@ describe('ChangesService', () => {
         { appId: 'app_1', field: 'version', before: '1.0.0', after: '1.1.0' },
       ],
     });
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'metadata.changed',
+        app: { id: 'app_1', name: 'Mine', isCompetitor: false },
+        changes,
+      }),
+    );
   });
 
-  it('writes nothing when there are no changes', async () => {
+  it('writes nothing and dispatches nothing when there are no changes', async () => {
     const changes = await service.recordRefresh(
       'app_1',
       makeSnapshot(),
@@ -72,6 +86,7 @@ describe('ChangesService', () => {
 
     expect(changes).toEqual([]);
     expect(createMany).not.toHaveBeenCalled();
+    expect(dispatch).not.toHaveBeenCalled();
   });
 
   it('writes nothing for the first snapshot', async () => {

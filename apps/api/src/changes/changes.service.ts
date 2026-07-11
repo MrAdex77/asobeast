@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ChangeField, ChangeTimeline } from '@asobeast/shared';
+import { AlertsDispatcher } from '../alerts/alerts.dispatcher';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -13,7 +14,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class ChangesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly alerts: AlertsDispatcher,
+  ) {}
 
   async timeline(appId: string, days: number): Promise<ChangeTimeline> {
     const app = await this.prisma.app.findFirst({
@@ -65,11 +69,29 @@ export class ChangesService {
     next: DiffableChangeSnapshot,
   ): Promise<DetectedChange[]> {
     const changes = detectChanges(prev, next);
-    if (changes.length > 0) {
-      await this.prisma.changeEvent.createMany({
-        data: changes.map((change) => ({ appId, ...change })),
-      });
+    if (changes.length === 0) {
+      return changes;
     }
+
+    await this.prisma.changeEvent.createMany({
+      data: changes.map((change) => ({ appId, ...change })),
+    });
+
+    const app = await this.prisma.app.findUnique({
+      where: { id: appId },
+      select: { name: true, isCompetitor: true },
+    });
+    await this.alerts.dispatch({
+      event: 'metadata.changed',
+      occurredAt: new Date().toISOString(),
+      app: {
+        id: appId,
+        name: app?.name ?? null,
+        isCompetitor: app?.isCompetitor ?? false,
+      },
+      changes,
+    });
+
     return changes;
   }
 }

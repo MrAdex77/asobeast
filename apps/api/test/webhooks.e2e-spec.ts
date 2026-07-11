@@ -2,7 +2,11 @@ import { execSync } from 'child_process';
 import { join } from 'path';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { ApiErrorEnvelope, WebhookItem } from '@asobeast/shared';
+import {
+  ApiErrorEnvelope,
+  WebhookItem,
+  WebhookTestResult,
+} from '@asobeast/shared';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
@@ -102,5 +106,30 @@ describe('WebhooksController (e2e)', () => {
       .expect(404);
     const body = response.body as ApiErrorEnvelope;
     expect(body.statusCode).toBe(404);
+  });
+
+  it('delivers a sample payload through the test endpoint', async () => {
+    const created = await request(server())
+      .post('/webhooks')
+      .send({
+        url: 'https://hooks.example.com/asobeast',
+        events: ['metadata.changed'],
+      })
+      .expect(201);
+    const webhook = created.body as WebhookItem;
+
+    const original = global.fetch;
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200 });
+    try {
+      const response = await request(server())
+        .post(`/webhooks/${webhook.id}/test`)
+        .expect(201);
+      expect(response.body as WebhookTestResult).toEqual({
+        delivered: true,
+        status: 200,
+      });
+    } finally {
+      global.fetch = original;
+    }
   });
 });
