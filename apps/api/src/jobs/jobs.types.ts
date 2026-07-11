@@ -1,4 +1,4 @@
-import { AlertPayload } from '@asobeast/shared';
+import { AlertPayload, CategoryCollection } from '@asobeast/shared';
 
 export const QUEUES = {
   PIPELINE: 'pipeline',
@@ -11,6 +11,7 @@ export const JOBS = {
   SCORING: 'weekly-scoring',
   REFRESH_APP: 'refresh-app',
   CHECK_KEYWORD: 'check-keyword',
+  CHECK_CATEGORY: 'check-category',
   SCORE_KEYWORD: 'score-keyword',
   DELIVER_ALERT: 'deliver-alert',
 } as const;
@@ -26,6 +27,12 @@ export interface DeliverAlertPayload {
 
 export interface CheckKeywordPayload {
   keywordId: string;
+}
+
+export interface CheckCategoryPayload {
+  collection: CategoryCollection;
+  genreId: number;
+  country: string;
 }
 
 export interface ScoreKeywordPayload {
@@ -51,4 +58,13 @@ export function isoWeekKey(date = new Date()): string {
 
 export function scoreJobId(keywordId: string, bucket: string): string {
   return `score:${keywordId}:${bucket}`;
+}
+
+export function categoryJobId(
+  collection: CategoryCollection,
+  genreId: number,
+  country: string,
+  date: string,
+): string {
+  return `category:${collection}:${genreId}:${country}:${date}`;
 }
