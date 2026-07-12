@@ -30,11 +30,10 @@ import type {
   WebhookTestResult,
 } from "@asobeast/shared";
 
-const PUBLIC_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const INTERNAL_BASE = process.env.API_INTERNAL_URL ?? PUBLIC_BASE;
+const INTERNAL_BASE = process.env.API_INTERNAL_URL ?? "http://localhost:4000";
 
 function apiBase(): string {
-  return typeof window === "undefined" ? INTERNAL_BASE : PUBLIC_BASE;
+  return typeof window === "undefined" ? INTERNAL_BASE : "/api/backend";
 }
 
 export class ApiError extends Error {
