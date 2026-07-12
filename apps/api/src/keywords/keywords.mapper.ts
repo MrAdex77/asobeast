@@ -39,6 +39,22 @@ function positionDelta7d(
   return latest.position - past.position;
 }
 
+function previousDayPosition(
+  rankings: Pick<KeywordRanking, 'position' | 'date'>[],
+): number | null {
+  const latest = rankings[0];
+  if (!latest) {
+    return null;
+  }
+  const target = new Date(latest.date);
+  target.setUTCDate(target.getUTCDate() - 1);
+  const targetKey = target.toISOString().slice(0, 10);
+  const previous = rankings.find(
+    (ranking) => ranking.date.toISOString().slice(0, 10) === targetKey,
+  );
+  return previous ? previous.position : null;
+}
+
 export function toTrackedKeywordItem(
   row: TrackedKeywordRow,
   snapshotText = '',
@@ -46,6 +62,11 @@ export function toTrackedKeywordItem(
   const latest = row.keyword.rankings[0] ?? null;
   const metric = row.keyword.metrics[0] ?? null;
   const latestPosition = latest?.position ?? null;
+  const previousPosition = previousDayPosition(row.keyword.rankings);
+  const positionDelta1d =
+    latestPosition !== null && previousPosition !== null
+      ? latestPosition - previousPosition
+      : null;
   const traffic = metric?.traffic ?? null;
   const difficulty = metric?.difficulty ?? null;
   const volume = traffic === null ? null : toVolume(traffic);
@@ -60,6 +81,8 @@ export function toTrackedKeywordItem(
     source: row.source,
     active: row.active,
     latestPosition,
+    previousPosition,
+    positionDelta1d,
     positionDelta7d: positionDelta7d(row.keyword.rankings),
     traffic,
     difficulty,

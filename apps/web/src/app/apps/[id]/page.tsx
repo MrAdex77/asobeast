@@ -4,6 +4,7 @@ import { CategoryRankCard } from "@/components/overview/CategoryRankCard";
 import { CoverageCard } from "@/components/overview/CoverageCard";
 import { MoversCard } from "@/components/overview/MoversCard";
 import { RankDistributionChart } from "@/components/overview/RankDistributionChart";
+import { RankDistributionHistoryChart } from "@/components/overview/RankDistributionHistoryChart";
 import {
   ChartCardSkeleton,
   PanelCardSkeleton,
@@ -15,6 +16,7 @@ import { getQueryClient } from "@/lib/get-query-client";
 import {
   appSummaryOptions,
   categoryRanksOptions,
+  rankDistributionHistoryOptions,
   visibilityOptions,
 } from "@/lib/queries";
 import { presetToRange } from "@/lib/ranges";
@@ -30,6 +32,9 @@ export default async function AppOverviewPage({
   void queryClient.prefetchQuery(appSummaryOptions(id));
   void queryClient.prefetchQuery(visibilityOptions(id, presetToRange("30d")));
   void queryClient.prefetchQuery(categoryRanksOptions(id, presetToRange("30d")));
+  void queryClient.prefetchQuery(
+    rankDistributionHistoryOptions(id, presetToRange("30d")),
+  );
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
@@ -46,6 +51,8 @@ export default async function AppOverviewPage({
             <RankDistributionChart id={id} />
           </Suspense>
         </div>
+
+        <RankDistributionHistoryChart id={id} />
 
         <CategoryRankCard id={id} />
 

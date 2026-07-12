@@ -39,4 +39,83 @@ describe('toTrackedKeywordItem', () => {
     expect(item.volume).toBeNull();
     expect(item.opportunity).toBeNull();
   });
+
+  const withRankings = (
+    rankings: { position: number | null; date: string }[],
+  ): TrackedKeywordRow =>
+    row({
+      keyword: {
+        text: 'habit tracker',
+        rankings: rankings.map((ranking) => ({
+          position: ranking.position,
+          date: new Date(ranking.date),
+        })),
+        metrics: [],
+      },
+    });
+
+  it('reports an improvement as a negative daily delta', () => {
+    const item = toTrackedKeywordItem(
+      withRankings([
+        { position: 3, date: '2026-07-02' },
+        { position: 4, date: '2026-07-01' },
+      ]),
+    );
+    expect(item.previousPosition).toBe(4);
+    expect(item.positionDelta1d).toBe(-1);
+  });
+
+  it('reports a drop as a positive daily delta', () => {
+    const item = toTrackedKeywordItem(
+      withRankings([
+        { position: 5, date: '2026-07-02' },
+        { position: 3, date: '2026-07-01' },
+      ]),
+    );
+    expect(item.previousPosition).toBe(3);
+    expect(item.positionDelta1d).toBe(2);
+  });
+
+  it('reports a zero daily delta when unchanged', () => {
+    const item = toTrackedKeywordItem(
+      withRankings([
+        { position: 3, date: '2026-07-02' },
+        { position: 3, date: '2026-07-01' },
+      ]),
+    );
+    expect(item.positionDelta1d).toBe(0);
+  });
+
+  it('yields a null delta when there is no row for yesterday', () => {
+    const item = toTrackedKeywordItem(
+      withRankings([
+        { position: 3, date: '2026-07-02' },
+        { position: 4, date: '2026-06-30' },
+      ]),
+    );
+    expect(item.previousPosition).toBeNull();
+    expect(item.positionDelta1d).toBeNull();
+  });
+
+  it('yields a null delta when yesterday had no position', () => {
+    const item = toTrackedKeywordItem(
+      withRankings([
+        { position: 3, date: '2026-07-02' },
+        { position: null, date: '2026-07-01' },
+      ]),
+    );
+    expect(item.previousPosition).toBeNull();
+    expect(item.positionDelta1d).toBeNull();
+  });
+
+  it('yields a null delta when today has no position', () => {
+    const item = toTrackedKeywordItem(
+      withRankings([
+        { position: null, date: '2026-07-02' },
+        { position: 4, date: '2026-07-01' },
+      ]),
+    );
+    expect(item.previousPosition).toBe(4);
+    expect(item.positionDelta1d).toBeNull();
+  });
 });

@@ -6,6 +6,8 @@ export interface TrackedKeywordItem {
   source: KeywordSource;
   active: boolean;
   latestPosition: number | null;
+  previousPosition: number | null;
+  positionDelta1d: number | null;
   positionDelta7d: number | null;
   traffic: number | null;
   difficulty: number | null;

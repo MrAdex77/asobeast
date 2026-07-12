@@ -1,6 +1,10 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AppSummary, VisibilityHistory } from '@asobeast/shared';
+import {
+  AppSummary,
+  RankDistributionHistory,
+  VisibilityHistory,
+} from '@asobeast/shared';
 import { AnalyticsService } from './analytics.service';
 import { VisibilityHistoryQueryDto } from './dto/visibility-history-query.dto';
 
@@ -22,5 +26,14 @@ export class AnalyticsController {
     @Query() query: VisibilityHistoryQueryDto,
   ): Promise<VisibilityHistory> {
     return this.analytics.history(id, query);
+  }
+
+  @Get(':id/rank-distribution-history')
+  @ApiOperation({ summary: 'Rank distribution history bands for an app' })
+  getRankDistributionHistory(
+    @Param('id') id: string,
+    @Query() query: VisibilityHistoryQueryDto,
+  ): Promise<RankDistributionHistory> {
+    return this.analytics.rankDistributionHistory(id, query);
   }
 }

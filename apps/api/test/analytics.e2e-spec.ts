@@ -3,7 +3,12 @@ import { join } from 'path';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Store } from '@prisma/client';
-import { AppSummary, VisibilityHistory } from '@asobeast/shared';
+import {
+  ApiErrorEnvelope,
+  AppSummary,
+  RankDistributionHistory,
+  VisibilityHistory,
+} from '@asobeast/shared';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
@@ -231,5 +236,47 @@ describe('AnalyticsController (e2e)', () => {
       .get(`/apps/${id}/visibility-history`)
       .query({ from: '2025-01-01', to: '2026-07-01' })
       .expect(400);
+  });
+
+  it('groups rank distribution into disjoint bands per day', async () => {
+    const id = await seed();
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${id}/rank-distribution-history`)
+      .query({ from: '2026-06-20', to: '2026-07-01' })
+      .expect(200);
+    const history = response.body as RankDistributionHistory;
+
+    expect(history.points).toEqual([
+      {
+        date: '2026-06-23',
+        rank1: 0,
+        rank2to3: 1,
+        rank4to10: 1,
+        rank11to50: 1,
+        rank51plus: 0,
+        unranked: 0,
+      },
+      {
+        date: '2026-06-30',
+        rank1: 1,
+        rank2to3: 0,
+        rank4to10: 0,
+        rank11to50: 2,
+        rank51plus: 0,
+        unranked: 0,
+      },
+    ]);
+  });
+
+  it('returns a 404 envelope for an unknown app id', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/apps/missing/rank-distribution-history')
+      .expect(404);
+
+    const body = response.body as ApiErrorEnvelope;
+    expect(body.statusCode).toBe(404);
+    expect(body.path).toBe('/apps/missing/rank-distribution-history');
+    expect(typeof body.message).toBe('string');
   });
 });

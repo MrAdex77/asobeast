@@ -56,3 +56,17 @@ export interface VisibilityPoint {
 export interface VisibilityHistory {
   points: VisibilityPoint[];
 }
+
+export interface RankDistributionPoint {
+  date: string;
+  rank1: number;
+  rank2to3: number;
+  rank4to10: number;
+  rank11to50: number;
+  rank51plus: number;
+  unranked: number;
+}
+
+export interface RankDistributionHistory {
+  points: RankDistributionPoint[];
+}
