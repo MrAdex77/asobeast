@@ -131,6 +131,12 @@ CRON_DAILY=0 3 * * *        # daily pipeline, UTC
 CRON_SCORING=0 4 * * 0      # weekly scoring, UTC (Sunday)
 SCRAPE_ITUNES_RPM=15
 ALERT_RANK_DROP_THRESHOLD=5  # positions a primary app must move to fire a rank alert
+CRON_RETENTION=0 5 * * *            # data retention pruning, UTC
+RETENTION_RANKINGS_DAYS=365         # keyword rankings; 0 keeps forever
+RETENTION_SERP_DAYS=90              # serp entries; 0 keeps forever
+RETENTION_SNAPSHOTS_DAYS=180        # app snapshots; newest per app always kept; 0 keeps forever
+RETENTION_CATEGORY_RANKS_DAYS=365   # category ranks; 0 keeps forever
+RETENTION_CHANGE_EVENTS_DAYS=0      # change events; 0 keeps forever
 BULL_BOARD_ENABLED=true
 LOG_LEVEL=debug
 ```
@@ -138,7 +144,7 @@ LOG_LEVEL=debug
 `apps/web/.env`:
 
 ```bash
-NEXT_PUBLIC_API_URL=http://localhost:4000
+API_INTERNAL_URL=http://localhost:4000
 ```
 
 ## What NOT to do
