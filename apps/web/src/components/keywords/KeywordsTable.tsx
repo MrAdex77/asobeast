@@ -1,11 +1,20 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
+import {
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+  type RowSelectionState,
+} from "@tanstack/react-table";
 import { ChevronDown, ListOrdered } from "lucide-react";
 import { useQueryState } from "nuqs";
 import type { KeywordSort, TrackedKeywordItem } from "@asobeast/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -30,15 +39,10 @@ import { KeywordRowActions } from "./KeywordRowActions";
 import { SerpSheet } from "./SerpSheet";
 import { SourceBadge } from "./SourceBadge";
 
-const SORT_COLUMNS: { key: KeywordSort; label: string; emphasize?: boolean }[] =
-  [
-    { key: "position", label: "Position" },
-    { key: "traffic", label: "Traffic" },
-    { key: "difficulty", label: "Difficulty" },
-    { key: "opportunity", label: "Opportunity", emphasize: true },
-  ];
-
-function scoreValue(keyword: TrackedKeywordItem, column: KeywordSort): number | null {
+function scoreValue(
+  keyword: TrackedKeywordItem,
+  column: KeywordSort,
+): number | null {
   switch (column) {
     case "traffic":
       return keyword.volume;
@@ -118,10 +122,179 @@ function SortHeader({
   );
 }
 
+const columnHelper = createColumnHelper<TrackedKeywordItem>();
+
 export function KeywordsTable({ id }: { id: string }) {
   const [sort, setSort] = useQueryState("sort", sortParser);
   const [, setSerp] = useQueryState("serp", serpParser);
   const { data: keywords } = useSuspenseQuery(keywordsOptions(id, sort));
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+
+  const columns = useMemo(
+    () => [
+      columnHelper.display({
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllRowsSelected()
+                ? true
+                : table.getIsSomeRowsSelected()
+                  ? "indeterminate"
+                  : false
+            }
+            onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
+            aria-label="Select all keywords"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label={`Select ${row.original.text}`}
+          />
+        ),
+      }),
+      columnHelper.accessor("text", {
+        header: "Keyword",
+        cell: ({ row }) => (
+          <span className="inline-flex items-center gap-2 font-medium">
+            {row.original.text}
+            {!row.original.active ? (
+              <Badge variant="secondary">Paused</Badge>
+            ) : null}
+          </span>
+        ),
+      }),
+      columnHelper.accessor("source", {
+        header: "Source",
+        cell: ({ row }) => <SourceBadge source={row.original.source} />,
+      }),
+      columnHelper.accessor("latestPosition", {
+        header: () => (
+          <SortHeader
+            column="position"
+            label="Position"
+            active={sort === "position"}
+            onSort={setSort}
+          />
+        ),
+        cell: ({ row }) => (
+          <span className="inline-flex items-center gap-1.5 tabular-nums">
+            <span
+              className={cn(
+                row.original.latestPosition === null && "text-muted-foreground",
+              )}
+            >
+              {formatPosition(row.original.latestPosition)}
+            </span>
+            <PositionDeltaChip value={row.original.positionDelta1d} />
+          </span>
+        ),
+      }),
+      columnHelper.display({
+        id: "traffic",
+        header: () => (
+          <SortHeader
+            column="traffic"
+            label="Traffic"
+            active={sort === "traffic"}
+            onSort={setSort}
+          />
+        ),
+        cell: ({ row }) => (
+          <ScoreCell
+            value={scoreValue(row.original, "traffic")}
+            scoredAt={row.original.scoredAt}
+          />
+        ),
+      }),
+      columnHelper.display({
+        id: "difficulty",
+        header: () => (
+          <SortHeader
+            column="difficulty"
+            label="Difficulty"
+            active={sort === "difficulty"}
+            onSort={setSort}
+          />
+        ),
+        cell: ({ row }) => (
+          <ScoreCell
+            value={scoreValue(row.original, "difficulty")}
+            scoredAt={row.original.scoredAt}
+          />
+        ),
+      }),
+      columnHelper.display({
+        id: "opportunity",
+        header: () => (
+          <SortHeader
+            column="opportunity"
+            label="Opportunity"
+            active={sort === "opportunity"}
+            onSort={setSort}
+          />
+        ),
+        cell: ({ row }) => (
+          <ScoreCell
+            value={scoreValue(row.original, "opportunity")}
+            scoredAt={row.original.scoredAt}
+            emphasize
+          />
+        ),
+      }),
+      columnHelper.accessor("positionDelta7d", {
+        header: "Δ7d",
+        cell: ({ row }) => <DeltaChip value={row.original.positionDelta7d} />,
+      }),
+      columnHelper.display({
+        id: "actions",
+        header: () => null,
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`View top 10 for ${row.original.text}`}
+              onClick={() => void setSerp(row.original.keywordId)}
+            >
+              <ListOrdered />
+            </Button>
+            <KeywordRowActions appId={id} keyword={row.original} />
+          </div>
+        ),
+      }),
+    ],
+    [id, sort, setSort, setSerp],
+  );
+
+  const table = useReactTable({
+    data: keywords,
+    columns,
+    state: { rowSelection },
+    onRowSelectionChange: setRowSelection,
+    getRowId: (row) => row.keywordId,
+    manualSorting: true,
+    enableRowSelection: true,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  useEffect(() => {
+    const ids = new Set(keywords.map((keyword) => keyword.keywordId));
+    setRowSelection((prev) => {
+      let changed = false;
+      const next: RowSelectionState = {};
+      for (const key of Object.keys(prev)) {
+        if (ids.has(key)) {
+          next[key] = prev[key];
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [keywords]);
 
   const activeCount = keywords.filter((keyword) => keyword.active).length;
 
@@ -156,88 +329,42 @@ export function KeywordsTable({ id }: { id: string }) {
               traffic, difficulty, opportunity and 7 day change.
             </TableCaption>
             <TableHeader>
-              <TableRow>
-                <TableHead>Keyword</TableHead>
-                <TableHead>Source</TableHead>
-                {SORT_COLUMNS.map((column) => (
-                  <TableHead key={column.key}>
-                    <SortHeader
-                      column={column.key}
-                      label={column.label}
-                      active={sort === column.key}
-                      onSort={setSort}
-                    />
-                  </TableHead>
-                ))}
-                <TableHead>Δ7d</TableHead>
-                <TableHead className="w-0" />
-              </TableRow>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      className={cn(
+                        header.column.id === "select" && "w-0",
+                        header.column.id === "actions" && "w-0",
+                      )}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
             </TableHeader>
             <TableBody>
-              {keywords.map((keyword) => (
+              {table.getRowModel().rows.map((row) => (
                 <TableRow
-                  key={keyword.keywordId}
-                  className={cn(!keyword.active && "opacity-55")}
+                  key={row.id}
+                  data-state={row.getIsSelected() ? "selected" : undefined}
+                  className={cn(!row.original.active && "opacity-55")}
                 >
-                  <TableCell className="font-medium">
-                    <span className="inline-flex items-center gap-2">
-                      {keyword.text}
-                      {!keyword.active ? (
-                        <Badge variant="secondary">Paused</Badge>
-                      ) : null}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <SourceBadge source={keyword.source} />
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span
-                        className={cn(
-                          keyword.latestPosition === null &&
-                            "text-muted-foreground",
-                        )}
-                      >
-                        {formatPosition(keyword.latestPosition)}
-                      </span>
-                      <PositionDeltaChip value={keyword.positionDelta1d} />
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <ScoreCell
-                      value={scoreValue(keyword, "traffic")}
-                      scoredAt={keyword.scoredAt}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <ScoreCell
-                      value={scoreValue(keyword, "difficulty")}
-                      scoredAt={keyword.scoredAt}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <ScoreCell
-                      value={scoreValue(keyword, "opportunity")}
-                      scoredAt={keyword.scoredAt}
-                      emphasize
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <DeltaChip value={keyword.positionDelta7d} />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`View top 10 for ${keyword.text}`}
-                        onClick={() => void setSerp(keyword.keywordId)}
-                      >
-                        <ListOrdered />
-                      </Button>
-                      <KeywordRowActions appId={id} keyword={keyword} />
-                    </div>
-                  </TableCell>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </TableCell>
+                  ))}
                 </TableRow>
               ))}
             </TableBody>
