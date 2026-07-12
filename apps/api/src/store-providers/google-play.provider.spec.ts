@@ -32,4 +32,10 @@ describe('GooglePlayProvider', () => {
       StoreNotSupportedError,
     );
   });
+
+  it('rejects topCharts with StoreNotSupportedError', async () => {
+    await expect(provider.topCharts()).rejects.toBeInstanceOf(
+      StoreNotSupportedError,
+    );
+  });
 });

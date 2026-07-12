@@ -36,6 +36,20 @@ export function screenshotsCount(raw: unknown): number | null {
   return arrayLength(asRecord(raw)?.screenshots);
 }
 
+export function primaryGenreId(raw: unknown): number | null {
+  const value = asRecord(raw)?.primaryGenreId;
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+export function primaryGenreName(raw: unknown): string | null {
+  return nonEmptyString(asRecord(raw)?.primaryGenre);
+}
+
+export function isPaid(raw: unknown): boolean {
+  const value = asRecord(raw)?.price;
+  return typeof value === 'number' && value > 0;
+}
+
 export function extractAppStoreRawFacts(raw: unknown): RawAppFacts {
   const record = asRecord(raw);
   if (!record) {

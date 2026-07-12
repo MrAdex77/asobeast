@@ -45,6 +45,7 @@ model App {
   snapshots    AppSnapshot[]
   tracked      TrackedKeyword[]
   rankings     KeywordRanking[]
+  categoryRanks CategoryRank[]
   changeEvents ChangeEvent[]
   auditInput   AuditInput?
   createdAt    DateTime         @default(now())
@@ -134,6 +135,20 @@ model KeywordRanking {
 
   @@id([appId, keywordId, date])
   @@index([keywordId, date])
+  @@index([appId, date])
+}
+
+model CategoryRank {
+  appId      String
+  app        App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  date       DateTime @db.Date
+  collection String
+  genreId    Int
+  position   Int?
+  depth      Int      @default(200)
+  createdAt  DateTime @default(now())
+
+  @@id([appId, date, collection, genreId])
   @@index([appId, date])
 }
 

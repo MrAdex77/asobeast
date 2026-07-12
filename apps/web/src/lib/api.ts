@@ -5,6 +5,7 @@ import type {
   AppListItem,
   AppSummary,
   AuditInputAnswers,
+  CategoryRankSeries,
   ChangeTimeline,
   CompetitorAnalysis,
   CompetitorDiscovery,
@@ -185,6 +186,18 @@ export function getRankings(
   }
   return apiFetch<RankingSeries>(
     withQuery(`/apps/${appId}/rankings`, params),
+  );
+}
+
+export function getCategoryRanks(
+  appId: string,
+  { from, to }: RangeParams = {},
+): Promise<CategoryRankSeries> {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  return apiFetch<CategoryRankSeries>(
+    withQuery(`/apps/${appId}/category-ranks`, params),
   );
 }
 

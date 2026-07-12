@@ -6,6 +6,7 @@ import { DynamicModule, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AlertsModule } from '../alerts/alerts.module';
 import { AppsModule } from '../apps/apps.module';
+import { CategoryRanksModule } from '../category-ranks/category-ranks.module';
 import { Env } from '../config/env';
 import { RankingsModule } from '../rankings/rankings.module';
 import { ScoringModule } from '../scoring/scoring.module';
@@ -55,6 +56,7 @@ const bullBoardModules: DynamicModule[] =
     ),
     AppsModule,
     RankingsModule,
+    CategoryRanksModule,
     ScoringModule,
     AlertsModule,
     ...bullBoardModules,

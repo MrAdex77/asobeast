@@ -2,9 +2,17 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { FanOutSummary } from '@asobeast/shared';
 import { Queue } from 'bullmq';
+import { CategoryRanksService } from '../category-ranks/category-ranks.service';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { PrismaService } from '../prisma/prisma.service';
-import { isoWeekKey, JOBS, QUEUES, scoreJobId, utcDateKey } from './jobs.types';
+import {
+  categoryJobId,
+  isoWeekKey,
+  JOBS,
+  QUEUES,
+  scoreJobId,
+  utcDateKey,
+} from './jobs.types';
 
 @Injectable()
 export class PipelineService {
@@ -13,6 +21,7 @@ export class PipelineService {
   constructor(
     @InjectQueue(QUEUES.APP_STORE) private readonly appStoreQueue: Queue,
     private readonly prisma: PrismaService,
+    private readonly categoryRanks: CategoryRanksService,
   ) {}
 
   async fanOutDaily(): Promise<FanOutSummary> {
@@ -105,9 +114,22 @@ export class PipelineService {
       );
     }
 
+    const buckets = await this.categoryRanks.buckets(appIds);
+    for (const bucket of buckets) {
+      await this.appStoreQueue.add(JOBS.CHECK_CATEGORY, bucket, {
+        jobId: categoryJobId(
+          bucket.collection,
+          bucket.genreId,
+          bucket.country,
+          date,
+        ),
+      });
+    }
+
     const summary: FanOutSummary = {
       apps: appIds.length,
       keywords: keywordIds.length,
+      categories: buckets.length,
     };
     this.logger.log(`fan out ${JSON.stringify(summary)}`);
     return summary;

@@ -2,9 +2,11 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { AppsService } from '../apps/apps.service';
+import { CategoryRanksService } from '../category-ranks/category-ranks.service';
 import { RankingsService } from '../rankings/rankings.service';
 import { ScoringService } from '../scoring/scoring.service';
 import {
+  CheckCategoryPayload,
   CheckKeywordPayload,
   JOBS,
   QUEUES,
@@ -25,6 +27,7 @@ export class AppStoreWorker extends WorkerHost {
     private readonly apps: AppsService,
     private readonly rankings: RankingsService,
     private readonly scoring: ScoringService,
+    private readonly categoryRanks: CategoryRanksService,
   ) {
     super();
   }
@@ -53,6 +56,11 @@ export class AppStoreWorker extends WorkerHost {
       case JOBS.CHECK_KEYWORD:
         await this.rankings.checkKeyword(
           (job.data as CheckKeywordPayload).keywordId,
+        );
+        return;
+      case JOBS.CHECK_CATEGORY:
+        await this.categoryRanks.checkCategory(
+          job.data as CheckCategoryPayload,
         );
         return;
       case JOBS.SCORE_KEYWORD:

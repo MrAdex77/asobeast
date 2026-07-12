@@ -1,7 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { Store } from '@prisma/client';
 import { StoreNotSupportedError } from './errors';
-import { NormalizedApp, SearchItem, StoreProvider, SuggestItem } from './types';
+import {
+  ChartItem,
+  NormalizedApp,
+  SearchItem,
+  StoreProvider,
+  SuggestItem,
+} from './types';
 
 /**
  * Google Play scraping is intentionally deferred. When implementing:
@@ -28,6 +34,10 @@ export class GooglePlayProvider implements StoreProvider {
   }
 
   similar(): Promise<SearchItem[]> {
+    return Promise.reject(new StoreNotSupportedError(this.store));
+  }
+
+  topCharts(): Promise<ChartItem[]> {
     return Promise.reject(new StoreNotSupportedError(this.store));
   }
 }
