@@ -55,6 +55,10 @@ export function formatPosition(value: number | null): string {
   return value === null ? ">100" : String(value);
 }
 
+export function formatCategoryPosition(value: number | null): string {
+  return value === null ? ">200" : String(value);
+}
+
 export function storeLabel(store: Store): string {
   return STORE_LABELS[store];
 }

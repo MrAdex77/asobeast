@@ -3,6 +3,7 @@ import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
   getApp,
   getApps,
+  getCategoryRanks,
   getChanges,
   getComparison,
   getCompetitorDiscovery,
@@ -33,6 +34,8 @@ export const appKeys = {
     [...appKeys.detail(id), "compare", { onlyGaps }] as const,
   rankings: (id: string, params: RankingParams) =>
     [...appKeys.detail(id), "rankings", params] as const,
+  categoryRanks: (id: string, params: RangeParams) =>
+    [...appKeys.detail(id), "category-ranks", params] as const,
   visibility: (id: string, params: RangeParams) =>
     [...appKeys.detail(id), "visibility", params] as const,
   competitors: (id: string) => [...appKeys.detail(id), "competitors"] as const,
@@ -99,6 +102,12 @@ export const visibilityOptions = (id: string, params: RangeParams) =>
   queryOptions({
     queryKey: appKeys.visibility(id, params),
     queryFn: () => getVisibilityHistory(id, params),
+  });
+
+export const categoryRanksOptions = (id: string, params: RangeParams) =>
+  queryOptions({
+    queryKey: appKeys.categoryRanks(id, params),
+    queryFn: () => getCategoryRanks(id, params),
   });
 
 export const competitorsOptions = (id: string) =>

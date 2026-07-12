@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { CategoryRankCard } from "@/components/overview/CategoryRankCard";
 import { CoverageCard } from "@/components/overview/CoverageCard";
 import { MoversCard } from "@/components/overview/MoversCard";
 import { RankDistributionChart } from "@/components/overview/RankDistributionChart";
@@ -11,7 +12,11 @@ import {
 import { StatCards } from "@/components/overview/StatCards";
 import { VisibilityChart } from "@/components/overview/VisibilityChart";
 import { getQueryClient } from "@/lib/get-query-client";
-import { appSummaryOptions, visibilityOptions } from "@/lib/queries";
+import {
+  appSummaryOptions,
+  categoryRanksOptions,
+  visibilityOptions,
+} from "@/lib/queries";
 import { presetToRange } from "@/lib/ranges";
 
 export default async function AppOverviewPage({
@@ -24,6 +29,7 @@ export default async function AppOverviewPage({
   const queryClient = getQueryClient();
   void queryClient.prefetchQuery(appSummaryOptions(id));
   void queryClient.prefetchQuery(visibilityOptions(id, presetToRange("30d")));
+  void queryClient.prefetchQuery(categoryRanksOptions(id, presetToRange("30d")));
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
@@ -40,6 +46,8 @@ export default async function AppOverviewPage({
             <RankDistributionChart id={id} />
           </Suspense>
         </div>
+
+        <CategoryRankCard id={id} />
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Suspense fallback={<PanelCardSkeleton />}>
