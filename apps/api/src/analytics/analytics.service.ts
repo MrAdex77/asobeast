@@ -10,6 +10,7 @@ import {
   KeywordMovers,
   normalizeText,
   RankDistribution,
+  RankDistributionHistory,
   UncoveredKeyword,
   VisibilityHistory,
   VisibilitySummary,
@@ -24,6 +25,7 @@ import {
 } from '../scoring/formulas';
 import { KeywordSource } from '@prisma/client';
 import { VisibilityHistoryQueryDto } from './dto/visibility-history-query.dto';
+import { bucketPositions } from './rank-distribution';
 import { visibility, VisibilityKeyword } from './visibility';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -176,6 +178,46 @@ export class AnalyticsService {
         const date = new Date(time);
         return { date: toDateKey(date), visibility: visibilityAt(rows, date) };
       });
+
+    return { points };
+  }
+
+  async rankDistributionHistory(
+    appId: string,
+    query: VisibilityHistoryQueryDto,
+  ): Promise<RankDistributionHistory> {
+    await this.ensureApp(appId);
+
+    const reference = await this.referenceDate(appId);
+    const to = query.to
+      ? startOfUtcDay(new Date(query.to))
+      : (reference ?? utcToday());
+    const from = query.from
+      ? startOfUtcDay(new Date(query.from))
+      : addDays(to, -HISTORY_DEFAULT_DAYS);
+
+    if (to.getTime() - from.getTime() > HISTORY_MAX_DAYS * DAY_MS) {
+      throw new BadRequestException(
+        `Range must not exceed ${HISTORY_MAX_DAYS} days`,
+      );
+    }
+
+    const rows = await this.trackedRows(appId, from, to);
+    const byDate = new Map<number, Array<number | null>>();
+    for (const row of rows) {
+      for (const ranking of row.keyword.rankings) {
+        const list = byDate.get(ranking.date.getTime()) ?? [];
+        list.push(ranking.position);
+        byDate.set(ranking.date.getTime(), list);
+      }
+    }
+
+    const points = [...byDate.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([time, positions]) => ({
+        date: toDateKey(new Date(time)),
+        ...bucketPositions(positions),
+      }));
 
     return { points };
   }
