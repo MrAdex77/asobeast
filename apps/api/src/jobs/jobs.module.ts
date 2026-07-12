@@ -15,6 +15,7 @@ import { JobsController } from './jobs.controller';
 import { QUEUES } from './jobs.types';
 import { PipelineService } from './pipeline.service';
 import { PipelineWorker } from './pipeline.worker';
+import { RetentionService } from './retention.service';
 import { ScoringController } from './scoring.controller';
 
 const bullBoardModules: DynamicModule[] =
@@ -62,7 +63,12 @@ const bullBoardModules: DynamicModule[] =
     ...bullBoardModules,
   ],
   controllers: [JobsController, ScoringController],
-  providers: [AppStoreWorker, PipelineWorker, PipelineService],
+  providers: [
+    AppStoreWorker,
+    PipelineWorker,
+    PipelineService,
+    RetentionService,
+  ],
   exports: [BullModule],
 })
 export class JobsModule {}

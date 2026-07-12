@@ -22,6 +22,12 @@ export const EnvSchema = z.object({
   CRON_SCORING: z.string().min(1).default('0 4 * * 0'),
   SCRAPE_ITUNES_RPM: z.coerce.number().int().positive().default(15),
   ALERT_RANK_DROP_THRESHOLD: z.coerce.number().int().positive().default(5),
+  RETENTION_RANKINGS_DAYS: z.coerce.number().int().min(0).default(365),
+  RETENTION_SERP_DAYS: z.coerce.number().int().min(0).default(90),
+  RETENTION_SNAPSHOTS_DAYS: z.coerce.number().int().min(0).default(180),
+  RETENTION_CATEGORY_RANKS_DAYS: z.coerce.number().int().min(0).default(365),
+  RETENTION_CHANGE_EVENTS_DAYS: z.coerce.number().int().min(0).default(0),
+  CRON_RETENTION: z.string().min(1).default('0 5 * * *'),
   BULL_BOARD_ENABLED: z
     .enum(['true', 'false'])
     .default('true')
