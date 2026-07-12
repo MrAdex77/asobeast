@@ -10,6 +10,7 @@ import {
   getCompetitors,
   getHealth,
   getKeywords,
+  getRankDistributionHistory,
   getRankings,
   getSerp,
   getSuggestions,
@@ -38,6 +39,8 @@ export const appKeys = {
     [...appKeys.detail(id), "category-ranks", params] as const,
   visibility: (id: string, params: RangeParams) =>
     [...appKeys.detail(id), "visibility", params] as const,
+  rankDistribution: (id: string, params: RangeParams) =>
+    [...appKeys.detail(id), "rank-distribution", params] as const,
   competitors: (id: string) => [...appKeys.detail(id), "competitors"] as const,
   discoveryRoot: (id: string) => [...appKeys.detail(id), "discovery"] as const,
   discovery: (id: string, days: number) =>
@@ -108,6 +111,15 @@ export const categoryRanksOptions = (id: string, params: RangeParams) =>
   queryOptions({
     queryKey: appKeys.categoryRanks(id, params),
     queryFn: () => getCategoryRanks(id, params),
+  });
+
+export const rankDistributionHistoryOptions = (
+  id: string,
+  params: RangeParams,
+) =>
+  queryOptions({
+    queryKey: appKeys.rankDistribution(id, params),
+    queryFn: () => getRankDistributionHistory(id, params),
   });
 
 export const competitorsOptions = (id: string) =>

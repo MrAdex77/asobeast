@@ -17,6 +17,7 @@ import type {
   KeywordSuggestion,
   KeywordSuggestionStrategy,
   MetadataAuditResult,
+  RankDistributionHistory,
   RankingSeries,
   RunDailyResult,
   ScoreEnqueueResult,
@@ -171,6 +172,18 @@ export function getVisibilityHistory(
   if (to) params.set("to", to);
   return apiFetch<VisibilityHistory>(
     withQuery(`/apps/${appId}/visibility-history`, params),
+  );
+}
+
+export function getRankDistributionHistory(
+  appId: string,
+  { from, to }: RangeParams = {},
+): Promise<RankDistributionHistory> {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  return apiFetch<RankDistributionHistory>(
+    withQuery(`/apps/${appId}/rank-distribution-history`, params),
   );
 }
 
