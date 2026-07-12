@@ -36,6 +36,7 @@ import { serpParser, sortParser } from "@/lib/search-params";
 import { cn } from "@/lib/utils";
 import { DeltaChip, PositionDeltaChip } from "./DeltaChip";
 import { KeywordRowActions } from "./KeywordRowActions";
+import { KeywordsBulkActions } from "./KeywordsBulkActions";
 import { SerpSheet } from "./SerpSheet";
 import { SourceBadge } from "./SourceBadge";
 
@@ -297,6 +298,9 @@ export function KeywordsTable({ id }: { id: string }) {
   }, [keywords]);
 
   const activeCount = keywords.filter((keyword) => keyword.active).length;
+  const selectedIds = Object.keys(rowSelection).filter(
+    (key) => rowSelection[key],
+  );
 
   if (keywords.length === 0) {
     return (
@@ -321,6 +325,14 @@ export function KeywordsTable({ id }: { id: string }) {
           </span>{" "}
           active
         </p>
+
+        {selectedIds.length > 0 ? (
+          <KeywordsBulkActions
+            appId={id}
+            selectedIds={selectedIds}
+            onClear={() => setRowSelection({})}
+          />
+        ) : null}
 
         <div className="overflow-x-auto rounded-xl border">
           <Table>
