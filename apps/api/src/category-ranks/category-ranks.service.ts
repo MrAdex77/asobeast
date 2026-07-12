@@ -1,13 +1,26 @@
-import { Injectable } from '@nestjs/common';
-import { CategoryCollection, OVERALL_GENRE_ID } from '@asobeast/shared';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  CategoryCollection,
+  CategoryRankSeries,
+  CategoryRankSeriesItem,
+  OVERALL_GENRE_ID,
+} from '@asobeast/shared';
 import { Store } from '@prisma/client';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { PrismaService } from '../prisma/prisma.service';
-import { isPaid, primaryGenreId } from '../store-providers/raw-facts';
+import {
+  isPaid,
+  primaryGenreId,
+  primaryGenreName,
+} from '../store-providers/raw-facts';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
 import { CheckCategoryPayload } from '../jobs/jobs.types';
+import { CategoryRankHistoryQueryDto } from './dto/category-rank-history-query.dto';
 
 const CHART_DEPTH = 200;
+const DEFAULT_HISTORY_DAYS = 90;
+const MAX_HISTORY_DAYS = 365;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface CategoryBucket {
   collection: CategoryCollection;
@@ -28,6 +41,10 @@ function utcToday(): Date {
   return new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
   );
+}
+
+function toDateKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
 }
 
 @Injectable()
@@ -105,6 +122,63 @@ export class CategoryRanksService {
         update: { position, depth: CHART_DEPTH },
       });
     }
+  }
+
+  async history(
+    appId: string,
+    query: CategoryRankHistoryQueryDto,
+  ): Promise<CategoryRankSeries> {
+    const app = await this.prisma.app.findFirst({
+      where: { id: appId, workspaceId: DEFAULT_WORKSPACE_ID },
+      select: {
+        id: true,
+        snapshots: {
+          orderBy: { capturedAt: 'desc' },
+          take: 1,
+          select: { raw: true },
+        },
+      },
+    });
+    if (!app) {
+      throw new NotFoundException(`App ${appId} not found`);
+    }
+
+    const to = query.to ? new Date(query.to) : utcToday();
+    const earliest = new Date(to.getTime() - MAX_HISTORY_DAYS * DAY_MS);
+    const requestedFrom = query.from
+      ? new Date(query.from)
+      : new Date(to.getTime() - DEFAULT_HISTORY_DAYS * DAY_MS);
+    const from = requestedFrom < earliest ? earliest : requestedFrom;
+
+    const ranks = await this.prisma.categoryRank.findMany({
+      where: { appId, date: { gte: from, lte: to } },
+      orderBy: [{ collection: 'asc' }, { genreId: 'asc' }, { date: 'asc' }],
+      select: { collection: true, genreId: true, date: true, position: true },
+    });
+
+    const genreName = primaryGenreName(app.snapshots[0]?.raw);
+    const groups = new Map<string, CategoryRankSeriesItem>();
+    for (const rank of ranks) {
+      const key = `${rank.collection}:${rank.genreId}`;
+      let item = groups.get(key);
+      if (!item) {
+        item = {
+          collection: rank.collection as CategoryCollection,
+          genreId: rank.genreId,
+          genreName:
+            rank.genreId === OVERALL_GENRE_ID
+              ? 'Overall'
+              : (genreName ?? 'Unknown'),
+          current: null,
+          points: [],
+        };
+        groups.set(key, item);
+      }
+      item.points.push({ date: toDateKey(rank.date), position: rank.position });
+      item.current = rank.position;
+    }
+
+    return { series: [...groups.values()] };
   }
 
   private async loadAppBuckets(

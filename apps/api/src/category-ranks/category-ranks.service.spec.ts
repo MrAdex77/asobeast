@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Store } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
@@ -157,5 +158,85 @@ describe('CategoryRanksService checkCategory', () => {
       });
     }
     expect(upsert).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('CategoryRanksService history', () => {
+  const makeHistoryService = (
+    appRow: unknown,
+    ranks: {
+      collection: string;
+      genreId: number;
+      date: Date;
+      position: number | null;
+    }[],
+  ) => {
+    const prisma = {
+      app: { findFirst: jest.fn().mockResolvedValue(appRow) },
+      categoryRank: { findMany: jest.fn().mockResolvedValue(ranks) },
+    };
+    const registry = { get: jest.fn() };
+    const service = new CategoryRanksService(
+      prisma as unknown as PrismaService,
+      registry as unknown as StoreProviderRegistry,
+    );
+    return { service };
+  };
+
+  it('throws NotFound for an unknown app', async () => {
+    const { service } = makeHistoryService(null, []);
+    await expect(service.history('missing', {})).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('groups by collection and genre with the newest position as current', async () => {
+    const appRow = {
+      id: 'a1',
+      snapshots: [{ raw: { primaryGenre: 'Productivity' } }],
+    };
+    const ranks = [
+      {
+        collection: 'free',
+        genreId: 6007,
+        date: new Date('2026-07-09'),
+        position: 12,
+      },
+      {
+        collection: 'free',
+        genreId: 6007,
+        date: new Date('2026-07-10'),
+        position: 8,
+      },
+      {
+        collection: 'free',
+        genreId: 0,
+        date: new Date('2026-07-10'),
+        position: 140,
+      },
+    ];
+    const { service } = makeHistoryService(appRow, ranks);
+
+    const result = await service.history('a1', {});
+
+    expect(result.series).toEqual([
+      {
+        collection: 'free',
+        genreId: 6007,
+        genreName: 'Productivity',
+        current: 8,
+        points: [
+          { date: '2026-07-09', position: 12 },
+          { date: '2026-07-10', position: 8 },
+        ],
+      },
+      {
+        collection: 'free',
+        genreId: 0,
+        genreName: 'Overall',
+        current: 140,
+        points: [{ date: '2026-07-10', position: 140 }],
+      },
+    ]);
   });
 });
