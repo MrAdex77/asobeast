@@ -1,7 +1,7 @@
 "use client";
 
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, ChevronDown, ListOrdered } from "lucide-react";
+import { ChevronDown, ListOrdered } from "lucide-react";
 import { useQueryState } from "nuqs";
 import type { KeywordSort, TrackedKeywordItem } from "@asobeast/shared";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,7 @@ import { formatDate, formatPosition } from "@/lib/format";
 import { keywordsOptions } from "@/lib/queries";
 import { serpParser, sortParser } from "@/lib/search-params";
 import { cn } from "@/lib/utils";
+import { DeltaChip, PositionDeltaChip } from "./DeltaChip";
 import { KeywordRowActions } from "./KeywordRowActions";
 import { SerpSheet } from "./SerpSheet";
 import { SourceBadge } from "./SourceBadge";
@@ -48,30 +49,6 @@ function scoreValue(keyword: TrackedKeywordItem, column: KeywordSort): number | 
     default:
       return null;
   }
-}
-
-function DeltaChip({ value }: { value: number | null }) {
-  if (value === null) {
-    return <span className="text-muted-foreground">—</span>;
-  }
-  if (value === 0) {
-    return <span className="text-muted-foreground tabular-nums">0</span>;
-  }
-  const improved = value < 0;
-  const Icon = improved ? ArrowUp : ArrowDown;
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-0.5 font-medium tabular-nums",
-        improved
-          ? "text-emerald-600 dark:text-emerald-400"
-          : "text-red-600 dark:text-red-400",
-      )}
-    >
-      <Icon className="size-3.5" />
-      {Math.abs(value)}
-    </span>
-  );
 }
 
 function ScoreCell({
@@ -175,8 +152,8 @@ export function KeywordsTable({ id }: { id: string }) {
         <div className="overflow-x-auto rounded-xl border">
           <Table>
             <TableCaption className="sr-only">
-              Tracked keywords with source, position, traffic, difficulty,
-              opportunity and 7 day change.
+              Tracked keywords with source, position and its daily change,
+              traffic, difficulty, opportunity and 7 day change.
             </TableCaption>
             <TableHeader>
               <TableRow>
@@ -214,13 +191,16 @@ export function KeywordsTable({ id }: { id: string }) {
                     <SourceBadge source={keyword.source} />
                   </TableCell>
                   <TableCell className="tabular-nums">
-                    <span
-                      className={cn(
-                        keyword.latestPosition === null &&
-                          "text-muted-foreground",
-                      )}
-                    >
-                      {formatPosition(keyword.latestPosition)}
+                    <span className="inline-flex items-center gap-1.5">
+                      <span
+                        className={cn(
+                          keyword.latestPosition === null &&
+                            "text-muted-foreground",
+                        )}
+                      >
+                        {formatPosition(keyword.latestPosition)}
+                      </span>
+                      <PositionDeltaChip value={keyword.positionDelta1d} />
                     </span>
                   </TableCell>
                   <TableCell>
