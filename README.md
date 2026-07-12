@@ -40,7 +40,7 @@ Then open:
 
 `docker compose up` starts Postgres, Redis, the API (which runs database migrations and seeds the default workspace on boot) and the web app. Import an App Store app from the UI and its keywords start tracking immediately.
 
-> The web image bakes `NEXT_PUBLIC_API_URL` in at build time for browser requests (default `http://localhost:4000`). Server-rendered pages can use `API_INTERNAL_URL` at runtime, which `docker-compose.yml` sets to `http://api:4000`.
+> Expose only the web app; it proxies the API. The browser talks to the web origin at `/api/backend/*`, which forwards to `API_INTERNAL_URL` (default `http://localhost:4000`, set to `http://api:4000` by `docker-compose.yml`). The web image is environment-agnostic — point it at any API address at runtime, no rebuild.
 
 ## Development
 
@@ -97,6 +97,12 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 | `CRON_DAILY` | `0 3 * * *` | Cron for the daily ranking pipeline (UTC). |
 | `CRON_SCORING` | `0 4 * * 0` | Cron for weekly keyword scoring (UTC, Sunday). |
 | `SCRAPE_ITUNES_RPM` | `15` | iTunes requests per minute; the App Store worker runs concurrency 1 behind this limiter. |
+| `CRON_RETENTION` | `0 5 * * *` | Cron for the data retention pruning job (UTC). |
+| `RETENTION_RANKINGS_DAYS` | `365` | Prune keyword rankings older than N days; `0` keeps forever. |
+| `RETENTION_SERP_DAYS` | `90` | Prune SERP entries older than N days; `0` keeps forever. |
+| `RETENTION_SNAPSHOTS_DAYS` | `180` | Prune app snapshots older than N days; the newest snapshot per app is always kept; `0` keeps forever. |
+| `RETENTION_CATEGORY_RANKS_DAYS` | `365` | Prune category ranks older than N days; `0` keeps forever. |
+| `RETENTION_CHANGE_EVENTS_DAYS` | `0` | Prune change events older than N days; `0` keeps forever. |
 | `BULL_BOARD_ENABLED` | `true` | Serve the Bull Board queue dashboard at `/admin/queues`. |
 | `LOG_LEVEL` | `debug` | `error`, `warn`, `log`, `debug` or `verbose`. |
 
@@ -104,8 +110,7 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `NEXT_PUBLIC_API_URL` | `http://localhost:4000` | API base URL, inlined into the web build at build time. |
-| `API_INTERNAL_URL` | same as `NEXT_PUBLIC_API_URL` | Optional server-side API base URL for Docker or reverse-proxy deployments. |
+| `API_INTERNAL_URL` | `http://localhost:4000` | API base URL read at runtime. Server-rendered pages call it directly; browser requests reach it through the `/api/backend/*` proxy. |
 
 ## Limitations
 
@@ -113,7 +118,6 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 - **Scrapers can break.** asobeast reads public store endpoints; when Apple changes them a parser can fail. Parse failures fail the job (BullMQ retries with backoff) and never take down request handling.
 - **Informal rate limits.** The iTunes endpoints tolerate roughly 20 requests per minute per IP; asobeast stays well under that by design. Do not point many instances at the store from one IP.
 - **Bull Board has no auth.** The `/admin/queues` dashboard is unauthenticated — keep it off the public internet or set `BULL_BOARD_ENABLED=false`.
-- **`NEXT_PUBLIC_API_URL` is baked at build time**, so changing the browser-facing API origin means rebuilding the web image.
 - **No authentication or multi tenancy in v1.** Tenant owned rows carry a `workspaceId` and v1 uses a single seeded workspace.
 
 ## Roadmap

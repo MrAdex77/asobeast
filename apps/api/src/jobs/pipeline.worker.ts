@@ -5,6 +5,7 @@ import { Job, Queue } from 'bullmq';
 import { Env } from '../config/env';
 import { JOBS, QUEUES } from './jobs.types';
 import { PipelineService } from './pipeline.service';
+import { RetentionService } from './retention.service';
 
 @Processor(QUEUES.PIPELINE)
 export class PipelineWorker extends WorkerHost implements OnModuleInit {
@@ -14,6 +15,7 @@ export class PipelineWorker extends WorkerHost implements OnModuleInit {
     @InjectQueue(QUEUES.PIPELINE) private readonly pipelineQueue: Queue,
     private readonly config: ConfigService<Env, true>,
     private readonly pipeline: PipelineService,
+    private readonly retention: RetentionService,
   ) {
     super();
   }
@@ -29,6 +31,14 @@ export class PipelineWorker extends WorkerHost implements OnModuleInit {
       { pattern: this.config.get('CRON_SCORING', { infer: true }), tz: 'UTC' },
       { name: JOBS.SCORING },
     );
+    await this.pipelineQueue.upsertJobScheduler(
+      'retention',
+      {
+        pattern: this.config.get('CRON_RETENTION', { infer: true }),
+        tz: 'UTC',
+      },
+      { name: JOBS.RETENTION },
+    );
   }
 
   async process(job: Job): Promise<void> {
@@ -38,6 +48,10 @@ export class PipelineWorker extends WorkerHost implements OnModuleInit {
     }
     if (job.name === JOBS.SCORING) {
       await this.pipeline.fanOutScoring();
+      return;
+    }
+    if (job.name === JOBS.RETENTION) {
+      await this.retention.prune();
       return;
     }
     throw new Error(`Unknown pipeline job ${job.name}`);
