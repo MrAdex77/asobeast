@@ -9,7 +9,7 @@ import {
   useReactTable,
   type RowSelectionState,
 } from "@tanstack/react-table";
-import { ChevronDown, ListOrdered } from "lucide-react";
+import { ChevronDown, Download, ListOrdered } from "lucide-react";
 import { useQueryState } from "nuqs";
 import type { KeywordSort, TrackedKeywordItem } from "@asobeast/shared";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +30,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { toCsv, downloadCsv } from "@/lib/csv";
 import { formatDate, formatPosition } from "@/lib/format";
 import { keywordsOptions } from "@/lib/queries";
 import { serpParser, sortParser } from "@/lib/search-params";
@@ -120,6 +121,47 @@ function SortHeader({
       {label}
       {active ? <ChevronDown className="size-3.5" /> : null}
     </button>
+  );
+}
+
+const KEYWORD_CSV_HEADERS = [
+  "keyword",
+  "source",
+  "active",
+  "position",
+  "delta1d",
+  "delta7d",
+  "traffic",
+  "difficulty",
+  "opportunity",
+  "bucket",
+  "relevance",
+  "scoredAt",
+];
+
+function roundOrNull(value: number | null): number | null {
+  return value === null ? null : Math.round(value);
+}
+
+function exportKeywords(appId: string, rows: TrackedKeywordItem[]): void {
+  const csvRows = rows.map((keyword) => [
+    keyword.text,
+    keyword.source,
+    keyword.active ? "true" : "false",
+    formatPosition(keyword.latestPosition),
+    keyword.positionDelta1d,
+    keyword.positionDelta7d,
+    roundOrNull(scoreValue(keyword, "traffic")),
+    roundOrNull(scoreValue(keyword, "difficulty")),
+    roundOrNull(keyword.opportunity),
+    keyword.bucket,
+    keyword.relevance,
+    keyword.scoredAt,
+  ]);
+  const today = new Date().toISOString().slice(0, 10);
+  downloadCsv(
+    `keywords-${appId}-${today}.csv`,
+    toCsv(KEYWORD_CSV_HEADERS, csvRows),
   );
 }
 
@@ -301,6 +343,9 @@ export function KeywordsTable({ id }: { id: string }) {
   const selectedIds = Object.keys(rowSelection).filter(
     (key) => rowSelection[key],
   );
+  const selectedKeywords = keywords.filter((keyword) =>
+    rowSelection[keyword.keywordId],
+  );
 
   if (keywords.length === 0) {
     return (
@@ -314,23 +359,38 @@ export function KeywordsTable({ id }: { id: string }) {
   return (
     <TooltipProvider>
       <div className="flex flex-col gap-3">
-        <p className="text-sm text-muted-foreground">
-          Tracking{" "}
-          <span className="font-medium text-foreground tabular-nums">
-            {keywords.length}
-          </span>{" "}
-          keyword{keywords.length === 1 ? "" : "s"} ·{" "}
-          <span className="font-medium text-foreground tabular-nums">
-            {activeCount}
-          </span>{" "}
-          active
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm text-muted-foreground">
+            Tracking{" "}
+            <span className="font-medium text-foreground tabular-nums">
+              {keywords.length}
+            </span>{" "}
+            keyword{keywords.length === 1 ? "" : "s"} ·{" "}
+            <span className="font-medium text-foreground tabular-nums">
+              {activeCount}
+            </span>{" "}
+            active
+          </p>
+          {selectedIds.length === 0 ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto"
+              onClick={() => exportKeywords(id, keywords)}
+              aria-label="Export keywords to CSV"
+            >
+              <Download />
+              Export CSV
+            </Button>
+          ) : null}
+        </div>
 
         {selectedIds.length > 0 ? (
           <KeywordsBulkActions
             appId={id}
             selectedIds={selectedIds}
             onClear={() => setRowSelection({})}
+            onExport={() => exportKeywords(id, selectedKeywords)}
           />
         ) : null}
 

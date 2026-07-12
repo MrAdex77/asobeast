@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Pause, Play, Trash2, X } from "lucide-react";
+import { Download, Pause, Play, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -41,10 +41,12 @@ export function KeywordsBulkActions({
   appId,
   selectedIds,
   onClear,
+  onExport,
 }: {
   appId: string;
   selectedIds: string[];
   onClear: () => void;
+  onExport: () => void;
 }) {
   const queryClient = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -106,6 +108,15 @@ export function KeywordsBulkActions({
         >
           <Trash2 />
           Remove
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onExport}
+          aria-label="Export selected keywords to CSV"
+        >
+          <Download />
+          Export CSV
         </Button>
         <Button
           variant="ghost"

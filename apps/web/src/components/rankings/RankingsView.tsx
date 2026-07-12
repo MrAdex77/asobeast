@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useQueryState } from "nuqs";
-import { X } from "lucide-react";
+import { Download, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { toCsv, downloadCsv } from "@/lib/csv";
 import { keywordsOptions, rankingsOptions } from "@/lib/queries";
 import { presetToRange, RANGE_PRESETS } from "@/lib/ranges";
 import { keywordIdsParser, rangeParser } from "@/lib/search-params";
@@ -47,8 +48,9 @@ export function RankingsView({ id }: { id: string }) {
       ? selected
       : topByOpportunity(tracked, DEFAULT_SELECTION);
 
+  const bounds = presetToRange(range);
   const { data } = useSuspenseQuery(
-    rankingsOptions(id, { ...presetToRange(range), keywordIds: effective }),
+    rankingsOptions(id, { ...bounds, keywordIds: effective }),
   );
 
   if (tracked.length === 0) {
@@ -57,6 +59,24 @@ export function RankingsView({ id }: { id: string }) {
 
   const chart = buildRankingChart(data.series);
   const labels = new Map(tracked.map((item) => [item.keywordId, item.text]));
+
+  const exportRankings = () => {
+    const headers = [
+      "date",
+      ...chart.keywordIds.map((keywordId) => labels.get(keywordId) ?? keywordId),
+    ];
+    const rows = chart.rows.map((row) => [
+      row.date,
+      ...chart.keywordIds.map((keywordId) => {
+        const value = row[keywordId];
+        return value === null || value === undefined ? ">100" : value;
+      }),
+    ]);
+    downloadCsv(
+      `rankings-${id}-${bounds.from}-${bounds.to}.csv`,
+      toCsv(headers, rows),
+    );
+  };
 
   return (
     <Card>
@@ -93,6 +113,17 @@ export function RankingsView({ id }: { id: string }) {
               <X className="size-3 opacity-60" />
             </button>
           ))}
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            disabled={chart.rows.length === 0}
+            onClick={exportRankings}
+            aria-label="Export rankings to CSV"
+          >
+            <Download />
+            Export CSV
+          </Button>
         </div>
 
         {chart.rows.length > 0 ? (
