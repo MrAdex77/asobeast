@@ -20,6 +20,7 @@ import {
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { isoWeekKey, JOBS, QUEUES, scoreJobId } from '../jobs/jobs.types';
 import { PrismaService } from '../prisma/prisma.service';
+import { serpVolatility } from '../rankings/serp-volatility';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
 import { classifyBuckets } from './buckets';
 import { extractCandidates } from './extraction';
@@ -32,6 +33,7 @@ const MAX_KEYWORD_WORDS = 5;
 const REVIEW_MINING_CAP = 500;
 const RANKING_HISTORY_LIMIT = 60;
 const SEARCH_SEED_LIMIT = 5;
+const VOLATILITY_WINDOW_DAYS = 8;
 
 const SOURCE_WEIGHT: Record<KeywordSource, number> = {
   KEYWORD_FIELD: 4,
@@ -71,16 +73,23 @@ export class KeywordsService {
     sort?: KeywordSort,
   ): Promise<TrackedKeywordItem[]> {
     await this.ensureApp(appId);
-    const [rows, snapshotText] = await Promise.all([
-      this.prisma.trackedKeyword.findMany({
-        where: { appId },
-        ...this.trackedArgs(appId),
-      }),
+    const rows = await this.prisma.trackedKeyword.findMany({
+      where: { appId },
+      ...this.trackedArgs(appId),
+    });
+    const [snapshotText, volatility] = await Promise.all([
       this.snapshotText(appId),
+      this.serpVolatilities(rows.map((row) => row.keywordId)),
     ]);
     return sortTracked(
       classifyBuckets(
-        rows.map((row) => toTrackedKeywordItem(row, snapshotText)),
+        rows.map((row) =>
+          toTrackedKeywordItem(
+            row,
+            snapshotText,
+            volatility.get(row.keywordId) ?? null,
+          ),
+        ),
       ),
       sort,
     );
@@ -154,6 +163,54 @@ export class KeywordsService {
 
     const filtered = onlyGaps ? rows.filter((row) => row.gap) : rows;
     return { competitors, rows: sortComparison(filtered) };
+  }
+
+  private async serpVolatilities(
+    keywordIds: string[],
+  ): Promise<Map<string, number | null>> {
+    if (keywordIds.length === 0) {
+      return new Map();
+    }
+    const latest = await this.prisma.serpEntry.findFirst({
+      where: { keywordId: { in: keywordIds } },
+      orderBy: { date: 'desc' },
+      select: { date: true },
+    });
+    if (!latest) {
+      return new Map();
+    }
+    const from = new Date(latest.date);
+    from.setUTCDate(from.getUTCDate() - VOLATILITY_WINDOW_DAYS);
+    const entries = await this.prisma.serpEntry.findMany({
+      where: { keywordId: { in: keywordIds }, date: { gte: from } },
+      orderBy: { date: 'asc' },
+      select: { keywordId: true, date: true, storeAppId: true },
+    });
+
+    const byKeyword = new Map<string, Map<string, string[]>>();
+    for (const entry of entries) {
+      const dateKey = entry.date.toISOString().slice(0, 10);
+      let dates = byKeyword.get(entry.keywordId);
+      if (!dates) {
+        dates = new Map();
+        byKeyword.set(entry.keywordId, dates);
+      }
+      const set = dates.get(dateKey);
+      if (set) {
+        set.push(entry.storeAppId);
+      } else {
+        dates.set(dateKey, [entry.storeAppId]);
+      }
+    }
+
+    const result = new Map<string, number | null>();
+    for (const [keywordId, dates] of byKeyword) {
+      const dailySets = [...dates.keys()]
+        .sort()
+        .map((key) => dates.get(key) ?? []);
+      result.set(keywordId, serpVolatility(dailySets));
+    }
+    return result;
   }
 
   private async latestPositions(
@@ -295,13 +352,21 @@ export class KeywordsService {
       });
     }
 
-    const snapshotText = await this.snapshotText(appId);
-    const tracked = (
-      await this.prisma.trackedKeyword.findMany({
-        where: { appId, source: 'KEYWORD_FIELD', active: true },
-        ...this.trackedArgs(appId),
-      })
-    ).map((row) => toTrackedKeywordItem(row, snapshotText));
+    const rows = await this.prisma.trackedKeyword.findMany({
+      where: { appId, source: 'KEYWORD_FIELD', active: true },
+      ...this.trackedArgs(appId),
+    });
+    const [snapshotText, volatility] = await Promise.all([
+      this.snapshotText(appId),
+      this.serpVolatilities(rows.map((row) => row.keywordId)),
+    ]);
+    const tracked = rows.map((row) =>
+      toTrackedKeywordItem(
+        row,
+        snapshotText,
+        volatility.get(row.keywordId) ?? null,
+      ),
+    );
 
     return {
       tracked,
