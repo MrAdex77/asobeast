@@ -62,8 +62,11 @@ pnpm dev                 # turbo run dev across shared, api, web
 pnpm build               # build respecting the dependency graph
 pnpm lint && pnpm test   # lint and unit tests across all packages
 pnpm --filter api test:e2e
+pnpm --filter web test:e2e   # playwright browser tests against a typed mock api
 pnpm --filter api db:studio
 ```
+
+The web end-to-end suite is hermetic: a tiny `node:http` mock API (typed by `@asobeast/shared` contracts) runs on port 4100 and serves both server-side prefetching and browser fetches, so no Postgres, Redis or store calls are needed. Playwright reuses a running dev server locally and builds the production bundle in CI. Install the browser once with `pnpm --filter web exec playwright install chromium`.
 
 ### Layout
 
