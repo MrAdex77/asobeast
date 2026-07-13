@@ -11,3 +11,4 @@ export * from './competitors';
 export * from './serp';
 export * from './changes';
 export * from './reviews';
+export * from './portfolio';

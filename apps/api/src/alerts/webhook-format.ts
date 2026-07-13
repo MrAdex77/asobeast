@@ -41,6 +41,10 @@ export function renderMessage(payload: AlertPayload): string {
     return `⚠️ ${who} got a ${stars(payload.review.score)} review${version}: "${payload.review.text}"`;
   }
 
+  if (payload.event === 'digest.weekly') {
+    return `🗓️ Weekly digest: ${payload.apps.length} app${payload.apps.length === 1 ? '' : 's'}`;
+  }
+
   const who = payload.app.name ?? 'An app';
   const icon = payload.event === 'rank.dropped' ? '📉' : '📈';
   const verb = payload.event === 'rank.dropped' ? 'dropped' : 'improved';
