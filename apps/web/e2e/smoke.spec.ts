@@ -18,6 +18,10 @@ test("home renders the portfolio grid with totals and per-app cards", async ({ p
     page.getByText(`${first.trackedKeywords} keywords`),
   ).toBeVisible();
 
+  await expect(
+    page.getByText(first.country.toUpperCase(), { exact: true }).first(),
+  ).toBeVisible();
+
   await expect(page.getByText("Changes this week")).toBeVisible();
   await expect(
     page.getByRole("img", { name: "visibility, last 30 days" }).first(),

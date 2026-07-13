@@ -84,10 +84,10 @@ export function getApp(id: string): Promise<AppDetail> {
   return apiFetch<AppDetail>(`/apps/${id}`);
 }
 
-export function importApp(url: string): Promise<AppDetail> {
+export function importApp(url: string, country?: string): Promise<AppDetail> {
   return apiFetch<AppDetail>("/apps", {
     method: "POST",
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, country }),
   });
 }
 

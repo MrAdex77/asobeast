@@ -330,6 +330,7 @@ export const APP_1_DETAIL: AppDetail = {
 export const APP_1: AppListItem = {
   id: "app-1",
   store: "APP_STORE",
+  country: "us",
   name: "Focus Timer",
   iconUrl: null,
   ratingAvg: 4.8,
@@ -375,6 +376,7 @@ export const APP_2_DETAIL: AppDetail = {
 export const APP_2: AppListItem = {
   id: "app-2",
   store: "APP_STORE",
+  country: "us",
   name: "Habit Tracker",
   iconUrl: null,
   ratingAvg: 4.2,
@@ -399,6 +401,7 @@ export const IMPORTED_APP_DETAIL: AppDetail = {
 export const IMPORTED_APP: AppListItem = {
   id: "app-new",
   store: "APP_STORE",
+  country: "us",
   name: "Imported App",
   iconUrl: null,
   ratingAvg: null,

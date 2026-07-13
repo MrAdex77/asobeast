@@ -26,6 +26,8 @@ const STORE_LABELS: Record<Store, string> = {
   GOOGLE_PLAY: "Google Play",
 };
 
+const countryNames = new Intl.DisplayNames(["en"], { type: "region" });
+
 export function formatNumber(value: number): string {
   return numberFormatter.format(value);
 }
@@ -61,4 +63,13 @@ export function formatCategoryPosition(value: number | null): string {
 
 export function storeLabel(store: Store): string {
   return STORE_LABELS[store];
+}
+
+export function formatCountry(code: string): string {
+  const upper = code.toUpperCase();
+  try {
+    return countryNames.of(upper) ?? upper;
+  } catch {
+    return upper;
+  }
 }
