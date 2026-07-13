@@ -7,6 +7,7 @@ import {
   IMPORTED_PORTFOLIO_APP,
   INITIAL_APPS,
   PORTFOLIO,
+  RECENT_CHANGES,
   errorEnvelope,
 } from "./fixtures.mts";
 import type { KeywordSort, TrackedKeywordItem } from "@asobeast/shared";
@@ -78,6 +79,12 @@ const routes: Route[] = [
         totals: { ...PORTFOLIO.totals, apps: portfolioApps.length },
       }),
   },
+  {
+    method: "GET",
+    pattern: /^\/changes\/recent$/,
+    handler: (_p, _q, res) => json(res, 200, RECENT_CHANGES),
+  },
+  { method: "GET", pattern: /^\/webhooks$/, handler: (_p, _q, res) => json(res, 200, []) },
   {
     method: "POST",
     pattern: /^\/apps$/,

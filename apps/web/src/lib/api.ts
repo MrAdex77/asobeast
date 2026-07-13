@@ -318,6 +318,11 @@ export function getChanges(
   return apiFetch<ChangeTimeline>(`/apps/${appId}/changes${query}`);
 }
 
+export function getRecentChanges(limit?: number): Promise<ChangeTimeline> {
+  const query = limit !== undefined ? `?limit=${limit}` : "";
+  return apiFetch<ChangeTimeline>(`/changes/recent${query}`);
+}
+
 export function getAudit(appId: string): Promise<AppAuditResult> {
   return apiFetch<AppAuditResult>(`/apps/${appId}/audit`);
 }

@@ -4,6 +4,7 @@ import type {
   AppListItem,
   AppSummary,
   CategoryRankSeries,
+  ChangeTimeline,
   CompetitorItem,
   HealthStatus,
   PortfolioSummary,
@@ -454,6 +455,31 @@ export const PORTFOLIO: PortfolioSummary = {
     },
   ],
   totals: { apps: 2, competitors: 1, trackedKeywords: 5, changes7d: 3 },
+};
+
+export const RECENT_CHANGES: ChangeTimeline = {
+  events: [
+    {
+      id: "chg-1",
+      appId: "app-1",
+      appName: "Focus Timer",
+      isCompetitor: false,
+      field: "title",
+      before: "Focus Timer",
+      after: "Focus Timer Pro",
+      capturedAt: utcTimestampDaysAgo(1),
+    },
+    {
+      id: "chg-2",
+      appId: "comp-1",
+      appName: "Rival Focus",
+      isCompetitor: true,
+      field: "subtitle",
+      before: "Deep work timer",
+      after: "Deep focus timer",
+      capturedAt: utcTimestampDaysAgo(2),
+    },
+  ],
 };
 
 export const IMPORTED_PORTFOLIO_APP: PortfolioSummary["apps"][number] = {

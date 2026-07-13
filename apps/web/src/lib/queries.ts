@@ -13,6 +13,7 @@ import {
   getRankDistributionHistory,
   getRankings,
   getRatingsHistory,
+  getRecentChanges,
   getReviews,
   getSerp,
   getSuggestions,
@@ -61,6 +62,9 @@ export const appKeys = {
 
 export const portfolioKey = ["portfolio"] as const;
 
+export const recentChangesKey = (limit?: number) =>
+  ["changes", "recent", { limit }] as const;
+
 export const webhookKeys = {
   all: ["webhooks"] as const,
 };
@@ -71,6 +75,12 @@ export const portfolioOptions = queryOptions({
   queryKey: portfolioKey,
   queryFn: getPortfolio,
 });
+
+export const recentChangesOptions = (limit?: number) =>
+  queryOptions({
+    queryKey: recentChangesKey(limit),
+    queryFn: () => getRecentChanges(limit),
+  });
 
 export const appDetailOptions = (id: string) =>
   queryOptions({

@@ -83,7 +83,7 @@ function ChangeValue({ event }: { event: ChangeEventItem }) {
   );
 }
 
-function ChangeRow({ event }: { event: ChangeEventItem }) {
+export function ChangeRow({ event }: { event: ChangeEventItem }) {
   return (
     <div className="flex items-start gap-3 py-3">
       <AppIcon src={null} name={event.appName} size={32} />
