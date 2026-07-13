@@ -1,9 +1,11 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { App, AppSnapshot, Prisma, Store } from '@prisma/client';
+import { Queue } from 'bullmq';
 import {
   AppDetail,
   AppListItem,
@@ -22,8 +24,11 @@ import { StoreNotSupportedError } from '../store-providers/errors';
 import { screenshotsCount } from '../store-providers/raw-facts';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
 import { NormalizedApp } from '../store-providers/types';
+import { JOBS, QUEUES, reviewsBackfillJobId } from '../jobs/jobs.types';
 import { toAppDetail, toAppListItem, toCompetitorItem } from './apps.mapper';
 import { diffSnapshots } from './snapshot-diff';
+
+const REVIEW_BACKFILL_PAGES = 3;
 
 const MAX_COMPETITORS = 10;
 
@@ -34,6 +39,7 @@ export class AppsService {
     private readonly registry: StoreProviderRegistry,
     private readonly keywords: KeywordsService,
     private readonly changes: ChangesService,
+    @InjectQueue(QUEUES.APP_STORE) private readonly appStoreQueue: Queue,
   ) {}
 
   async importFromUrl(url: string): Promise<AppDetail> {
@@ -50,6 +56,12 @@ export class AppsService {
     );
 
     await this.keywords.syncFromSnapshot(app.id);
+
+    await this.appStoreQueue.add(
+      JOBS.SYNC_REVIEWS,
+      { appId: app.id, pages: REVIEW_BACKFILL_PAGES, backfill: true },
+      { jobId: reviewsBackfillJobId(app.id) },
+    );
 
     return toAppDetail(app, snapshot, []);
   }

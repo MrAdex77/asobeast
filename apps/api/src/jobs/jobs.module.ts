@@ -9,6 +9,7 @@ import { AppsModule } from '../apps/apps.module';
 import { CategoryRanksModule } from '../category-ranks/category-ranks.module';
 import { Env } from '../config/env';
 import { RankingsModule } from '../rankings/rankings.module';
+import { ReviewsModule } from '../reviews/reviews.module';
 import { ScoringModule } from '../scoring/scoring.module';
 import { AppStoreWorker } from './app-store.worker';
 import { JobsController } from './jobs.controller';
@@ -60,6 +61,7 @@ const bullBoardModules: DynamicModule[] =
     CategoryRanksModule,
     ScoringModule,
     AlertsModule,
+    ReviewsModule,
     ...bullBoardModules,
   ],
   controllers: [JobsController, ScoringController],

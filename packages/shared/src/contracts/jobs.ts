@@ -2,6 +2,7 @@ export interface FanOutSummary {
   apps: number;
   keywords: number;
   categories: number;
+  reviews: number;
 }
 
 export interface RunDailyResult {

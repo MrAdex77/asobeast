@@ -4,6 +4,7 @@ import { Job } from 'bullmq';
 import { AppsService } from '../apps/apps.service';
 import { CategoryRanksService } from '../category-ranks/category-ranks.service';
 import { RankingsService } from '../rankings/rankings.service';
+import { ReviewsService } from '../reviews/reviews.service';
 import { ScoringService } from '../scoring/scoring.service';
 import {
   CheckCategoryPayload,
@@ -12,6 +13,7 @@ import {
   QUEUES,
   RefreshAppPayload,
   ScoreKeywordPayload,
+  SyncReviewsPayload,
 } from './jobs.types';
 
 const ITUNES_RPM = Number(process.env.SCRAPE_ITUNES_RPM) || 15;
@@ -28,6 +30,7 @@ export class AppStoreWorker extends WorkerHost {
     private readonly rankings: RankingsService,
     private readonly scoring: ScoringService,
     private readonly categoryRanks: CategoryRanksService,
+    private readonly reviews: ReviewsService,
   ) {
     super();
   }
@@ -67,6 +70,9 @@ export class AppStoreWorker extends WorkerHost {
         await this.scoring.scoreKeyword(
           (job.data as ScoreKeywordPayload).keywordId,
         );
+        return;
+      case JOBS.SYNC_REVIEWS:
+        await this.reviews.syncReviews(job.data as SyncReviewsPayload);
         return;
       default:
         throw new Error(`Unknown job ${job.name}`);

@@ -19,13 +19,19 @@ describe('PipelineService competitor fan out', () => {
       .filter(([job]) => job === JOBS.REFRESH_APP)
       .map(([, payload]) => (payload as { appId: string }).appId);
 
-  it('enqueues a refresh for competitors during the daily fan out', async () => {
+  const reviewedAppIds = (queue: { add: jest.Mock }): string[] =>
+    queue.add.mock.calls
+      .filter(([job]) => job === JOBS.SYNC_REVIEWS)
+      .map(([, payload]) => (payload as { appId: string }).appId);
+
+  it('enqueues a refresh for competitors but reviews only for primaries during the daily fan out', async () => {
     const queue = buildQueue();
     const prisma = {
       app: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([{ id: 'primary' }, { id: 'competitor' }]),
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'primary', isCompetitor: false },
+          { id: 'competitor', isCompetitor: true },
+        ]),
       },
       trackedKeyword: { findMany: jest.fn().mockResolvedValue([]) },
     };
@@ -35,17 +41,20 @@ describe('PipelineService competitor fan out', () => {
       buildCategoryRanks() as unknown as CategoryRanksService,
     );
 
-    await service.fanOutDaily();
+    const summary = await service.fanOutDaily();
 
     expect(refreshedAppIds(queue)).toEqual(['primary', 'competitor']);
+    expect(reviewedAppIds(queue)).toEqual(['primary']);
+    expect(summary.reviews).toBe(1);
   });
 
-  it('enqueues a refresh for competitors during a single app fan out', async () => {
+  it('enqueues a refresh for competitors but reviews only the primary during a single app fan out', async () => {
     const queue = buildQueue();
     const prisma = {
       app: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'primary',
+          isCompetitor: false,
           competitors: [{ id: 'competitor' }],
           tracked: [{ keywordId: 'kw1' }],
         }),
@@ -60,6 +69,7 @@ describe('PipelineService competitor fan out', () => {
     await service.fanOutApp('primary');
 
     expect(refreshedAppIds(queue)).toEqual(['primary', 'competitor']);
+    expect(reviewedAppIds(queue)).toEqual(['primary']);
   });
 
   it('enqueues one category job per bucket with a stable job id', async () => {

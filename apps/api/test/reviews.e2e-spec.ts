@@ -1,0 +1,132 @@
+import { execSync } from 'child_process';
+import { join } from 'path';
+import { INestApplication } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { Store } from '@prisma/client';
+import { ApiErrorEnvelope, ReviewList } from '@asobeast/shared';
+import request from 'supertest';
+import { App } from 'supertest/types';
+import { AppModule } from '../src/app.module';
+import { obliterateQueues } from './obliterate-queues';
+import { DEFAULT_WORKSPACE_ID } from '../src/common/workspace';
+import { PrismaService } from '../src/prisma/prisma.service';
+
+describe('ReviewsController (e2e)', () => {
+  let app: INestApplication<App>;
+  let prisma: PrismaService;
+
+  beforeAll(async () => {
+    execSync('pnpm prisma migrate deploy', {
+      cwd: join(__dirname, '..'),
+      env: process.env,
+      stdio: 'ignore',
+    });
+
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    await app.init();
+
+    prisma = app.get(PrismaService);
+    await prisma.workspace.upsert({
+      where: { id: DEFAULT_WORKSPACE_ID },
+      update: {},
+      create: { id: DEFAULT_WORKSPACE_ID, name: 'Default' },
+    });
+  });
+
+  beforeEach(async () => {
+    await prisma.$executeRawUnsafe(
+      'TRUNCATE TABLE "App", "Keyword" RESTART IDENTITY CASCADE',
+    );
+  });
+
+  afterAll(async () => {
+    await obliterateQueues(app);
+    await app.close();
+  });
+
+  const seedApp = async () => {
+    const created = await prisma.app.create({
+      data: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        store: Store.APP_STORE,
+        storeAppId: '111',
+        country: 'us',
+        name: 'Mine',
+      },
+    });
+    await prisma.review.createMany({
+      data: [
+        {
+          appId: created.id,
+          reviewId: 'r1',
+          score: 5,
+          text: 'Love it',
+          version: '2.0.0',
+          reviewedAt: new Date('2026-07-10T00:00:00Z'),
+        },
+        {
+          appId: created.id,
+          reviewId: 'r2',
+          score: 1,
+          text: 'Broken',
+          version: '1.0.0',
+          reviewedAt: new Date('2026-07-11T00:00:00Z'),
+        },
+        {
+          appId: created.id,
+          reviewId: 'r3',
+          score: 1,
+          text: 'Crashes',
+          version: '2.0.0',
+          reviewedAt: new Date('2026-07-12T00:00:00Z'),
+        },
+      ],
+    });
+    return created;
+  };
+
+  it('returns a 404 envelope for an unknown app id', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/apps/missing/reviews')
+      .expect(404);
+
+    const body = response.body as ApiErrorEnvelope;
+    expect(body.statusCode).toBe(404);
+    expect(body.path).toBe('/apps/missing/reviews');
+    expect(typeof body.message).toBe('string');
+  });
+
+  it('lists reviews newest first with the version facet', async () => {
+    const seeded = await seedApp();
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${seeded.id}/reviews`)
+      .expect(200);
+
+    const body = response.body as ReviewList;
+    expect(body.total).toBe(3);
+    expect(body.reviews.map((review) => review.reviewId)).toEqual([
+      'r3',
+      'r2',
+      'r1',
+    ]);
+    expect(body.versions).toEqual(['2.0.0', '1.0.0']);
+  });
+
+  it('filters by star and version', async () => {
+    const seeded = await seedApp();
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${seeded.id}/reviews`)
+      .query({ score: 1, version: '2.0.0' })
+      .expect(200);
+
+    const body = response.body as ReviewList;
+    expect(body.total).toBe(1);
+    expect(body.reviews.map((review) => review.reviewId)).toEqual(['r3']);
+  });
+});
