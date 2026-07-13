@@ -1,7 +1,8 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { RankingSeries } from '@asobeast/shared';
+import { RankingSeries, SerpMovers } from '@asobeast/shared';
 import { RankingHistoryQueryDto } from './dto/ranking-history-query.dto';
+import { SerpMoversQueryDto } from './dto/serp-movers-query.dto';
 import { RankingsService } from './rankings.service';
 
 @ApiTags('rankings')
@@ -16,5 +17,16 @@ export class RankingsController {
     @Query() query: RankingHistoryQueryDto,
   ): Promise<RankingSeries> {
     return this.rankings.history(id, query);
+  }
+
+  @Get(':id/serp-movers')
+  @ApiOperation({
+    summary: 'Apps that broke into the top 10 for tracked keywords',
+  })
+  serpMovers(
+    @Param('id') id: string,
+    @Query() query: SerpMoversQueryDto,
+  ): Promise<SerpMovers> {
+    return this.rankings.serpMovers(id, query);
   }
 }

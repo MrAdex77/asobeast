@@ -1,17 +1,26 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { RankingSeries, SERP_DEPTH, SerpSnapshot } from '@asobeast/shared';
+import { Store } from '@prisma/client';
+import {
+  RankingSeries,
+  SERP_DEPTH,
+  SerpMovers,
+  SerpSnapshot,
+} from '@asobeast/shared';
 import { AlertsDispatcher } from '../alerts/alerts.dispatcher';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
 import { RankingHistoryQueryDto } from './dto/ranking-history-query.dto';
+import { SerpMoversQueryDto } from './dto/serp-movers-query.dto';
 import { SerpQueryDto } from './dto/serp-query.dto';
+import { detectEntrants, SerpSnapshotDay } from './serp-movers';
 
 const RANK_DEPTH = 100;
 const HISTORY_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const MOVERS_LIMIT = 50;
 
 function utcToday(): Date {
   const now = new Date();
@@ -257,16 +266,11 @@ export class RankingsService {
       },
     });
 
-    const apps = await this.prisma.app.findMany({
-      where: {
-        workspaceId: DEFAULT_WORKSPACE_ID,
-        store: keyword.store,
-        country: keyword.country,
-        storeAppId: { in: entries.map((entry) => entry.storeAppId) },
-      },
-      select: { id: true, storeAppId: true, isCompetitor: true },
-    });
-    const appByStoreAppId = new Map(apps.map((app) => [app.storeAppId, app]));
+    const appByStoreAppId = await this.appsByStoreAppId(
+      keyword.store,
+      keyword.country,
+      entries.map((entry) => entry.storeAppId),
+    );
 
     return {
       keywordId,
@@ -286,6 +290,127 @@ export class RankingsService {
         };
       }),
     };
+  }
+
+  async serpMovers(
+    appId: string,
+    query: SerpMoversQueryDto,
+  ): Promise<SerpMovers> {
+    const app = await this.prisma.app.findFirst({
+      where: { id: appId, workspaceId: DEFAULT_WORKSPACE_ID },
+      select: { id: true, store: true, country: true },
+    });
+    if (!app) {
+      throw new NotFoundException(`App ${appId} not found`);
+    }
+
+    const tracked = await this.prisma.trackedKeyword.findMany({
+      where: { appId, active: true },
+      select: { keywordId: true, keyword: { select: { text: true } } },
+    });
+    const textByKeyword = new Map(
+      tracked.map((row) => [row.keywordId, row.keyword.text]),
+    );
+    if (textByKeyword.size === 0) {
+      return { windowDays: query.days, items: [] };
+    }
+
+    const from = new Date(utcToday().getTime() - query.days * DAY_MS);
+    const rows = await this.prisma.serpEntry.findMany({
+      where: {
+        keywordId: { in: [...textByKeyword.keys()] },
+        date: { gte: from },
+      },
+      select: {
+        keywordId: true,
+        date: true,
+        position: true,
+        storeAppId: true,
+        title: true,
+      },
+    });
+
+    const snapshotsByKeyword = new Map<string, Map<string, SerpSnapshotDay>>();
+    for (const row of rows) {
+      const dateKey = toDateKey(row.date);
+      let days = snapshotsByKeyword.get(row.keywordId);
+      if (!days) {
+        days = new Map();
+        snapshotsByKeyword.set(row.keywordId, days);
+      }
+      let snapshot = days.get(dateKey);
+      if (!snapshot) {
+        snapshot = { date: dateKey, entries: [] };
+        days.set(dateKey, snapshot);
+      }
+      snapshot.entries.push({
+        position: row.position,
+        storeAppId: row.storeAppId,
+        title: row.title,
+      });
+    }
+
+    const movers: {
+      date: string;
+      keywordId: string;
+      position: number;
+      storeAppId: string;
+      title: string;
+    }[] = [];
+    for (const [keywordId, days] of snapshotsByKeyword) {
+      for (const entrant of detectEntrants([...days.values()])) {
+        movers.push({ keywordId, ...entrant });
+      }
+    }
+
+    const appByStoreAppId = await this.appsByStoreAppId(
+      app.store,
+      app.country,
+      movers.map((mover) => mover.storeAppId),
+    );
+
+    const items = movers
+      .map((mover) => {
+        const known = appByStoreAppId.get(mover.storeAppId);
+        return {
+          date: mover.date,
+          keywordId: mover.keywordId,
+          text: textByKeyword.get(mover.keywordId) ?? '',
+          position: mover.position,
+          storeAppId: mover.storeAppId,
+          title: mover.title,
+          appId: known?.id ?? null,
+          isCompetitor: known?.isCompetitor ?? false,
+        };
+      })
+      .sort((a, b) =>
+        a.date === b.date
+          ? a.position - b.position
+          : b.date.localeCompare(a.date),
+      )
+      .slice(0, MOVERS_LIMIT);
+
+    return { windowDays: query.days, items };
+  }
+
+  private async appsByStoreAppId(
+    store: Store,
+    country: string,
+    storeAppIds: string[],
+  ): Promise<Map<string, { id: string; isCompetitor: boolean }>> {
+    if (storeAppIds.length === 0) {
+      return new Map();
+    }
+    const apps = await this.prisma.app.findMany({
+      where: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        store,
+        country,
+        storeAppId: { in: storeAppIds },
+      },
+      select: { id: true, storeAppId: true, isCompetitor: true },
+    });
+    return new Map(apps.map((app) => [app.storeAppId, app]));
   }
 
   private async ensureApp(appId: string): Promise<void> {
