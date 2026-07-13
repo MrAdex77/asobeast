@@ -27,6 +27,7 @@ describe('ChangesService', () => {
   const findMany = jest.fn<Promise<unknown>, [Record<string, unknown>]>();
   const findFirst = jest.fn();
   const findUnique = jest.fn();
+  const appFindMany = jest.fn();
   const dispatch = jest.fn();
 
   beforeEach(async () => {
@@ -34,6 +35,7 @@ describe('ChangesService', () => {
     findMany.mockReset();
     findFirst.mockReset();
     findUnique.mockReset();
+    appFindMany.mockReset();
     dispatch.mockReset();
     findUnique.mockResolvedValue({ name: 'Mine', isCompetitor: false });
     const moduleRef = await Test.createTestingModule({
@@ -43,7 +45,7 @@ describe('ChangesService', () => {
           provide: PrismaService,
           useValue: {
             changeEvent: { createMany, findMany },
-            app: { findFirst, findUnique },
+            app: { findFirst, findUnique, findMany: appFindMany },
           },
         },
         { provide: AlertsDispatcher, useValue: { dispatch } },
@@ -160,6 +162,46 @@ describe('ChangesService', () => {
           before: 'A',
           after: 'B',
           capturedAt: '2026-07-09T00:00:00.000Z',
+        },
+      ]);
+    });
+  });
+
+  describe('recent', () => {
+    it('queries workspace events newest first with the given limit', async () => {
+      appFindMany.mockResolvedValue([{ id: 'app_1' }, { id: 'comp_1' }]);
+      findMany.mockResolvedValue([
+        {
+          id: 'ev_1',
+          appId: 'comp_1',
+          field: 'title',
+          before: 'A',
+          after: 'B',
+          capturedAt: new Date('2026-07-11T00:00:00Z'),
+          app: { name: 'Rival', isCompetitor: true },
+        },
+      ]);
+
+      const result = await service.recent(20);
+
+      const args = findMany.mock.calls[0][0] as {
+        where: { appId: { in: string[] } };
+        orderBy: unknown;
+        take: number;
+      };
+      expect(args.where.appId.in).toEqual(['app_1', 'comp_1']);
+      expect(args.orderBy).toEqual({ capturedAt: 'desc' });
+      expect(args.take).toBe(20);
+      expect(result.events).toEqual([
+        {
+          id: 'ev_1',
+          appId: 'comp_1',
+          appName: 'Rival',
+          isCompetitor: true,
+          field: 'title',
+          before: 'A',
+          after: 'B',
+          capturedAt: '2026-07-11T00:00:00.000Z',
         },
       ]);
     });
