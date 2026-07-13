@@ -97,6 +97,59 @@ function ScoreCell({
   );
 }
 
+function volatilityBand(value: number): {
+  label: string;
+  text: string;
+  dot: string;
+} {
+  if (value < 20) {
+    return {
+      label: "Low",
+      text: "text-muted-foreground",
+      dot: "bg-muted-foreground/60",
+    };
+  }
+  if (value <= 50) {
+    return {
+      label: "Medium",
+      text: "text-amber-600 dark:text-amber-400",
+      dot: "bg-amber-500",
+    };
+  }
+  return {
+    label: "High",
+    text: "text-red-600 dark:text-red-400",
+    dot: "bg-red-500",
+  };
+}
+
+function VolatilityCell({ value }: { value: number | null }) {
+  if (value === null) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="text-muted-foreground">—</span>
+        </TooltipTrigger>
+        <TooltipContent>Not enough snapshots yet</TooltipContent>
+      </Tooltip>
+    );
+  }
+  const band = volatilityBand(value);
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 text-sm font-medium",
+        band.text,
+      )}
+      aria-label={`${band.label} volatility, ${value} out of 100`}
+    >
+      <span className={cn("size-2 rounded-full", band.dot)} aria-hidden />
+      {band.label}
+      <span className="text-xs tabular-nums text-muted-foreground">{value}</span>
+    </span>
+  );
+}
+
 function SortHeader({
   column,
   label,
@@ -131,6 +184,7 @@ const KEYWORD_CSV_HEADERS = [
   "position",
   "delta1d",
   "delta7d",
+  "volatility",
   "traffic",
   "difficulty",
   "opportunity",
@@ -151,6 +205,7 @@ function exportKeywords(appId: string, rows: TrackedKeywordItem[]): void {
     formatPosition(keyword.latestPosition),
     keyword.positionDelta1d,
     keyword.positionDelta7d,
+    keyword.serpVolatility7d,
     roundOrNull(scoreValue(keyword, "traffic")),
     roundOrNull(scoreValue(keyword, "difficulty")),
     roundOrNull(keyword.opportunity),
@@ -291,6 +346,24 @@ export function KeywordsTable({ id }: { id: string }) {
         header: "Δ7d",
         cell: ({ row }) => <DeltaChip value={row.original.positionDelta7d} />,
       }),
+      columnHelper.accessor("serpVolatility7d", {
+        header: () => (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="cursor-default underline decoration-dotted underline-offset-4">
+                Volatility
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              How much the top 10 changed day to day over the last week. High
+              churn means rankings here are unstable.
+            </TooltipContent>
+          </Tooltip>
+        ),
+        cell: ({ row }) => (
+          <VolatilityCell value={row.original.serpVolatility7d} />
+        ),
+      }),
       columnHelper.display({
         id: "actions",
         header: () => null,
@@ -398,7 +471,8 @@ export function KeywordsTable({ id }: { id: string }) {
           <Table>
             <TableCaption className="sr-only">
               Tracked keywords with source, position and its daily change,
-              traffic, difficulty, opportunity and 7 day change.
+              traffic, difficulty, opportunity, 7 day change and top 10
+              volatility.
             </TableCaption>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (

@@ -44,6 +44,7 @@ export const APP_1_KEYWORDS: TrackedKeywordItem[] = [
   {
     keywordId: "kw-1",
     text: "focus timer",
+    serpVolatility7d: 8,
     source: "TITLE",
     active: true,
     latestPosition: 3,
@@ -61,6 +62,7 @@ export const APP_1_KEYWORDS: TrackedKeywordItem[] = [
   {
     keywordId: "kw-2",
     text: "pomodoro",
+    serpVolatility7d: 72,
     source: "SUBTITLE",
     active: true,
     latestPosition: 12,
@@ -78,6 +80,7 @@ export const APP_1_KEYWORDS: TrackedKeywordItem[] = [
   {
     keywordId: "kw-3",
     text: "study timer",
+    serpVolatility7d: 35,
     source: "DESCRIPTION",
     active: true,
     latestPosition: 7,
@@ -95,6 +98,7 @@ export const APP_1_KEYWORDS: TrackedKeywordItem[] = [
   {
     keywordId: "kw-4",
     text: "productivity app",
+    serpVolatility7d: null,
     source: "MANUAL",
     active: true,
     latestPosition: null,
@@ -112,6 +116,7 @@ export const APP_1_KEYWORDS: TrackedKeywordItem[] = [
   {
     keywordId: "kw-5",
     text: "time blocking",
+    serpVolatility7d: 50,
     source: "COMPETITOR",
     active: false,
     latestPosition: 45,
