@@ -1,4 +1,5 @@
 import {
+  DigestWeeklyPayload,
   MetadataChangedPayload,
   RankDroppedPayload,
   RankImprovedPayload,
@@ -82,6 +83,21 @@ describe('renderMessage', () => {
   });
 });
 
+const digest: DigestWeeklyPayload = {
+  event: 'digest.weekly',
+  occurredAt: '2026-07-13T08:00:00.000Z',
+  window: { from: '2026-07-06', to: '2026-07-13' },
+  apps: Array.from({ length: 12 }, (_, i) => ({
+    id: `app_${i}`,
+    name: `App ${i}`,
+    visibility: { current: 40 + i, delta7d: i % 2 === 0 ? 2.5 : null },
+    moversUp: [{ keywordId: `k${i}`, text: `up ${i}`, from: 20, to: 4 }],
+    moversDown: [{ keywordId: `d${i}`, text: `down ${i}`, from: 5, to: 12 }],
+    changes: i,
+    negativeReviews: 1,
+  })),
+};
+
 describe('formatWebhookBody', () => {
   it('wraps the message in a content field for discord', () => {
     const body = formatWebhookBody(
@@ -118,5 +134,45 @@ describe('formatWebhookBody', () => {
       negative,
     );
     expect(JSON.parse(body)).toEqual({ text: renderMessage(negative) });
+  });
+
+  it('builds a discord embed truncated to the top 10 apps', () => {
+    const body = formatWebhookBody(
+      'https://discord.com/api/webhooks/123/abc',
+      digest,
+    );
+    const parsed = JSON.parse(body) as {
+      embeds: { title: string; description: string }[];
+    };
+    const lines = parsed.embeds[0].description.split('\n');
+
+    expect(parsed.embeds).toHaveLength(1);
+    expect(parsed.embeds[0].title).toContain('2026-07-06 → 2026-07-13');
+    expect(lines).toHaveLength(11);
+    expect(lines[lines.length - 1]).toBe('+2 more');
+    expect(lines[0]).toContain('App 0 — vis 40 (+2.5)');
+    expect(lines[1]).toContain('App 1 — vis 41 (—)');
+    expect(body.length).toBeLessThan(6000);
+  });
+
+  it('builds slack blocks truncated to the top 10 apps', () => {
+    const body = formatWebhookBody(
+      'https://hooks.slack.com/services/T/B/x',
+      digest,
+    );
+    const parsed = JSON.parse(body) as {
+      blocks: Array<{ type: string; text: { text: string } }>;
+    };
+    const section = parsed.blocks.find((block) => block.type === 'section')!;
+    const lines = section.text.text.split('\n');
+
+    expect(parsed.blocks[0].type).toBe('header');
+    expect(lines).toHaveLength(11);
+    expect(lines[lines.length - 1]).toBe('+2 more');
+  });
+
+  it('sends the raw digest payload for generic receivers', () => {
+    const body = formatWebhookBody('https://hooks.example.com/x', digest);
+    expect(JSON.parse(body)).toEqual(digest);
   });
 });

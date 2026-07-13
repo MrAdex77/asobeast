@@ -116,4 +116,47 @@ describe('ChangesController (e2e)', () => {
       appName: 'Mine',
     });
   });
+
+  it('lists recent workspace changes newest first within the limit', async () => {
+    const primary = await prisma.app.create({
+      data: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        store: Store.APP_STORE,
+        storeAppId: '111',
+        country: 'us',
+        name: 'Mine',
+      },
+    });
+    await prisma.changeEvent.createMany({
+      data: [
+        {
+          appId: primary.id,
+          field: 'title',
+          before: 'A',
+          after: 'B',
+          capturedAt: new Date('2026-07-09T00:00:00Z'),
+        },
+        {
+          appId: primary.id,
+          field: 'subtitle',
+          before: 'Old',
+          after: 'New',
+          capturedAt: new Date('2026-07-10T00:00:00Z'),
+        },
+      ],
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/changes/recent')
+      .query({ limit: 1 })
+      .expect(200);
+
+    const body = response.body as ChangeTimeline;
+    expect(body.events).toHaveLength(1);
+    expect(body.events[0]).toMatchObject({
+      field: 'subtitle',
+      appName: 'Mine',
+      isCompetitor: false,
+    });
+  });
 });

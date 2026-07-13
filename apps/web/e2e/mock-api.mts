@@ -4,7 +4,10 @@ import {
   HEALTH,
   IMPORTED_APP,
   IMPORTED_APP_DETAIL,
+  IMPORTED_PORTFOLIO_APP,
   INITIAL_APPS,
+  PORTFOLIO,
+  RECENT_CHANGES,
   errorEnvelope,
 } from "./fixtures.mts";
 import type { KeywordSort, TrackedKeywordItem } from "@asobeast/shared";
@@ -12,6 +15,7 @@ import type { KeywordSort, TrackedKeywordItem } from "@asobeast/shared";
 const PORT = Number(process.env.MOCK_API_PORT ?? 4100);
 const ERROR_ID = "err-app";
 const apps = [...INITIAL_APPS];
+const portfolioApps = [...PORTFOLIO.apps];
 
 type Handler = (params: string[], req: IncomingMessage, res: ServerResponse) => void;
 
@@ -67,10 +71,28 @@ const routes: Route[] = [
   { method: "GET", pattern: /^\/health$/, handler: (_p, _q, res) => json(res, 200, HEALTH) },
   { method: "GET", pattern: /^\/apps$/, handler: (_p, _q, res) => json(res, 200, apps) },
   {
+    method: "GET",
+    pattern: /^\/portfolio$/,
+    handler: (_p, _q, res) =>
+      json(res, 200, {
+        apps: portfolioApps,
+        totals: { ...PORTFOLIO.totals, apps: portfolioApps.length },
+      }),
+  },
+  {
+    method: "GET",
+    pattern: /^\/changes\/recent$/,
+    handler: (_p, _q, res) => json(res, 200, RECENT_CHANGES),
+  },
+  { method: "GET", pattern: /^\/webhooks$/, handler: (_p, _q, res) => json(res, 200, []) },
+  {
     method: "POST",
     pattern: /^\/apps$/,
     handler: (_p, _q, res) => {
-      if (!apps.some((app) => app.id === IMPORTED_APP.id)) apps.push(IMPORTED_APP);
+      if (!apps.some((app) => app.id === IMPORTED_APP.id)) {
+        apps.push(IMPORTED_APP);
+        portfolioApps.push(IMPORTED_PORTFOLIO_APP);
+      }
       json(res, 201, IMPORTED_APP_DETAIL);
     },
   },

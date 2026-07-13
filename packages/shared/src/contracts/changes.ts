@@ -1,4 +1,5 @@
 import type { ReviewNegativePayload } from './reviews';
+import type { DigestWeeklyPayload } from './portfolio';
 
 export const CHANGE_FIELDS = [
   'title',
@@ -32,6 +33,7 @@ export const WEBHOOK_EVENTS = [
   'rank.dropped',
   'rank.improved',
   'review.negative',
+  'digest.weekly',
 ] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
 
@@ -84,4 +86,5 @@ export type AlertPayload =
   | MetadataChangedPayload
   | RankDroppedPayload
   | RankImprovedPayload
-  | ReviewNegativePayload;
+  | ReviewNegativePayload
+  | DigestWeeklyPayload;

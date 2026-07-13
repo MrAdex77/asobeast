@@ -2,7 +2,6 @@ import type { KeywordSort, KeywordSuggestionStrategy } from "@asobeast/shared";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
   getApp,
-  getApps,
   getCategoryRanks,
   getChanges,
   getComparison,
@@ -10,9 +9,11 @@ import {
   getCompetitors,
   getHealth,
   getKeywords,
+  getPortfolio,
   getRankDistributionHistory,
   getRankings,
   getRatingsHistory,
+  getRecentChanges,
   getReviews,
   getSerp,
   getSuggestions,
@@ -59,16 +60,27 @@ export const appKeys = {
   serp: (keywordId: string) => ["serp", keywordId] as const,
 };
 
+export const portfolioKey = ["portfolio"] as const;
+
+export const recentChangesKey = (limit?: number) =>
+  ["changes", "recent", { limit }] as const;
+
 export const webhookKeys = {
   all: ["webhooks"] as const,
 };
 
 export const healthKey = ["health"] as const;
 
-export const appsListOptions = queryOptions({
-  queryKey: appKeys.all,
-  queryFn: getApps,
+export const portfolioOptions = queryOptions({
+  queryKey: portfolioKey,
+  queryFn: getPortfolio,
 });
+
+export const recentChangesOptions = (limit?: number) =>
+  queryOptions({
+    queryKey: recentChangesKey(limit),
+    queryFn: () => getRecentChanges(limit),
+  });
 
 export const appDetailOptions = (id: string) =>
   queryOptions({

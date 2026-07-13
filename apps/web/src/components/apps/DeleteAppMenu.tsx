@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { deleteApp } from "@/lib/api";
-import { appKeys } from "@/lib/queries";
+import { appKeys, portfolioKey } from "@/lib/queries";
 
 export function DeleteAppMenu({ id, name }: { id: string; name: string }) {
   const queryClient = useQueryClient();
@@ -32,6 +32,7 @@ export function DeleteAppMenu({ id, name }: { id: string; name: string }) {
     mutationFn: () => deleteApp(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: appKeys.all });
+      void queryClient.invalidateQueries({ queryKey: portfolioKey });
       queryClient.removeQueries({ queryKey: appKeys.detail(id) });
       setConfirmOpen(false);
       toast.success(`Deleted ${name}`);

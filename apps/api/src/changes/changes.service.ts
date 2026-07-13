@@ -12,6 +12,37 @@ import {
 const MAX_EVENTS = 200;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+const EVENT_SELECT = {
+  id: true,
+  appId: true,
+  field: true,
+  before: true,
+  after: true,
+  capturedAt: true,
+  app: { select: { name: true, isCompetitor: true } },
+} as const;
+
+interface EventRow {
+  id: string;
+  appId: string;
+  field: string;
+  before: string | null;
+  after: string | null;
+  capturedAt: Date;
+  app: { name: string | null; isCompetitor: boolean };
+}
+
+const toChangeEventItem = (event: EventRow) => ({
+  id: event.id,
+  appId: event.appId,
+  appName: event.app.name,
+  isCompetitor: event.app.isCompetitor,
+  field: event.field as ChangeField,
+  before: event.before,
+  after: event.after,
+  capturedAt: event.capturedAt.toISOString(),
+});
+
 @Injectable()
 export class ChangesService {
   constructor(
@@ -38,29 +69,26 @@ export class ChangesService {
       where: { appId: { in: appIds }, capturedAt: { gte: cutoff } },
       orderBy: { capturedAt: 'desc' },
       take: MAX_EVENTS,
-      select: {
-        id: true,
-        appId: true,
-        field: true,
-        before: true,
-        after: true,
-        capturedAt: true,
-        app: { select: { name: true, isCompetitor: true } },
-      },
+      select: EVENT_SELECT,
     });
 
-    return {
-      events: events.map((event) => ({
-        id: event.id,
-        appId: event.appId,
-        appName: event.app.name,
-        isCompetitor: event.app.isCompetitor,
-        field: event.field as ChangeField,
-        before: event.before,
-        after: event.after,
-        capturedAt: event.capturedAt.toISOString(),
-      })),
-    };
+    return { events: events.map(toChangeEventItem) };
+  }
+
+  async recent(limit: number): Promise<ChangeTimeline> {
+    const apps = await this.prisma.app.findMany({
+      where: { workspaceId: DEFAULT_WORKSPACE_ID },
+      select: { id: true },
+    });
+
+    const events = await this.prisma.changeEvent.findMany({
+      where: { appId: { in: apps.map((app) => app.id) } },
+      orderBy: { capturedAt: 'desc' },
+      take: limit,
+      select: EVENT_SELECT,
+    });
+
+    return { events: events.map(toChangeEventItem) };
   }
 
   async recordRefresh(

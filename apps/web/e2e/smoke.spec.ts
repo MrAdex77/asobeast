@@ -1,14 +1,42 @@
 import { expect, test } from "@playwright/test";
-import { APP_1, APP_2 } from "./fixtures.mts";
+import { PORTFOLIO } from "./fixtures.mts";
 
-test("home lists fixture apps with names and keyword counts", async ({ page }) => {
+test("home renders the portfolio grid with totals and per-app cards", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "Apps", level: 1 })).toBeVisible();
-  await expect(page.getByRole("link", { name: APP_1.name ?? "" })).toBeVisible();
-  await expect(page.getByRole("link", { name: APP_2.name ?? "" })).toBeVisible();
+
+  const [first, second] = PORTFOLIO.apps;
   await expect(
-    page.getByText(`${APP_1.trackedKeywordCount} keywords`),
+    page.getByRole("link", { name: first.name ?? "", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: second.name ?? "", exact: true }),
+  ).toBeVisible();
+
+  await expect(
+    page.getByText(`${first.trackedKeywords} keywords`),
+  ).toBeVisible();
+
+  await expect(page.getByText("Changes this week")).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: "visibility, last 30 days" }).first(),
+  ).toBeVisible();
+});
+
+test("recent changes feed renders fixture events on the dashboard", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByText("Across your portfolio")).toBeVisible();
+  await expect(page.getByText("Focus Timer Pro")).toBeVisible();
+});
+
+test("settings exposes the weekly digest event", async ({ page }) => {
+  await page.goto("/settings");
+
+  await page.getByRole("button", { name: "Add webhook" }).first().click();
+  await expect(
+    page.getByRole("button", { name: "Weekly digest" }),
   ).toBeVisible();
 });
 
