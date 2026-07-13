@@ -1,17 +1,18 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
+    "db:generate": { "cache": false },
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "db:generate"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "dev": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "db:generate"],
       "persistent": true,
       "cache": false
     },
-    "lint": {},
-    "test": { "dependsOn": ["^build"] },
-    "test:e2e": { "dependsOn": ["^build"], "cache": false }
+    "lint": { "dependsOn": ["db:generate"] },
+    "test": { "dependsOn": ["^build", "db:generate"] },
+    "test:e2e": { "dependsOn": ["^build", "db:generate"], "cache": false }
   }
 }
