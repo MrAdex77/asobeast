@@ -7,6 +7,7 @@ import {
   ApiErrorEnvelope,
   AppSummary,
   RankDistributionHistory,
+  RatingsHistory,
   VisibilityHistory,
 } from '@asobeast/shared';
 import request from 'supertest';
@@ -269,6 +270,60 @@ describe('AnalyticsController (e2e)', () => {
     ]);
   });
 
+  it('collapses ratings snapshots to one point per UTC day', async () => {
+    const created = await prisma.app.create({
+      data: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        store: Store.APP_STORE,
+        storeAppId: '999',
+        country: 'us',
+        name: 'Rated',
+      },
+    });
+    await prisma.appSnapshot.createMany({
+      data: [
+        {
+          appId: created.id,
+          title: 'Rated',
+          description: 'd',
+          raw: {},
+          ratingAvg: 4.4,
+          ratingCount: 90,
+          capturedAt: new Date('2026-06-23T02:00:00.000Z'),
+        },
+        {
+          appId: created.id,
+          title: 'Rated',
+          description: 'd',
+          raw: {},
+          ratingAvg: 4.6,
+          ratingCount: 110,
+          capturedAt: new Date('2026-06-30T02:00:00.000Z'),
+        },
+        {
+          appId: created.id,
+          title: 'Rated',
+          description: 'd',
+          raw: {},
+          ratingAvg: 4.7,
+          ratingCount: 120,
+          capturedAt: new Date('2026-06-30T20:00:00.000Z'),
+        },
+      ],
+    });
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${created.id}/ratings-history`)
+      .query({ from: '2026-06-20', to: '2026-07-01' })
+      .expect(200);
+    const history = response.body as RatingsHistory;
+
+    expect(history.points).toEqual([
+      { date: '2026-06-23', ratingAvg: 4.4, ratingCount: 90 },
+      { date: '2026-06-30', ratingAvg: 4.7, ratingCount: 120 },
+    ]);
+  });
+
   it('returns a 404 envelope for an unknown app id', async () => {
     const response = await request(app.getHttpServer())
       .get('/apps/missing/rank-distribution-history')
@@ -277,6 +332,17 @@ describe('AnalyticsController (e2e)', () => {
     const body = response.body as ApiErrorEnvelope;
     expect(body.statusCode).toBe(404);
     expect(body.path).toBe('/apps/missing/rank-distribution-history');
+    expect(typeof body.message).toBe('string');
+  });
+
+  it('returns a 404 envelope for unknown app ratings history', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/apps/missing/ratings-history')
+      .expect(404);
+
+    const body = response.body as ApiErrorEnvelope;
+    expect(body.statusCode).toBe(404);
+    expect(body.path).toBe('/apps/missing/ratings-history');
     expect(typeof body.message).toBe('string');
   });
 });
