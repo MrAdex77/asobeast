@@ -112,6 +112,7 @@ const routes: Route[] = [
     },
   },
   appRoute(/^\/apps\/([^/]+)\/rankings$/, (dataset) => dataset.rankings),
+  appRoute(/^\/apps\/([^/]+)\/serp-movers$/, (dataset) => dataset.serpMovers),
   appRoute(/^\/apps\/([^/]+)\/visibility-history$/, (dataset) => dataset.visibility),
   appRoute(
     /^\/apps\/([^/]+)\/rank-distribution-history$/,

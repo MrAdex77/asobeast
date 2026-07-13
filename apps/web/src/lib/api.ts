@@ -24,6 +24,7 @@ import type {
   ReviewList,
   RunDailyResult,
   ScoreEnqueueResult,
+  SerpMovers,
   SerpSnapshot,
   SnapshotDiffResult,
   TrackedKeywordItem,
@@ -235,6 +236,14 @@ export function getRankings(
   return apiFetch<RankingSeries>(
     withQuery(`/apps/${appId}/rankings`, params),
   );
+}
+
+export function getSerpMovers(
+  appId: string,
+  days?: number,
+): Promise<SerpMovers> {
+  const query = days !== undefined ? `?days=${days}` : "";
+  return apiFetch<SerpMovers>(`/apps/${appId}/serp-movers${query}`);
 }
 
 export function getCategoryRanks(

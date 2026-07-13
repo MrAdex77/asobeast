@@ -12,11 +12,13 @@ import {
 import {
   CHANGE_WINDOWS,
   DISCOVERY_WINDOWS,
+  MOVER_WINDOWS,
   RANGE_PRESETS,
   RATINGS_RANGES,
   VISIBILITY_RANGES,
   type ChangeWindow,
   type DiscoveryWindow,
+  type MoverWindow,
 } from "./ranges";
 
 export const sortParser = parseAsStringLiteral(KEYWORD_SORTS).withDefault(
@@ -77,3 +79,15 @@ export const changeDaysParser = createParser({
     return String(value);
   },
 }).withDefault(90);
+
+export const moverDaysParser = createParser({
+  parse(value) {
+    const days = Number(value);
+    return (MOVER_WINDOWS as readonly number[]).includes(days)
+      ? (days as MoverWindow)
+      : null;
+  },
+  serialize(value: MoverWindow) {
+    return String(value);
+  },
+}).withDefault(7);

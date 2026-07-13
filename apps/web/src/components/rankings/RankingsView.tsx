@@ -88,6 +88,7 @@ export function RankingsView({ id }: { id: string }) {
             presets={RANGE_PRESETS}
             value={range}
             onChange={setRange}
+            label="Date range"
           />
         </CardAction>
       </CardHeader>
