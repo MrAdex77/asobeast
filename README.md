@@ -101,6 +101,7 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 | `CRON_SCORING` | `0 4 * * 0` | Cron for weekly keyword scoring (UTC, Sunday). |
 | `SCRAPE_ITUNES_RPM` | `15` | iTunes requests per minute; the App Store worker runs concurrency 1 behind this limiter. |
 | `CRON_RETENTION` | `0 5 * * *` | Cron for the data retention pruning job (UTC). |
+| `CRON_DIGEST` | `0 8 * * 1` | Cron for the weekly digest webhook (UTC, Monday 08:00). |
 | `RETENTION_RANKINGS_DAYS` | `365` | Prune keyword rankings older than N days; `0` keeps forever. |
 | `RETENTION_SERP_DAYS` | `90` | Prune SERP entries older than N days; `0` keeps forever. |
 | `RETENTION_SNAPSHOTS_DAYS` | `180` | Prune app snapshots older than N days; the newest snapshot per app is always kept; `0` keeps forever. |

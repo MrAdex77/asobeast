@@ -1,0 +1,137 @@
+import { Test } from '@nestjs/testing';
+import { PrismaService } from '../prisma/prisma.service';
+import { AnalyticsService } from './analytics.service';
+
+describe('AnalyticsService.buildDigest', () => {
+  let service: AnalyticsService;
+  const appFindMany = jest.fn();
+  const rankingFindFirst = jest.fn();
+  const trackedFindMany = jest.fn();
+  const changeEventCount = jest.fn<
+    Promise<number>,
+    [Record<string, unknown>]
+  >();
+  const reviewCount = jest.fn<Promise<number>, [Record<string, unknown>]>();
+
+  beforeEach(async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-13T09:00:00Z'));
+    appFindMany.mockReset();
+    rankingFindFirst.mockReset();
+    trackedFindMany.mockReset();
+    changeEventCount.mockReset();
+    reviewCount.mockReset();
+
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        AnalyticsService,
+        {
+          provide: PrismaService,
+          useValue: {
+            app: { findMany: appFindMany },
+            keywordRanking: { findFirst: rankingFindFirst },
+            trackedKeyword: { findMany: trackedFindMany },
+            changeEvent: { count: changeEventCount },
+            review: { count: reviewCount },
+          },
+        },
+      ],
+    }).compile();
+    service = moduleRef.get(AnalyticsService);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('composes one summary per primary app over a UTC-day inclusive 7-day window', async () => {
+    const reference = new Date('2026-07-13T00:00:00Z');
+    appFindMany.mockResolvedValue([
+      { id: 'app_1', name: 'Mine', competitors: [{ id: 'comp_1' }] },
+    ]);
+    rankingFindFirst.mockResolvedValue({ date: reference });
+    trackedFindMany.mockResolvedValue([
+      {
+        keywordId: 'k1',
+        source: 'TITLE',
+        relevance: null,
+        keyword: {
+          text: 'kw',
+          metrics: [{ traffic: 10, difficulty: 10, date: reference }],
+          rankings: [
+            { position: 20, date: new Date('2026-07-06T00:00:00Z') },
+            { position: 4, date: reference },
+          ],
+        },
+      },
+    ]);
+    changeEventCount.mockResolvedValue(3);
+    reviewCount.mockResolvedValue(2);
+
+    const payload = await service.buildDigest(2);
+
+    expect(payload.event).toBe('digest.weekly');
+    expect(payload.occurredAt).toBe('2026-07-13T09:00:00.000Z');
+    expect(payload.window).toEqual({ from: '2026-07-06', to: '2026-07-13' });
+    expect(payload.apps).toHaveLength(1);
+
+    const [entry] = payload.apps;
+    expect(entry).toMatchObject({
+      id: 'app_1',
+      name: 'Mine',
+      changes: 3,
+      negativeReviews: 2,
+    });
+    expect(entry.moversUp[0]).toMatchObject({ text: 'kw', from: 20, to: 4 });
+    expect(entry.moversDown).toEqual([]);
+
+    const changeArgs = changeEventCount.mock.calls[0][0] as {
+      where: {
+        appId: { in: string[] };
+        capturedAt: { gte: Date; lt: Date };
+      };
+    };
+    expect(changeArgs.where.appId.in).toEqual(['app_1', 'comp_1']);
+    expect(changeArgs.where.capturedAt.gte.toISOString()).toBe(
+      '2026-07-06T00:00:00.000Z',
+    );
+    expect(changeArgs.where.capturedAt.lt.toISOString()).toBe(
+      '2026-07-14T00:00:00.000Z',
+    );
+
+    const reviewArgs = reviewCount.mock.calls[0][0] as {
+      where: { appId: string; score: { lte: number } };
+    };
+    expect(reviewArgs.where.appId).toBe('app_1');
+    expect(reviewArgs.where.score.lte).toBe(2);
+  });
+
+  it('caps movers at three per direction', async () => {
+    const reference = new Date('2026-07-13T00:00:00Z');
+    const past = new Date('2026-07-06T00:00:00Z');
+    appFindMany.mockResolvedValue([
+      { id: 'app_1', name: 'Mine', competitors: [] },
+    ]);
+    rankingFindFirst.mockResolvedValue({ date: reference });
+    trackedFindMany.mockResolvedValue(
+      Array.from({ length: 5 }, (_, i) => ({
+        keywordId: `k${i}`,
+        source: 'TITLE',
+        relevance: null,
+        keyword: {
+          text: `kw${i}`,
+          metrics: [{ traffic: 10, difficulty: 10, date: reference }],
+          rankings: [
+            { position: 50 - i, date: past },
+            { position: 5, date: reference },
+          ],
+        },
+      })),
+    );
+    changeEventCount.mockResolvedValue(0);
+    reviewCount.mockResolvedValue(0);
+
+    const payload = await service.buildDigest(2);
+
+    expect(payload.apps[0].moversUp).toHaveLength(3);
+  });
+});

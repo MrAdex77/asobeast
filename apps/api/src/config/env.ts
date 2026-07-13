@@ -29,6 +29,7 @@ export const EnvSchema = z.object({
   RETENTION_CATEGORY_RANKS_DAYS: z.coerce.number().int().min(0).default(365),
   RETENTION_CHANGE_EVENTS_DAYS: z.coerce.number().int().min(0).default(0),
   CRON_RETENTION: z.string().min(1).default('0 5 * * *'),
+  CRON_DIGEST: z.string().min(1).default('0 8 * * 1'),
   BULL_BOARD_ENABLED: z
     .enum(['true', 'false'])
     .default('true')

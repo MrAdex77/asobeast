@@ -5,6 +5,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { DynamicModule, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AlertsModule } from '../alerts/alerts.module';
+import { AnalyticsModule } from '../analytics/analytics.module';
 import { AppsModule } from '../apps/apps.module';
 import { CategoryRanksModule } from '../category-ranks/category-ranks.module';
 import { Env } from '../config/env';
@@ -12,6 +13,7 @@ import { RankingsModule } from '../rankings/rankings.module';
 import { ReviewsModule } from '../reviews/reviews.module';
 import { ScoringModule } from '../scoring/scoring.module';
 import { AppStoreWorker } from './app-store.worker';
+import { DigestService } from './digest.service';
 import { JobsController } from './jobs.controller';
 import { QUEUES } from './jobs.types';
 import { PipelineService } from './pipeline.service';
@@ -61,6 +63,7 @@ const bullBoardModules: DynamicModule[] =
     CategoryRanksModule,
     ScoringModule,
     AlertsModule,
+    AnalyticsModule,
     ReviewsModule,
     ...bullBoardModules,
   ],
@@ -70,6 +73,7 @@ const bullBoardModules: DynamicModule[] =
     PipelineWorker,
     PipelineService,
     RetentionService,
+    DigestService,
   ],
   exports: [BullModule],
 })

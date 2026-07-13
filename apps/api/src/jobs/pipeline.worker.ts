@@ -3,6 +3,7 @@ import { Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Job, Queue } from 'bullmq';
 import { Env } from '../config/env';
+import { DigestService } from './digest.service';
 import { JOBS, QUEUES } from './jobs.types';
 import { PipelineService } from './pipeline.service';
 import { RetentionService } from './retention.service';
@@ -16,6 +17,7 @@ export class PipelineWorker extends WorkerHost implements OnModuleInit {
     private readonly config: ConfigService<Env, true>,
     private readonly pipeline: PipelineService,
     private readonly retention: RetentionService,
+    private readonly digest: DigestService,
   ) {
     super();
   }
@@ -39,6 +41,11 @@ export class PipelineWorker extends WorkerHost implements OnModuleInit {
       },
       { name: JOBS.RETENTION },
     );
+    await this.pipelineQueue.upsertJobScheduler(
+      'digest',
+      { pattern: this.config.get('CRON_DIGEST', { infer: true }), tz: 'UTC' },
+      { name: JOBS.DIGEST },
+    );
   }
 
   async process(job: Job): Promise<void> {
@@ -52,6 +59,10 @@ export class PipelineWorker extends WorkerHost implements OnModuleInit {
     }
     if (job.name === JOBS.RETENTION) {
       await this.retention.prune();
+      return;
+    }
+    if (job.name === JOBS.DIGEST) {
+      await this.digest.run();
       return;
     }
     throw new Error(`Unknown pipeline job ${job.name}`);

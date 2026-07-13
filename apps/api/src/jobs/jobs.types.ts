@@ -10,6 +10,7 @@ export const JOBS = {
   DAILY: 'daily-pipeline',
   SCORING: 'weekly-scoring',
   RETENTION: 'data-retention',
+  DIGEST: 'weekly-digest',
   REFRESH_APP: 'refresh-app',
   CHECK_KEYWORD: 'check-keyword',
   CHECK_CATEGORY: 'check-category',

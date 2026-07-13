@@ -6,6 +6,8 @@ import {
 import {
   AppSummary,
   CoverageSummary,
+  DigestAppSummary,
+  DigestWeeklyPayload,
   KeywordMover,
   KeywordMovers,
   normalizeText,
@@ -45,6 +47,8 @@ const HISTORY_DEFAULT_DAYS = 30;
 const HISTORY_MAX_DAYS = 180;
 const SPARKLINE_WINDOW_DAYS = 30;
 const CHANGES_WINDOW_DAYS = 7;
+const DIGEST_WINDOW_DAYS = 7;
+const DIGEST_MOVER_LIMIT = 3;
 
 interface Metric {
   traffic: number | null;
@@ -264,6 +268,82 @@ export class AnalyticsService {
         capturedAt: { gte: new Date(Date.now() - days * DAY_MS) },
       },
     });
+  }
+
+  async buildDigest(reviewScoreMax: number): Promise<DigestWeeklyPayload> {
+    const now = new Date();
+    const to = startOfUtcDay(now);
+    const from = addDays(to, -DIGEST_WINDOW_DAYS);
+
+    const apps = await this.prisma.app.findMany({
+      where: { workspaceId: DEFAULT_WORKSPACE_ID, isCompetitor: false },
+      select: {
+        id: true,
+        name: true,
+        competitors: { select: { id: true } },
+      },
+    });
+
+    const summaries = await Promise.all(
+      apps.map((app) => this.digestApp(app, from, to, reviewScoreMax)),
+    );
+
+    return {
+      event: 'digest.weekly',
+      occurredAt: now.toISOString(),
+      window: { from: toDateKey(from), to: toDateKey(to) },
+      apps: summaries,
+    };
+  }
+
+  private async digestApp(
+    app: { id: string; name: string | null; competitors: { id: string }[] },
+    from: Date,
+    to: Date,
+    reviewScoreMax: number,
+  ): Promise<DigestAppSummary> {
+    const referenceDate = await this.referenceDate(app.id);
+    const windowStart = referenceDate
+      ? addDays(referenceDate, -SPARKLINE_WINDOW_DAYS)
+      : null;
+    const rows = await this.trackedRows(app.id, windowStart, referenceDate);
+    const current = referenceDate ? visibilityAt(rows, referenceDate) : 0;
+    const movers = referenceDate
+      ? this.movers(rows, referenceDate)
+      : { up: [], down: [] };
+
+    const appIds = [app.id, ...app.competitors.map((c) => c.id)];
+    const rangeEnd = addDays(to, 1);
+    const [changes, negativeReviews] = await Promise.all([
+      this.prisma.changeEvent.count({
+        where: {
+          appId: { in: appIds },
+          capturedAt: { gte: from, lt: rangeEnd },
+        },
+      }),
+      this.prisma.review.count({
+        where: {
+          appId: app.id,
+          score: { lte: reviewScoreMax },
+          createdAt: { gte: from, lt: rangeEnd },
+        },
+      }),
+    ]);
+
+    return {
+      id: app.id,
+      name: app.name,
+      visibility: {
+        current,
+        delta7d: referenceDate
+          ? this.delta(rows, referenceDate, current, 7)
+          : null,
+      },
+      moversUp: movers.up.slice(0, DIGEST_MOVER_LIMIT),
+      moversDown: movers.down.slice(0, DIGEST_MOVER_LIMIT),
+      changes,
+      negativeReviews,
+    };
   }
 
   private visibilityPoints(rows: TrackedRow[]): VisibilityPoint[] {
