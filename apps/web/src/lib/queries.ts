@@ -16,6 +16,7 @@ import {
   getRecentChanges,
   getReviews,
   getSerp,
+  getSerpMovers,
   getSuggestions,
   getSummary,
   getVisibilityHistory,
@@ -39,6 +40,10 @@ export const appKeys = {
     [...appKeys.detail(id), "compare", { onlyGaps }] as const,
   rankings: (id: string, params: RankingParams) =>
     [...appKeys.detail(id), "rankings", params] as const,
+  serpMoversRoot: (id: string) =>
+    [...appKeys.detail(id), "serp-movers"] as const,
+  serpMovers: (id: string, days: number) =>
+    [...appKeys.detail(id), "serp-movers", { days }] as const,
   categoryRanks: (id: string, params: RangeParams) =>
     [...appKeys.detail(id), "category-ranks", params] as const,
   visibility: (id: string, params: RangeParams) =>
@@ -119,6 +124,12 @@ export const rankingsOptions = (id: string, params: RankingParams) =>
   queryOptions({
     queryKey: appKeys.rankings(id, params),
     queryFn: () => getRankings(id, params),
+  });
+
+export const serpMoversOptions = (id: string, days: number) =>
+  queryOptions({
+    queryKey: appKeys.serpMovers(id, days),
+    queryFn: () => getSerpMovers(id, days),
   });
 
 export const visibilityOptions = (id: string, params: RangeParams) =>
@@ -208,6 +219,7 @@ export function invalidateCompetitorMutation(
 ): void {
   void client.invalidateQueries({ queryKey: appKeys.detail(id) });
   void client.invalidateQueries({ queryKey: appKeys.discoveryRoot(id) });
+  void client.invalidateQueries({ queryKey: appKeys.serpMoversRoot(id) });
 }
 
 export function invalidateWebhookMutation(client: QueryClient): void {

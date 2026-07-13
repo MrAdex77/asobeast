@@ -39,6 +39,19 @@ test("position deltas render arrows, a bare position and the over-100 marker", a
   await expect(unrankedRow).toContainText(">100");
 });
 
+test("volatility column labels low, high and unavailable rows", async ({ page }) => {
+  await page.goto("/apps/app-1/keywords");
+
+  const lowRow = page.getByRole("row", { name: /focus timer/ });
+  await expect(lowRow.getByLabel("Low volatility, 8 out of 100")).toBeVisible();
+
+  const highRow = page.getByRole("row", { name: /pomodoro/ });
+  await expect(highRow.getByLabel("High volatility, 72 out of 100")).toBeVisible();
+
+  const nullRow = page.getByRole("row", { name: /productivity app/ });
+  await expect(nullRow.getByLabel(/volatility, \d+ out of 100/)).toHaveCount(0);
+});
+
 test("exporting keywords downloads a bom-prefixed csv", async ({ page }) => {
   await page.goto("/apps/app-1/keywords");
 

@@ -13,6 +13,9 @@ export type DiscoveryWindow = (typeof DISCOVERY_WINDOWS)[number];
 export const CHANGE_WINDOWS = [30, 90, 365] as const;
 export type ChangeWindow = (typeof CHANGE_WINDOWS)[number];
 
+export const MOVER_WINDOWS = [7, 14, 30] as const;
+export type MoverWindow = (typeof MOVER_WINDOWS)[number];
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function presetToRange(preset: `${number}d`): {

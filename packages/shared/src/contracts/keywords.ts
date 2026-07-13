@@ -16,6 +16,7 @@ export interface TrackedKeywordItem {
   opportunity: number | null;
   bucket: KeywordBucket | null;
   scoredAt: string | null;
+  serpVolatility7d: number | null;
 }
 
 export interface KeywordSuggestion {

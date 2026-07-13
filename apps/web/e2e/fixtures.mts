@@ -13,6 +13,7 @@ import type {
   RankingSeries,
   RatingsHistory,
   ReviewList,
+  SerpMovers,
   TrackedKeywordItem,
   VisibilityHistory,
 } from "@asobeast/shared";
@@ -44,6 +45,7 @@ export const APP_1_KEYWORDS: TrackedKeywordItem[] = [
   {
     keywordId: "kw-1",
     text: "focus timer",
+    serpVolatility7d: 8,
     source: "TITLE",
     active: true,
     latestPosition: 3,
@@ -61,6 +63,7 @@ export const APP_1_KEYWORDS: TrackedKeywordItem[] = [
   {
     keywordId: "kw-2",
     text: "pomodoro",
+    serpVolatility7d: 72,
     source: "SUBTITLE",
     active: true,
     latestPosition: 12,
@@ -78,6 +81,7 @@ export const APP_1_KEYWORDS: TrackedKeywordItem[] = [
   {
     keywordId: "kw-3",
     text: "study timer",
+    serpVolatility7d: 35,
     source: "DESCRIPTION",
     active: true,
     latestPosition: 7,
@@ -95,6 +99,7 @@ export const APP_1_KEYWORDS: TrackedKeywordItem[] = [
   {
     keywordId: "kw-4",
     text: "productivity app",
+    serpVolatility7d: null,
     source: "MANUAL",
     active: true,
     latestPosition: null,
@@ -112,6 +117,7 @@ export const APP_1_KEYWORDS: TrackedKeywordItem[] = [
   {
     keywordId: "kw-5",
     text: "time blocking",
+    serpVolatility7d: 50,
     source: "COMPETITOR",
     active: false,
     latestPosition: 45,
@@ -139,6 +145,42 @@ export const APP_1_RANKINGS: RankingSeries = {
       points: pointsFrom([null, null, null, null, null, null, null, null]),
     },
     { keywordId: "kw-5", text: "time blocking", points: pointsFrom([40, 42, 44, 45, 45, 46, 46, 45]) },
+  ],
+};
+
+export const APP_1_SERP_MOVERS: SerpMovers = {
+  windowDays: 7,
+  items: [
+    {
+      date: utcDaysAgo(1),
+      keywordId: "kw-1",
+      text: "focus timer",
+      position: 4,
+      storeAppId: "comp-store",
+      title: "Rival Focus",
+      appId: "comp-1",
+      isCompetitor: true,
+    },
+    {
+      date: utcDaysAgo(1),
+      keywordId: "kw-2",
+      text: "pomodoro",
+      position: 7,
+      storeAppId: "stranger-store",
+      title: "Newcomer Timer",
+      appId: null,
+      isCompetitor: false,
+    },
+    {
+      date: utcDaysAgo(3),
+      keywordId: "kw-3",
+      text: "study timer",
+      position: 9,
+      storeAppId: "late-store",
+      title: "Late Bloomer",
+      appId: null,
+      isCompetitor: false,
+    },
   ],
 };
 
@@ -372,12 +414,14 @@ const EMPTY_RANK_DISTRIBUTION_HISTORY: RankDistributionHistory = { points: [] };
 const EMPTY_CATEGORY_RANKS: CategoryRankSeries = { series: [] };
 const EMPTY_REVIEWS: ReviewList = { reviews: [], total: 0, versions: [] };
 const EMPTY_RATINGS_HISTORY: RatingsHistory = { points: [] };
+const EMPTY_SERP_MOVERS: SerpMovers = { windowDays: 7, items: [] };
 
 export interface AppDataset {
   detail: AppDetail;
   summary: AppSummary;
   keywords: TrackedKeywordItem[];
   rankings: RankingSeries;
+  serpMovers: SerpMovers;
   visibility: VisibilityHistory;
   rankDistributionHistory: RankDistributionHistory;
   categoryRanks: CategoryRankSeries;
@@ -392,6 +436,7 @@ export const DATASETS: Record<string, AppDataset> = {
     summary: APP_1_SUMMARY,
     keywords: APP_1_KEYWORDS,
     rankings: APP_1_RANKINGS,
+    serpMovers: APP_1_SERP_MOVERS,
     visibility: APP_1_VISIBILITY,
     rankDistributionHistory: APP_1_RANK_DISTRIBUTION_HISTORY,
     categoryRanks: APP_1_CATEGORY_RANKS,
@@ -404,6 +449,7 @@ export const DATASETS: Record<string, AppDataset> = {
     summary: APP_2_SUMMARY,
     keywords: [],
     rankings: EMPTY_RANKINGS,
+    serpMovers: EMPTY_SERP_MOVERS,
     visibility: EMPTY_VISIBILITY,
     rankDistributionHistory: EMPTY_RANK_DISTRIBUTION_HISTORY,
     categoryRanks: EMPTY_CATEGORY_RANKS,
@@ -416,6 +462,7 @@ export const DATASETS: Record<string, AppDataset> = {
     summary: APP_2_SUMMARY,
     keywords: [],
     rankings: EMPTY_RANKINGS,
+    serpMovers: EMPTY_SERP_MOVERS,
     visibility: EMPTY_VISIBILITY,
     rankDistributionHistory: EMPTY_RANK_DISTRIBUTION_HISTORY,
     categoryRanks: EMPTY_CATEGORY_RANKS,

@@ -33,3 +33,19 @@ export interface CompetitorDiscovery {
   windowDays: number;
   items: CompetitorDiscoveryItem[];
 }
+
+export interface SerpMoverItem {
+  date: string;
+  keywordId: string;
+  text: string;
+  position: number;
+  storeAppId: string;
+  title: string;
+  appId: string | null;
+  isCompetitor: boolean;
+}
+
+export interface SerpMovers {
+  windowDays: number;
+  items: SerpMoverItem[];
+}

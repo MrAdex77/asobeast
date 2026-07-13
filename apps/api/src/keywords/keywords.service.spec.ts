@@ -159,6 +159,86 @@ describe('KeywordsService.compare', () => {
   });
 });
 
+describe('KeywordsService.listTracked serp volatility', () => {
+  const buildService = (prisma: unknown) =>
+    new KeywordsService(
+      prisma as PrismaService,
+      undefined as unknown as StoreProviderRegistry,
+      { add: jest.fn() } as unknown as Queue,
+    );
+
+  const trackedRow = (keywordId: string, text: string) => ({
+    keywordId,
+    source: 'MANUAL',
+    active: true,
+    relevance: null,
+    keyword: { text, rankings: [], metrics: [] },
+  });
+
+  const buildPrisma = () => ({
+    app: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: 'app1',
+        store: Store.APP_STORE,
+        country: 'us',
+        storeAppId: 'store1',
+      }),
+    },
+    appSnapshot: { findFirst: jest.fn().mockResolvedValue(null) },
+    trackedKeyword: {
+      findMany: jest
+        .fn()
+        .mockResolvedValue([
+          trackedRow('kwStable', 'habit tracker'),
+          trackedRow('kwChurn', 'daily planner'),
+          trackedRow('kwUnchecked', 'sleep timer'),
+        ]),
+    },
+    serpEntry: {
+      findFirst: jest
+        .fn()
+        .mockResolvedValue({ date: new Date('2026-07-08T00:00:00.000Z') }),
+      findMany: jest.fn().mockResolvedValue([
+        {
+          keywordId: 'kwStable',
+          date: new Date('2026-07-07'),
+          storeAppId: 'a',
+        },
+        {
+          keywordId: 'kwStable',
+          date: new Date('2026-07-07'),
+          storeAppId: 'b',
+        },
+        {
+          keywordId: 'kwStable',
+          date: new Date('2026-07-08'),
+          storeAppId: 'b',
+        },
+        {
+          keywordId: 'kwStable',
+          date: new Date('2026-07-08'),
+          storeAppId: 'a',
+        },
+        { keywordId: 'kwChurn', date: new Date('2026-07-07'), storeAppId: 'a' },
+        { keywordId: 'kwChurn', date: new Date('2026-07-07'), storeAppId: 'b' },
+        { keywordId: 'kwChurn', date: new Date('2026-07-08'), storeAppId: 'x' },
+        { keywordId: 'kwChurn', date: new Date('2026-07-08'), storeAppId: 'y' },
+      ]),
+    },
+  });
+
+  it('scores a stable keyword 0, a churning keyword above 0 and an unchecked keyword null', async () => {
+    const service = buildService(buildPrisma());
+
+    const items = await service.listTracked('app1');
+    const byId = new Map(items.map((item) => [item.keywordId, item]));
+
+    expect(byId.get('kwStable')?.serpVolatility7d).toBe(0);
+    expect(byId.get('kwChurn')?.serpVolatility7d).toBe(100);
+    expect(byId.get('kwUnchecked')?.serpVolatility7d).toBeNull();
+  });
+});
+
 describe('KeywordsService.suggest competitors', () => {
   const buildService = (prisma: unknown) =>
     new KeywordsService(

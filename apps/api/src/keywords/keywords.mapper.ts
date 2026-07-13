@@ -58,6 +58,7 @@ function previousDayPosition(
 export function toTrackedKeywordItem(
   row: TrackedKeywordRow,
   snapshotText = '',
+  serpVolatility7d: number | null = null,
 ): TrackedKeywordItem {
   const latest = row.keyword.rankings[0] ?? null;
   const metric = row.keyword.metrics[0] ?? null;
@@ -91,5 +92,6 @@ export function toTrackedKeywordItem(
     opportunity: computeOpportunity(volume, difficulty100, relevance),
     bucket: null,
     scoredAt: metric ? metric.date.toISOString().slice(0, 10) : null,
+    serpVolatility7d,
   };
 }
