@@ -1,7 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { ReviewItem, ReviewList } from '@asobeast/shared';
+import { AlertsDispatcher } from '../alerts/alerts.dispatcher';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
+import { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
 import { ReviewResult } from '../store-providers/types';
@@ -13,17 +16,29 @@ export interface ReviewListFilters {
   limit: number;
 }
 
+const REVIEW_TEXT_MAX = 500;
+
 @Injectable()
 export class ReviewsService {
+  private readonly logger = new Logger(ReviewsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly registry: StoreProviderRegistry,
+    private readonly config: ConfigService<Env, true>,
+    private readonly alerts: AlertsDispatcher,
   ) {}
 
   async syncReviews(payload: SyncReviewsPayload): Promise<ReviewResult[]> {
     const app = await this.prisma.app.findFirst({
       where: { id: payload.appId, workspaceId: DEFAULT_WORKSPACE_ID },
-      select: { id: true, store: true, storeAppId: true, country: true },
+      select: {
+        id: true,
+        name: true,
+        store: true,
+        storeAppId: true,
+        country: true,
+      },
     });
     if (!app) {
       throw new NotFoundException(`App ${payload.appId} not found`);
@@ -65,7 +80,48 @@ export class ReviewsService {
       });
     }
 
+    if (!payload.backfill) {
+      await this.dispatchNegativeAlerts(
+        { id: app.id, name: app.name },
+        inserted,
+      );
+    }
+
     return inserted;
+  }
+
+  private async dispatchNegativeAlerts(
+    app: { id: string; name: string | null },
+    reviews: ReviewResult[],
+  ): Promise<void> {
+    const threshold = this.config.get('ALERT_REVIEW_SCORE_MAX', {
+      infer: true,
+    });
+    for (const review of reviews) {
+      if (review.score > threshold) {
+        continue;
+      }
+      try {
+        await this.alerts.dispatch({
+          event: 'review.negative',
+          occurredAt: new Date().toISOString(),
+          app,
+          review: {
+            score: review.score,
+            title: review.title ?? null,
+            text: review.text.slice(0, REVIEW_TEXT_MAX),
+            version: review.version ?? null,
+            reviewedAt: review.updatedAt
+              ? review.updatedAt.toISOString()
+              : null,
+          },
+        });
+      } catch (error) {
+        this.logger.warn(
+          `review alert dispatch failed: ${(error as Error).message}`,
+        );
+      }
+    }
   }
 
   async list(appId: string, filters: ReviewListFilters): Promise<ReviewList> {
@@ -119,9 +175,7 @@ export class ReviewsService {
       title: review.title,
       text: review.text,
       version: review.version,
-      reviewedAt: review.reviewedAt
-        ? review.reviewedAt.toISOString()
-        : null,
+      reviewedAt: review.reviewedAt ? review.reviewedAt.toISOString() : null,
     };
   }
 

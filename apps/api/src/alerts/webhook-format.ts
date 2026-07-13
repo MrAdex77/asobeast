@@ -21,12 +21,24 @@ function position(value: number | null): string {
   return value === null ? 'outside top 100' : `#${value}`;
 }
 
+function stars(score: number): string {
+  return '★'.repeat(score) + '☆'.repeat(Math.max(0, 5 - score));
+}
+
 export function renderMessage(payload: AlertPayload): string {
   if (payload.event === 'metadata.changed') {
     const who = payload.app.name ?? 'An app';
     const tag = payload.app.isCompetitor ? ' (competitor)' : '';
     const fields = payload.changes.map((change) => change.field).join(', ');
     return `📝 ${who}${tag} changed: ${fields}`;
+  }
+
+  if (payload.event === 'review.negative') {
+    const who = payload.app.name ?? 'An app';
+    const version = payload.review.version
+      ? ` (v${payload.review.version})`
+      : '';
+    return `⚠️ ${who} got a ${stars(payload.review.score)} review${version}: "${payload.review.text}"`;
   }
 
   const who = payload.app.name ?? 'An app';

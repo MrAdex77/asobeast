@@ -2,6 +2,7 @@ import {
   MetadataChangedPayload,
   RankDroppedPayload,
   RankImprovedPayload,
+  ReviewNegativePayload,
 } from '@asobeast/shared';
 import { formatWebhookBody, renderMessage } from './webhook-format';
 
@@ -35,6 +36,19 @@ const improved: RankImprovedPayload = {
   threshold: 5,
 };
 
+const negative: ReviewNegativePayload = {
+  event: 'review.negative',
+  occurredAt: '2026-07-11T00:00:00.000Z',
+  app: { id: 'app_1', name: 'My App' },
+  review: {
+    score: 1,
+    title: 'Bad',
+    text: 'Crashes on launch',
+    version: '2.0.0',
+    reviewedAt: '2026-07-10T00:00:00.000Z',
+  },
+};
+
 describe('renderMessage', () => {
   it('summarizes a metadata change with the changed fields', () => {
     expect(renderMessage(metadata)).toBe('📝 My App changed: title, icon');
@@ -60,6 +74,12 @@ describe('renderMessage', () => {
       '📈 My App improved for "habit tracker": #20 → #7',
     );
   });
+
+  it('describes a negative review with stars and version', () => {
+    expect(renderMessage(negative)).toBe(
+      '⚠️ My App got a ★☆☆☆☆ review (v2.0.0): "Crashes on launch"',
+    );
+  });
 });
 
 describe('formatWebhookBody', () => {
@@ -82,5 +102,21 @@ describe('formatWebhookBody', () => {
   it('sends the raw payload for generic receivers', () => {
     const body = formatWebhookBody('https://hooks.example.com/x', metadata);
     expect(JSON.parse(body)).toEqual(metadata);
+  });
+
+  it('formats a negative review for discord', () => {
+    const body = formatWebhookBody(
+      'https://discord.com/api/webhooks/123/abc',
+      negative,
+    );
+    expect(JSON.parse(body)).toEqual({ content: renderMessage(negative) });
+  });
+
+  it('formats a negative review for slack', () => {
+    const body = formatWebhookBody(
+      'https://hooks.slack.com/services/T/B/x',
+      negative,
+    );
+    expect(JSON.parse(body)).toEqual({ text: renderMessage(negative) });
   });
 });
