@@ -6,12 +6,14 @@ import {
   APP_STORE_LIB,
   AppStoreAppResult,
   AppStoreLib,
+  AppStoreReviewResult,
   AppStoreSearchResult,
 } from './app-store.lib';
 import { StoreRequestError } from './errors';
 import {
   ChartItem,
   NormalizedApp,
+  ReviewResult,
   SearchItem,
   StoreProvider,
   SuggestItem,
@@ -85,6 +87,30 @@ export class AppStoreProvider implements StoreProvider {
       storeAppId: String(item.id),
       title: item.title,
     }));
+  }
+
+  async reviews(
+    storeAppId: string,
+    country: string,
+    page: number,
+  ): Promise<ReviewResult[]> {
+    const clampedPage = Math.min(Math.max(page, 1), 10);
+    const results = await this.withRetry('reviews', () =>
+      this.lib.reviews({ id: Number(storeAppId), country, page: clampedPage }),
+    );
+    return results.map((item) => this.toReviewResult(item));
+  }
+
+  private toReviewResult(item: AppStoreReviewResult): ReviewResult {
+    return {
+      reviewId: item.id,
+      userName: item.userName,
+      score: item.score,
+      title: item.title,
+      text: item.text,
+      version: item.version,
+      updatedAt: toDate(item.updated),
+    };
   }
 
   private async fetchSubtitle(

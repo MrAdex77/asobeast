@@ -38,6 +38,16 @@ export interface ChartItem {
   title: string;
 }
 
+export interface ReviewResult {
+  reviewId: string;
+  userName?: string;
+  score: number;
+  title?: string;
+  text: string;
+  version?: string;
+  updatedAt?: Date;
+}
+
 export interface StoreProvider {
   readonly store: Store;
   getApp(storeAppId: string, country: string): Promise<NormalizedApp>;
@@ -50,4 +60,9 @@ export interface StoreProvider {
     num: number,
     country: string,
   ): Promise<ChartItem[]>;
+  reviews(
+    storeAppId: string,
+    country: string,
+    page: number,
+  ): Promise<ReviewResult[]>;
 }

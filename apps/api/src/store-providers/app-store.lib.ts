@@ -45,6 +45,16 @@ export interface AppStoreListOptions {
   country: string;
 }
 
+export interface AppStoreReviewResult {
+  id: string;
+  userName?: string;
+  version?: string;
+  score: number;
+  title?: string;
+  text: string;
+  updated?: string;
+}
+
 export interface AppStoreLib {
   app(options: {
     id: number;
@@ -66,6 +76,11 @@ export interface AppStoreLib {
     country: string;
   }): Promise<AppStoreSearchResult[]>;
   list(options: AppStoreListOptions): Promise<AppStoreListResult[]>;
+  reviews(options: {
+    id: number;
+    country: string;
+    page: number;
+  }): Promise<AppStoreReviewResult[]>;
 }
 
 export const APP_STORE_LIB = Symbol('APP_STORE_LIB');
@@ -91,4 +106,11 @@ export const appStoreLib: AppStoreLib = {
   similar: (options) => appStore.similar(options),
   list: (options) =>
     appStore.list(options as Parameters<typeof appStore.list>[0]),
+  reviews: ({ id, country, page }) =>
+    appStore.reviews({
+      id,
+      country,
+      page,
+      sort: appStore.sort.RECENT,
+    }),
 };

@@ -4,6 +4,7 @@ import { StoreNotSupportedError } from './errors';
 import {
   ChartItem,
   NormalizedApp,
+  ReviewResult,
   SearchItem,
   StoreProvider,
   SuggestItem,
@@ -38,6 +39,10 @@ export class GooglePlayProvider implements StoreProvider {
   }
 
   topCharts(): Promise<ChartItem[]> {
+    return Promise.reject(new StoreNotSupportedError(this.store));
+  }
+
+  reviews(): Promise<ReviewResult[]> {
     return Promise.reject(new StoreNotSupportedError(this.store));
   }
 }
