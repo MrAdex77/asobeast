@@ -29,20 +29,30 @@ import {
 import { sortParser, suggestionStrategyParser } from "@/lib/search-params";
 import { cn } from "@/lib/utils";
 
-const STRATEGIES: { value: KeywordSuggestionStrategy; label: string }[] = [
-  { value: "metadata", label: "Metadata" },
-  { value: "search", label: "Search" },
-  { value: "similar", label: "Similar apps" },
-  { value: "competitors", label: "Competitors" },
+const STRATEGIES: {
+  value: KeywordSuggestionStrategy;
+  label: string;
+  description: string;
+}[] = [
+  { value: "metadata", label: "Metadata", description: "Phrases from your app's own metadata" },
+  { value: "search", label: "Search", description: "App Store autocomplete terms" },
+  { value: "similar", label: "Similar apps", description: "Terms from apps like yours" },
+  { value: "competitors", label: "Competitors", description: "Terms your competitors rank for" },
+  { value: "reviews", label: "Reviews", description: "Phrases from your users' reviews" },
 ];
 
+const USED_BY_NOUN: Partial<Record<KeywordSuggestionStrategy, string>> = {
+  competitors: "competitor",
+  reviews: "review",
+};
+
 function SuggestionMeta({ suggestion }: { suggestion: KeywordSuggestion }) {
+  const noun = USED_BY_NOUN[suggestion.strategy] ?? "app";
   return (
     <span className="flex items-center gap-2 text-xs text-muted-foreground">
       {suggestion.usedByCount !== undefined ? (
         <span className="tabular-nums">
-          {suggestion.usedByCount}{" "}
-          {suggestion.strategy === "competitors" ? "competitor" : "app"}
+          {suggestion.usedByCount} {noun}
           {suggestion.usedByCount === 1 ? "" : "s"}
         </span>
       ) : null}
@@ -130,6 +140,10 @@ export function SuggestionsPanel({ id }: { id: string }) {
               ))}
             </TabsList>
           </Tabs>
+
+          <p className="text-xs text-muted-foreground">
+            {STRATEGIES.find((item) => item.value === strategy)?.description}
+          </p>
 
           {suggestions.isPending ? (
             <div className="flex flex-col gap-2">
