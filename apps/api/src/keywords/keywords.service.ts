@@ -24,10 +24,12 @@ import { StoreProviderRegistry } from '../store-providers/store-provider.registr
 import { classifyBuckets } from './buckets';
 import { extractCandidates } from './extraction';
 import { toTrackedKeywordItem } from './keywords.mapper';
+import { mineReviewPhrases } from './review-mining';
 import { seasonalSuggestions } from './seasonal-suggestions';
 
 const AUTO_TRACK_LIMIT = 15;
 const MAX_KEYWORD_WORDS = 5;
+const REVIEW_MINING_CAP = 500;
 const RANKING_HISTORY_LIMIT = 60;
 const SEARCH_SEED_LIMIT = 5;
 
@@ -329,7 +331,24 @@ export class KeywordsService {
     if (strategy === 'seasonal') {
       return seasonalSuggestions(new Date(), trackedTexts, limit);
     }
+    if (strategy === 'reviews') {
+      return this.suggestFromReviews(appId, trackedTexts, limit);
+    }
     return this.suggestFromMetadata(appId, trackedTexts, limit);
+  }
+
+  private async suggestFromReviews(
+    appId: string,
+    trackedTexts: Set<string>,
+    limit: number,
+  ): Promise<KeywordSuggestion[]> {
+    const reviews = await this.prisma.review.findMany({
+      where: { appId },
+      orderBy: { reviewedAt: 'desc' },
+      take: REVIEW_MINING_CAP,
+      select: { title: true, text: true },
+    });
+    return mineReviewPhrases(reviews, trackedTexts).slice(0, limit);
   }
 
   private async suggestFromCompetitors(

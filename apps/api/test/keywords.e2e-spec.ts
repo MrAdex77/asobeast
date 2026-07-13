@@ -268,6 +268,27 @@ describe('KeywordsController (e2e)', () => {
     expect(planner?.usedByCount).toBe(2);
   });
 
+  it('mines ranked untracked phrases from stored reviews', async () => {
+    const id = await importApp();
+    await prisma.review.createMany({
+      data: [
+        { appId: id, reviewId: 'rv1', score: 5, text: 'dark mode is great' },
+        { appId: id, reviewId: 'rv2', score: 4, text: 'please add dark mode' },
+        { appId: id, reviewId: 'rv3', score: 3, text: 'love the widget' },
+      ],
+    });
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${id}/keywords/suggestions`)
+      .query({ strategy: 'reviews' })
+      .expect(200);
+    const suggestions = response.body as KeywordSuggestion[];
+
+    const darkMode = suggestions.find((item) => item.text === 'dark mode');
+    expect(darkMode?.strategy).toBe('reviews');
+    expect(darkMode?.usedByCount).toBe(2);
+  });
+
   it('rejects empty and overly long keyword phrases', async () => {
     const id = await importApp();
 
