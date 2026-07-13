@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { APP_1, APP_2 } from "./fixtures.ts";
+import { APP_1, APP_2 } from "./fixtures.mts";
 
 test("home lists fixture apps with names and keyword counts", async ({ page }) => {
   await page.goto("/");

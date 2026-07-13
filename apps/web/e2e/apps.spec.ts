@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { APP_1_SUMMARY, IMPORTED_APP } from "./fixtures.ts";
+import { APP_1_SUMMARY, IMPORTED_APP } from "./fixtures.mts";
 
 const utcDateFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",

@@ -8,7 +8,7 @@ export default defineConfig({
   use: { baseURL: "http://localhost:3000", trace: "on-first-retry" },
   webServer: [
     {
-      command: "node e2e/mock-api.ts",
+      command: "node e2e/mock-api.mts",
       port: 4100,
       reuseExistingServer: !process.env.CI,
     },

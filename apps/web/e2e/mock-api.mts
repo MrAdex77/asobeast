@@ -6,7 +6,7 @@ import {
   IMPORTED_APP_DETAIL,
   INITIAL_APPS,
   errorEnvelope,
-} from "./fixtures.ts";
+} from "./fixtures.mts";
 import type { KeywordSort, TrackedKeywordItem } from "@asobeast/shared";
 
 const PORT = Number(process.env.MOCK_API_PORT ?? 4100);
