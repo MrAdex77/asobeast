@@ -47,6 +47,7 @@ model App {
   rankings     KeywordRanking[]
   categoryRanks CategoryRank[]
   changeEvents ChangeEvent[]
+  reviews      Review[]
   auditInput   AuditInput?
   createdAt    DateTime         @default(now())
 
@@ -179,6 +180,24 @@ model ChangeEvent {
   capturedAt DateTime @default(now())
 
   @@index([appId, capturedAt])
+}
+
+model Review {
+  id         String    @id @default(cuid())
+  appId      String
+  app        App       @relation(fields: [appId], references: [id], onDelete: Cascade)
+  reviewId   String
+  userName   String?
+  score      Int
+  title      String?
+  text       String
+  version    String?
+  reviewedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@unique([appId, reviewId])
+  @@index([appId, reviewedAt])
+  @@index([appId, score])
 }
 
 model Webhook {

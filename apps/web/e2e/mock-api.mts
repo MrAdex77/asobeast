@@ -97,6 +97,31 @@ const routes: Route[] = [
   ),
   appRoute(/^\/apps\/([^/]+)\/category-ranks$/, (dataset) => dataset.categoryRanks),
   appRoute(/^\/apps\/([^/]+)\/competitors$/, (dataset) => dataset.competitors),
+  appRoute(/^\/apps\/([^/]+)\/ratings-history$/, (dataset) => dataset.ratingsHistory),
+  {
+    method: "GET",
+    pattern: /^\/apps\/([^/]+)\/reviews$/,
+    handler: (params, req, res) => {
+      const [id] = params;
+      const path = req.url ?? "/";
+      if (id === ERROR_ID) return json(res, 500, errorEnvelope(500, path));
+      const dataset = DATASETS[id];
+      if (!dataset) return json(res, 404, errorEnvelope(404, path));
+      const query = new URL(path, "http://localhost").searchParams;
+      const score = query.get("score");
+      const version = query.get("version");
+      const filtered = dataset.reviews.reviews.filter(
+        (review) =>
+          (!score || review.score === Number(score)) &&
+          (!version || review.version === version),
+      );
+      json(res, 200, {
+        reviews: filtered,
+        total: filtered.length,
+        versions: dataset.reviews.versions,
+      });
+    },
+  },
   {
     method: "POST",
     pattern: /^\/apps\/([^/]+)\/refresh$/,
@@ -106,7 +131,9 @@ const routes: Route[] = [
     method: "POST",
     pattern: /^\/apps\/([^/]+)\/run-daily$/,
     handler: (_p, _q, res) =>
-      json(res, 202, { enqueued: { apps: 1, keywords: 5, categories: 1 } }),
+      json(res, 202, {
+        enqueued: { apps: 1, keywords: 5, categories: 1, reviews: 1 },
+      }),
   },
 ];
 

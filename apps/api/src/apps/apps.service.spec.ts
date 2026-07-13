@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Store } from '@prisma/client';
+import { Queue } from 'bullmq';
 import { ChangesService } from '../changes/changes.service';
 import { KeywordsService } from '../keywords/keywords.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -75,13 +76,15 @@ describe('AppsService.addCompetitor', () => {
     const registry = { get: () => ({ getApp }) };
     const keywords = { syncFromSnapshot: jest.fn() };
     const changes = { recordRefresh: jest.fn().mockResolvedValue([]) };
+    const appStoreQueue = { add: jest.fn().mockResolvedValue(undefined) };
     const service = new AppsService(
       prisma as unknown as PrismaService,
       registry as unknown as StoreProviderRegistry,
       keywords as unknown as KeywordsService,
       changes as unknown as ChangesService,
+      appStoreQueue as unknown as Queue,
     );
-    return { service, prisma, upsert, keywords, getApp };
+    return { service, prisma, upsert, keywords, getApp, appStoreQueue };
   };
 
   it('creates a competitor row and skips keyword sync', async () => {

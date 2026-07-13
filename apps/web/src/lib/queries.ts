@@ -12,6 +12,8 @@ import {
   getKeywords,
   getRankDistributionHistory,
   getRankings,
+  getRatingsHistory,
+  getReviews,
   getSerp,
   getSuggestions,
   getSummary,
@@ -19,6 +21,7 @@ import {
   getWebhooks,
   type RangeParams,
   type RankingParams,
+  type ReviewFilters,
 } from "./api";
 
 export const appKeys = {
@@ -48,6 +51,11 @@ export const appKeys = {
   changesRoot: (id: string) => [...appKeys.detail(id), "changes"] as const,
   changes: (id: string, days: number) =>
     [...appKeys.detail(id), "changes", { days }] as const,
+  reviewsRoot: (id: string) => [...appKeys.detail(id), "reviews"] as const,
+  reviews: (id: string, filters: ReviewFilters) =>
+    [...appKeys.detail(id), "reviews", filters] as const,
+  ratingsHistory: (id: string, params: RangeParams) =>
+    [...appKeys.detail(id), "ratings-history", params] as const,
   serp: (keywordId: string) => ["serp", keywordId] as const,
 };
 
@@ -138,6 +146,18 @@ export const changesOptions = (id: string, days: number) =>
   queryOptions({
     queryKey: appKeys.changes(id, days),
     queryFn: () => getChanges(id, days),
+  });
+
+export const reviewsOptions = (id: string, filters: ReviewFilters) =>
+  queryOptions({
+    queryKey: appKeys.reviews(id, filters),
+    queryFn: () => getReviews(id, filters),
+  });
+
+export const ratingsHistoryOptions = (id: string, params: RangeParams) =>
+  queryOptions({
+    queryKey: appKeys.ratingsHistory(id, params),
+    queryFn: () => getRatingsHistory(id, params),
   });
 
 export const serpOptions = (keywordId: string) =>

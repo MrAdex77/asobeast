@@ -11,6 +11,7 @@ import {
   normalizeText,
   RankDistribution,
   RankDistributionHistory,
+  RatingsHistory,
   UncoveredKeyword,
   VisibilityHistory,
   VisibilitySummary,
@@ -26,6 +27,7 @@ import {
 import { KeywordSource } from '@prisma/client';
 import { VisibilityHistoryQueryDto } from './dto/visibility-history-query.dto';
 import { bucketPositions } from './rank-distribution';
+import { collapseRatings } from './ratings-history';
 import { visibility, VisibilityKeyword } from './visibility';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -220,6 +222,32 @@ export class AnalyticsService {
       }));
 
     return { points };
+  }
+
+  async ratingsHistory(
+    appId: string,
+    query: VisibilityHistoryQueryDto,
+  ): Promise<RatingsHistory> {
+    await this.ensureApp(appId);
+
+    const to = query.to ? startOfUtcDay(new Date(query.to)) : utcToday();
+    const from = query.from
+      ? startOfUtcDay(new Date(query.from))
+      : addDays(to, -HISTORY_DEFAULT_DAYS);
+
+    if (to.getTime() - from.getTime() > HISTORY_MAX_DAYS * DAY_MS) {
+      throw new BadRequestException(
+        `Range must not exceed ${HISTORY_MAX_DAYS} days`,
+      );
+    }
+
+    const rows = await this.prisma.appSnapshot.findMany({
+      where: { appId, capturedAt: { gte: from, lt: addDays(to, 1) } },
+      orderBy: { capturedAt: 'asc' },
+      select: { ratingAvg: true, ratingCount: true, capturedAt: true },
+    });
+
+    return { points: collapseRatings(rows) };
   }
 
   private visibilitySummary(

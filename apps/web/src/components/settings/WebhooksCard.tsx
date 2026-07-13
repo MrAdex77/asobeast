@@ -64,6 +64,7 @@ const EVENT_LABELS: Record<WebhookEvent, string> = {
   "metadata.changed": "Metadata changed",
   "rank.dropped": "Rank dropped",
   "rank.improved": "Rank improved",
+  "review.negative": "Negative review",
 };
 
 function EventToggles({

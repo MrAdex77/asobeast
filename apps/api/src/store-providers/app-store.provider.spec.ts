@@ -10,6 +10,7 @@ const makeLib = (overrides: Partial<AppStoreLib> = {}): AppStoreLib => ({
   suggest: jest.fn(),
   similar: jest.fn(),
   list: jest.fn(),
+  reviews: jest.fn(),
   ...overrides,
 });
 
@@ -202,6 +203,66 @@ describe('AppStoreProvider', () => {
       num: 200,
       country: 'us',
     });
+  });
+
+  it('maps review fields and the updated date', async () => {
+    const reviews = jest.fn().mockResolvedValue([
+      {
+        id: 'r1',
+        userName: 'Alice',
+        version: '2.0.0',
+        score: 5,
+        title: 'Great',
+        text: 'Love it',
+        updated: '2024-05-01T00:00:00Z',
+      },
+    ]);
+    const provider = new AppStoreProvider(makeLib({ reviews }));
+
+    const items = await provider.reviews('1', 'us', 1);
+
+    expect(items[0]).toEqual({
+      reviewId: 'r1',
+      userName: 'Alice',
+      score: 5,
+      title: 'Great',
+      text: 'Love it',
+      version: '2.0.0',
+      updatedAt: new Date('2024-05-01T00:00:00Z'),
+    });
+  });
+
+  it('clamps the review page to the 1-10 range', async () => {
+    const reviews = jest.fn().mockResolvedValue([]);
+    const provider = new AppStoreProvider(makeLib({ reviews }));
+
+    await provider.reviews('1', 'us', 0);
+    await provider.reviews('1', 'us', 25);
+
+    expect(reviews).toHaveBeenNthCalledWith(1, {
+      id: 1,
+      country: 'us',
+      page: 1,
+    });
+    expect(reviews).toHaveBeenNthCalledWith(2, {
+      id: 1,
+      country: 'us',
+      page: 10,
+    });
+  });
+
+  it('wraps review failures in StoreRequestError', async () => {
+    jest.useFakeTimers();
+    const reviews = jest.fn().mockRejectedValue(new Error('boom'));
+    const provider = new AppStoreProvider(makeLib({ reviews }));
+
+    const promise = provider.reviews('1', 'us', 1);
+    const assertion = expect(promise).rejects.toBeInstanceOf(StoreRequestError);
+    await jest.runAllTimersAsync();
+    await assertion;
+
+    expect(reviews).toHaveBeenCalledTimes(3);
+    jest.useRealTimers();
   });
 
   it('wraps top chart failures in StoreRequestError', async () => {

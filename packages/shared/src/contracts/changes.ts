@@ -1,3 +1,5 @@
+import type { ReviewNegativePayload } from './reviews';
+
 export const CHANGE_FIELDS = [
   'title',
   'subtitle',
@@ -29,6 +31,7 @@ export const WEBHOOK_EVENTS = [
   'metadata.changed',
   'rank.dropped',
   'rank.improved',
+  'review.negative',
 ] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
 
@@ -80,4 +83,5 @@ export interface RankImprovedPayload {
 export type AlertPayload =
   | MetadataChangedPayload
   | RankDroppedPayload
-  | RankImprovedPayload;
+  | RankImprovedPayload
+  | ReviewNegativePayload;

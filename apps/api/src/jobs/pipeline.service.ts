@@ -10,6 +10,7 @@ import {
   isoWeekKey,
   JOBS,
   QUEUES,
+  reviewsJobId,
   scoreJobId,
   utcDateKey,
 } from './jobs.types';
@@ -27,7 +28,7 @@ export class PipelineService {
   async fanOutDaily(): Promise<FanOutSummary> {
     const apps = await this.prisma.app.findMany({
       where: { workspaceId: DEFAULT_WORKSPACE_ID },
-      select: { id: true },
+      select: { id: true, isCompetitor: true },
     });
     const keywords = await this.prisma.trackedKeyword.findMany({
       where: { active: true, app: { workspaceId: DEFAULT_WORKSPACE_ID } },
@@ -38,6 +39,7 @@ export class PipelineService {
     return this.enqueue(
       apps.map((app) => app.id),
       keywords.map((keyword) => keyword.keywordId),
+      apps.filter((app) => !app.isCompetitor).map((app) => app.id),
     );
   }
 
@@ -46,6 +48,7 @@ export class PipelineService {
       where: { id: appId, workspaceId: DEFAULT_WORKSPACE_ID },
       select: {
         id: true,
+        isCompetitor: true,
         competitors: { select: { id: true } },
         tracked: { where: { active: true }, select: { keywordId: true } },
       },
@@ -61,8 +64,9 @@ export class PipelineService {
     const keywordIds = [
       ...new Set(app.tracked.map((tracked) => tracked.keywordId)),
     ];
+    const reviewAppIds = app.isCompetitor ? [] : [app.id];
 
-    return this.enqueue(appIds, keywordIds);
+    return this.enqueue(appIds, keywordIds, reviewAppIds);
   }
 
   async fanOutScoring(): Promise<number> {
@@ -96,6 +100,7 @@ export class PipelineService {
   private async enqueue(
     appIds: string[],
     keywordIds: string[],
+    reviewAppIds: string[],
   ): Promise<FanOutSummary> {
     const date = utcDateKey();
 
@@ -111,6 +116,13 @@ export class PipelineService {
         JOBS.CHECK_KEYWORD,
         { keywordId },
         { jobId: `check:${keywordId}:${date}` },
+      );
+    }
+    for (const appId of reviewAppIds) {
+      await this.appStoreQueue.add(
+        JOBS.SYNC_REVIEWS,
+        { appId, pages: 1, backfill: false },
+        { jobId: reviewsJobId(appId, date) },
       );
     }
 
@@ -130,6 +142,7 @@ export class PipelineService {
       apps: appIds.length,
       keywords: keywordIds.length,
       categories: buckets.length,
+      reviews: reviewAppIds.length,
     };
     this.logger.log(`fan out ${JSON.stringify(summary)}`);
     return summary;

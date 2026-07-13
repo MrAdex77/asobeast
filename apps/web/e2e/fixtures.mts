@@ -9,6 +9,8 @@ import type {
   RankDistributionHistory,
   RankingPoint,
   RankingSeries,
+  RatingsHistory,
+  ReviewList,
   TrackedKeywordItem,
   VisibilityHistory,
 } from "@asobeast/shared";
@@ -192,6 +194,51 @@ export const APP_1_CATEGORY_RANKS: CategoryRankSeries = {
   ],
 };
 
+export const APP_1_REVIEWS: ReviewList = {
+  total: 3,
+  versions: ["3.4.1", "3.4.0"],
+  reviews: [
+    {
+      id: "rev-1",
+      reviewId: "store-rev-1",
+      userName: "Casey",
+      score: 5,
+      title: "Love the focus timer",
+      text: "Best pomodoro app I have used.",
+      version: "3.4.1",
+      reviewedAt: utcTimestampDaysAgo(1),
+    },
+    {
+      id: "rev-2",
+      reviewId: "store-rev-2",
+      userName: "Jordan",
+      score: 2,
+      title: "Crashes often",
+      text: "It crashes when I start a session.",
+      version: "3.4.0",
+      reviewedAt: utcTimestampDaysAgo(3),
+    },
+    {
+      id: "rev-3",
+      reviewId: "store-rev-3",
+      userName: null,
+      score: 1,
+      title: null,
+      text: "Please add dark mode.",
+      version: "3.4.0",
+      reviewedAt: utcTimestampDaysAgo(5),
+    },
+  ],
+};
+
+export const APP_1_RATINGS_HISTORY: RatingsHistory = {
+  points: Array.from({ length: 30 }, (_, index) => ({
+    date: utcDaysAgo(29 - index),
+    ratingAvg: 4.6 + (index % 4) * 0.05,
+    ratingCount: 20000 + index * 130,
+  })),
+};
+
 export const APP_1_COMPETITORS: CompetitorItem[] = [
   {
     id: "comp-1",
@@ -321,6 +368,8 @@ const EMPTY_RANKINGS: RankingSeries = { series: [] };
 const EMPTY_VISIBILITY: VisibilityHistory = { points: [] };
 const EMPTY_RANK_DISTRIBUTION_HISTORY: RankDistributionHistory = { points: [] };
 const EMPTY_CATEGORY_RANKS: CategoryRankSeries = { series: [] };
+const EMPTY_REVIEWS: ReviewList = { reviews: [], total: 0, versions: [] };
+const EMPTY_RATINGS_HISTORY: RatingsHistory = { points: [] };
 
 export interface AppDataset {
   detail: AppDetail;
@@ -331,6 +380,8 @@ export interface AppDataset {
   rankDistributionHistory: RankDistributionHistory;
   categoryRanks: CategoryRankSeries;
   competitors: CompetitorItem[];
+  reviews: ReviewList;
+  ratingsHistory: RatingsHistory;
 }
 
 export const DATASETS: Record<string, AppDataset> = {
@@ -343,6 +394,8 @@ export const DATASETS: Record<string, AppDataset> = {
     rankDistributionHistory: APP_1_RANK_DISTRIBUTION_HISTORY,
     categoryRanks: APP_1_CATEGORY_RANKS,
     competitors: APP_1_COMPETITORS,
+    reviews: APP_1_REVIEWS,
+    ratingsHistory: APP_1_RATINGS_HISTORY,
   },
   "app-2": {
     detail: APP_2_DETAIL,
@@ -353,6 +406,8 @@ export const DATASETS: Record<string, AppDataset> = {
     rankDistributionHistory: EMPTY_RANK_DISTRIBUTION_HISTORY,
     categoryRanks: EMPTY_CATEGORY_RANKS,
     competitors: [],
+    reviews: EMPTY_REVIEWS,
+    ratingsHistory: EMPTY_RATINGS_HISTORY,
   },
   "app-new": {
     detail: IMPORTED_APP_DETAIL,
@@ -363,6 +418,8 @@ export const DATASETS: Record<string, AppDataset> = {
     rankDistributionHistory: EMPTY_RANK_DISTRIBUTION_HISTORY,
     categoryRanks: EMPTY_CATEGORY_RANKS,
     competitors: [],
+    reviews: EMPTY_REVIEWS,
+    ratingsHistory: EMPTY_RATINGS_HISTORY,
   },
 };
 

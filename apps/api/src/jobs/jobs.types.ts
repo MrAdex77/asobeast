@@ -14,6 +14,7 @@ export const JOBS = {
   CHECK_KEYWORD: 'check-keyword',
   CHECK_CATEGORY: 'check-category',
   SCORE_KEYWORD: 'score-keyword',
+  SYNC_REVIEWS: 'sync-reviews',
   DELIVER_ALERT: 'deliver-alert',
 } as const;
 
@@ -40,6 +41,12 @@ export interface ScoreKeywordPayload {
   keywordId: string;
 }
 
+export interface SyncReviewsPayload {
+  appId: string;
+  pages: number;
+  backfill: boolean;
+}
+
 export function utcDateKey(date = new Date()): string {
   return date.toISOString().slice(0, 10);
 }
@@ -59,6 +66,14 @@ export function isoWeekKey(date = new Date()): string {
 
 export function scoreJobId(keywordId: string, bucket: string): string {
   return `score:${keywordId}:${bucket}`;
+}
+
+export function reviewsJobId(appId: string, date: string): string {
+  return `reviews:${appId}:${date}`;
+}
+
+export function reviewsBackfillJobId(appId: string): string {
+  return `reviews:${appId}:backfill`;
 }
 
 export function categoryJobId(

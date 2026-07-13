@@ -14,6 +14,7 @@ import { validateEnv } from './config/env';
 import { HealthModule } from './health/health.module';
 import { JobsModule } from './jobs/jobs.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ReviewsModule } from './reviews/reviews.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { PrismaModule } from './prisma/prisma.module';
     MetadataModule,
     CompetitorsModule,
     AlertsModule,
+    ReviewsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -38,4 +38,10 @@ describe('GooglePlayProvider', () => {
       StoreNotSupportedError,
     );
   });
+
+  it('rejects reviews with StoreNotSupportedError', async () => {
+    await expect(provider.reviews()).rejects.toBeInstanceOf(
+      StoreNotSupportedError,
+    );
+  });
 });
