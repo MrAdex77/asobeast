@@ -19,6 +19,7 @@ export const KEYWORD_SUGGESTION_STRATEGIES = [
   'similar',
   'competitors',
   'seasonal',
+  'reviews',
 ] as const;
 export type KeywordSuggestionStrategy =
   (typeof KEYWORD_SUGGESTION_STRATEGIES)[number];
