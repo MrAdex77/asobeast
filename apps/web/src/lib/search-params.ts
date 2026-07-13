@@ -13,6 +13,7 @@ import {
   CHANGE_WINDOWS,
   DISCOVERY_WINDOWS,
   RANGE_PRESETS,
+  RATINGS_RANGES,
   VISIBILITY_RANGES,
   type ChangeWindow,
   type DiscoveryWindow,
@@ -37,6 +38,21 @@ export const suggestionStrategyParser = parseAsStringLiteral(
 ).withDefault("metadata");
 
 export const serpParser = parseAsString.withDefault("");
+
+export const ratingsRangeParser =
+  parseAsStringLiteral(RATINGS_RANGES).withDefault("30d");
+
+export const reviewScoreParser = createParser({
+  parse(value) {
+    const score = Number(value);
+    return Number.isInteger(score) && score >= 1 && score <= 5 ? score : null;
+  },
+  serialize(value: number) {
+    return String(value);
+  },
+});
+
+export const reviewVersionParser = parseAsString.withDefault("");
 
 export const discoveryDaysParser = createParser({
   parse(value) {
