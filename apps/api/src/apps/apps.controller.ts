@@ -26,7 +26,7 @@ export class AppsController {
   @Post()
   @ApiOperation({ summary: 'Import an app from a store URL' })
   import(@Body() dto: ImportAppDto): Promise<AppDetail> {
-    return this.apps.importFromUrl(dto.url);
+    return this.apps.importFromUrl(dto.url, dto.country);
   }
 
   @Get()

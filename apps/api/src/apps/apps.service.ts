@@ -10,7 +10,6 @@ import {
   AppDetail,
   AppListItem,
   CompetitorItem,
-  DEFAULT_COUNTRY,
   parseStoreUrl,
   SnapshotDiffResult,
   SUPPORTED_STORES,
@@ -42,8 +41,8 @@ export class AppsService {
     @InjectQueue(QUEUES.APP_STORE) private readonly appStoreQueue: Queue,
   ) {}
 
-  async importFromUrl(url: string): Promise<AppDetail> {
-    const { store, storeAppId } = parseStoreUrl(url);
+  async importFromUrl(url: string, country?: string): Promise<AppDetail> {
+    const { store, storeAppId, country: parsedCountry } = parseStoreUrl(url);
 
     if (!SUPPORTED_STORES.includes(store)) {
       throw new StoreNotSupportedError(store);
@@ -52,7 +51,7 @@ export class AppsService {
     const { app, snapshot } = await this.captureApp(
       store,
       storeAppId,
-      DEFAULT_COUNTRY,
+      country ?? parsedCountry,
     );
 
     await this.keywords.syncFromSnapshot(app.id);
