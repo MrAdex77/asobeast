@@ -6,6 +6,7 @@ import { Store } from '@prisma/client';
 import {
   ApiErrorEnvelope,
   AppSummary,
+  PortfolioSummary,
   RankDistributionHistory,
   RatingsHistory,
   VisibilityHistory,
@@ -205,6 +206,42 @@ describe('AnalyticsController (e2e)', () => {
     expect(summary.trackedKeywords).toBe(4);
     expect(summary.competitors).toBe(0);
     expect(summary.lastRefreshAt).toBe(D0.toISOString());
+  });
+
+  it('composes a portfolio whose numbers match the app summary', async () => {
+    const id = await seed();
+
+    const summaryResponse = await request(app.getHttpServer())
+      .get(`/apps/${id}/summary`)
+      .expect(200);
+    const summary = summaryResponse.body as AppSummary;
+
+    const response = await request(app.getHttpServer())
+      .get('/portfolio')
+      .expect(200);
+    const portfolio = response.body as PortfolioSummary;
+
+    expect(portfolio.apps).toHaveLength(1);
+    const [entry] = portfolio.apps;
+    expect(entry.id).toBe(id);
+    expect(entry.visibility.current).toBeCloseTo(summary.visibility.current, 5);
+    expect(entry.visibility.delta7d).toBeCloseTo(
+      summary.visibility.delta7d!,
+      5,
+    );
+    expect(entry.trackedKeywords).toBe(summary.trackedKeywords);
+    expect(entry.sparkline.map((point) => point.date)).toEqual([
+      '2026-06-23',
+      '2026-06-30',
+    ]);
+    expect(entry.lastCapturedAt).toBe(D0.toISOString());
+
+    expect(portfolio.totals).toEqual({
+      apps: 1,
+      competitors: 0,
+      trackedKeywords: summary.trackedKeywords,
+      changes7d: 0,
+    });
   });
 
   it('returns a history whose last point matches current visibility', async () => {

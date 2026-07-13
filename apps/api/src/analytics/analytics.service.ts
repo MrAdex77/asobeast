@@ -9,11 +9,14 @@ import {
   KeywordMover,
   KeywordMovers,
   normalizeText,
+  PortfolioApp,
+  PortfolioSummary,
   RankDistribution,
   RankDistributionHistory,
   RatingsHistory,
   UncoveredKeyword,
   VisibilityHistory,
+  VisibilityPoint,
   VisibilitySummary,
 } from '@asobeast/shared';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
@@ -40,6 +43,8 @@ const HIGH_OPPORTUNITY = 60;
 const COVERAGE_LIMIT = 5;
 const HISTORY_DEFAULT_DAYS = 30;
 const HISTORY_MAX_DAYS = 180;
+const SPARKLINE_WINDOW_DAYS = 30;
+const CHANGES_WINDOW_DAYS = 7;
 
 interface Metric {
   traffic: number | null;
@@ -167,21 +172,113 @@ export class AnalyticsService {
     }
 
     const rows = await this.trackedRows(appId, from, to);
+    return { points: this.visibilityPoints(rows) };
+  }
+
+  async portfolio(): Promise<PortfolioSummary> {
+    const apps = await this.prisma.app.findMany({
+      where: { workspaceId: DEFAULT_WORKSPACE_ID, isCompetitor: false },
+      select: {
+        id: true,
+        store: true,
+        country: true,
+        name: true,
+        iconUrl: true,
+        _count: { select: { competitors: true } },
+        snapshots: {
+          orderBy: { capturedAt: 'desc' },
+          take: 1,
+          select: { capturedAt: true },
+        },
+      },
+    });
+
+    const [portfolioApps, changes7d] = await Promise.all([
+      Promise.all(apps.map((app) => this.portfolioApp(app))),
+      this.workspaceChanges(CHANGES_WINDOW_DAYS),
+    ]);
+
+    portfolioApps.sort(
+      (a, b) =>
+        b.visibility.current - a.visibility.current ||
+        (a.name ?? '').localeCompare(b.name ?? ''),
+    );
+
+    return {
+      apps: portfolioApps,
+      totals: {
+        apps: portfolioApps.length,
+        competitors: portfolioApps.reduce((sum, a) => sum + a.competitors, 0),
+        trackedKeywords: portfolioApps.reduce(
+          (sum, a) => sum + a.trackedKeywords,
+          0,
+        ),
+        changes7d,
+      },
+    };
+  }
+
+  private async portfolioApp(app: {
+    id: string;
+    store: PortfolioApp['store'];
+    country: string;
+    name: string | null;
+    iconUrl: string | null;
+    _count: { competitors: number };
+    snapshots: { capturedAt: Date }[];
+  }): Promise<PortfolioApp> {
+    const referenceDate = await this.referenceDate(app.id);
+    const windowStart = referenceDate
+      ? addDays(referenceDate, -SPARKLINE_WINDOW_DAYS)
+      : null;
+    const rows = await this.trackedRows(app.id, windowStart, referenceDate);
+    const current = referenceDate ? visibilityAt(rows, referenceDate) : 0;
+
+    return {
+      id: app.id,
+      store: app.store,
+      country: app.country,
+      name: app.name,
+      iconUrl: app.iconUrl,
+      visibility: {
+        current,
+        delta7d: referenceDate
+          ? this.delta(rows, referenceDate, current, 7)
+          : null,
+      },
+      sparkline: this.visibilityPoints(rows),
+      trackedKeywords: rows.length,
+      competitors: app._count.competitors,
+      lastCapturedAt: app.snapshots[0]?.capturedAt.toISOString() ?? null,
+    };
+  }
+
+  private async workspaceChanges(days: number): Promise<number> {
+    const apps = await this.prisma.app.findMany({
+      where: { workspaceId: DEFAULT_WORKSPACE_ID },
+      select: { id: true },
+    });
+    return this.prisma.changeEvent.count({
+      where: {
+        appId: { in: apps.map((app) => app.id) },
+        capturedAt: { gte: new Date(Date.now() - days * DAY_MS) },
+      },
+    });
+  }
+
+  private visibilityPoints(rows: TrackedRow[]): VisibilityPoint[] {
     const dates = new Set<number>();
     for (const row of rows) {
       for (const ranking of row.keyword.rankings) {
         dates.add(ranking.date.getTime());
       }
     }
-
-    const points = [...dates]
+    return [...dates]
       .sort((a, b) => a - b)
       .map((time) => {
         const date = new Date(time);
         return { date: toDateKey(date), visibility: visibilityAt(rows, date) };
       });
-
-    return { points };
   }
 
   async rankDistributionHistory(
