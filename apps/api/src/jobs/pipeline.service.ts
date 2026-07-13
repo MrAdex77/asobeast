@@ -1,9 +1,11 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { FanOutSummary } from '@asobeast/shared';
+import { ConfigService } from '@nestjs/config';
+import { DailyBudget, FanOutSummary } from '@asobeast/shared';
 import { Queue } from 'bullmq';
 import { CategoryRanksService } from '../category-ranks/category-ranks.service';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
+import { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   categoryJobId,
@@ -23,9 +25,40 @@ export class PipelineService {
     @InjectQueue(QUEUES.APP_STORE) private readonly appStoreQueue: Queue,
     private readonly prisma: PrismaService,
     private readonly categoryRanks: CategoryRanksService,
+    private readonly config: ConfigService<Env, true>,
   ) {}
 
   async fanOutDaily(): Promise<FanOutSummary> {
+    const { appIds, keywordIds, reviewAppIds } =
+      await this.collectDailyTargets();
+    return this.enqueue(appIds, keywordIds, reviewAppIds);
+  }
+
+  async estimateDailyBudget(): Promise<DailyBudget> {
+    const { appIds, keywordIds, reviewAppIds } =
+      await this.collectDailyTargets();
+    const categories = (await this.categoryRanks.buckets(appIds)).length;
+    const total =
+      appIds.length + keywordIds.length + categories + reviewAppIds.length;
+    const capacityPerDay =
+      this.config.get('SCRAPE_ITUNES_RPM', { infer: true }) * 60 * 24;
+
+    return {
+      apps: appIds.length,
+      keywords: keywordIds.length,
+      categories,
+      reviews: reviewAppIds.length,
+      total,
+      capacityPerDay,
+      utilization: Math.round((total / capacityPerDay) * 1000) / 1000,
+    };
+  }
+
+  private async collectDailyTargets(): Promise<{
+    appIds: string[];
+    keywordIds: string[];
+    reviewAppIds: string[];
+  }> {
     const apps = await this.prisma.app.findMany({
       where: { workspaceId: DEFAULT_WORKSPACE_ID },
       select: { id: true, isCompetitor: true },
@@ -36,11 +69,13 @@ export class PipelineService {
       distinct: ['keywordId'],
     });
 
-    return this.enqueue(
-      apps.map((app) => app.id),
-      keywords.map((keyword) => keyword.keywordId),
-      apps.filter((app) => !app.isCompetitor).map((app) => app.id),
-    );
+    return {
+      appIds: apps.map((app) => app.id),
+      keywordIds: keywords.map((keyword) => keyword.keywordId),
+      reviewAppIds: apps
+        .filter((app) => !app.isCompetitor)
+        .map((app) => app.id),
+    };
   }
 
   async fanOutApp(appId: string): Promise<FanOutSummary> {
