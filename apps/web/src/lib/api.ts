@@ -17,6 +17,7 @@ import type {
   KeywordSuggestion,
   KeywordSuggestionStrategy,
   MetadataAuditResult,
+  PortfolioSummary,
   RankDistributionHistory,
   RankingSeries,
   RatingsHistory,
@@ -72,6 +73,10 @@ function withQuery(path: string, params: URLSearchParams): string {
 
 export function getApps(): Promise<AppListItem[]> {
   return apiFetch<AppListItem[]>("/apps");
+}
+
+export function getPortfolio(): Promise<PortfolioSummary> {
+  return apiFetch<PortfolioSummary>("/portfolio");
 }
 
 export function getApp(id: string): Promise<AppDetail> {

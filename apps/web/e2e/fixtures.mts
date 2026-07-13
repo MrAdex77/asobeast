@@ -6,6 +6,7 @@ import type {
   CategoryRankSeries,
   CompetitorItem,
   HealthStatus,
+  PortfolioSummary,
   RankDistributionHistory,
   RankingPoint,
   RankingSeries,
@@ -424,6 +425,49 @@ export const DATASETS: Record<string, AppDataset> = {
 };
 
 export const INITIAL_APPS: AppListItem[] = [APP_1, APP_2];
+
+export const PORTFOLIO: PortfolioSummary = {
+  apps: [
+    {
+      id: "app-1",
+      store: "APP_STORE",
+      country: "us",
+      name: "Focus Timer",
+      iconUrl: null,
+      visibility: { current: 62.4, delta7d: 5 },
+      sparkline: APP_1_VISIBILITY.points,
+      trackedKeywords: 5,
+      competitors: 1,
+      lastCapturedAt: utcTimestampDaysAgo(0),
+    },
+    {
+      id: "app-2",
+      store: "APP_STORE",
+      country: "us",
+      name: "Habit Tracker",
+      iconUrl: null,
+      visibility: { current: 10, delta7d: null },
+      sparkline: [],
+      trackedKeywords: 0,
+      competitors: 0,
+      lastCapturedAt: utcTimestampDaysAgo(1),
+    },
+  ],
+  totals: { apps: 2, competitors: 1, trackedKeywords: 5, changes7d: 3 },
+};
+
+export const IMPORTED_PORTFOLIO_APP: PortfolioSummary["apps"][number] = {
+  id: "app-new",
+  store: "APP_STORE",
+  country: "us",
+  name: "Imported App",
+  iconUrl: null,
+  visibility: { current: 0, delta7d: null },
+  sparkline: [],
+  trackedKeywords: 0,
+  competitors: 0,
+  lastCapturedAt: null,
+};
 
 export function errorEnvelope(statusCode: number, path: string): ApiErrorEnvelope {
   const errors: Record<number, string> = {

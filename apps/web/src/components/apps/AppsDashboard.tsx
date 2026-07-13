@@ -2,12 +2,13 @@
 
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { appsListOptions } from "@/lib/queries";
-import { AppCard } from "./AppCard";
+import { portfolioOptions } from "@/lib/queries";
 import { ImportAppDialog } from "./ImportAppDialog";
+import { PortfolioGrid } from "./PortfolioGrid";
+import { PortfolioTotals } from "./PortfolioTotals";
 
 export function AppsDashboard() {
-  const { data: apps } = useSuspenseQuery(appsListOptions);
+  const { data } = useSuspenseQuery(portfolioOptions);
 
   return (
     <div className="flex flex-col gap-8">
@@ -18,7 +19,7 @@ export function AppsDashboard() {
         </ImportAppDialog>
       </div>
 
-      {apps.length === 0 ? (
+      {data.apps.length === 0 ? (
         <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed py-16 text-center">
           <div className="flex flex-col gap-1">
             <p className="font-medium">No apps yet</p>
@@ -31,13 +32,10 @@ export function AppsDashboard() {
           </ImportAppDialog>
         </div>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {apps.map((app) => (
-            <li key={app.id}>
-              <AppCard app={app} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <PortfolioTotals totals={data.totals} />
+          <PortfolioGrid apps={data.apps} />
+        </>
       )}
     </div>
   );

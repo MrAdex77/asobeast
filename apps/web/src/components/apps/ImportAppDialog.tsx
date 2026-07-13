@@ -20,7 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError, importApp } from "@/lib/api";
-import { appKeys } from "@/lib/queries";
+import { appKeys, portfolioKey } from "@/lib/queries";
 
 export function ImportAppDialog({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
@@ -33,6 +33,7 @@ export function ImportAppDialog({ children }: { children: React.ReactNode }) {
     mutationFn: importApp,
     onSuccess: (app) => {
       void queryClient.invalidateQueries({ queryKey: appKeys.all });
+      void queryClient.invalidateQueries({ queryKey: portfolioKey });
       setOpen(false);
       toast.success(`Imported ${app.name ?? "app"}`);
     },

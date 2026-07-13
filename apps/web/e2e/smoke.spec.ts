@@ -1,14 +1,22 @@
 import { expect, test } from "@playwright/test";
-import { APP_1, APP_2 } from "./fixtures.mts";
+import { PORTFOLIO } from "./fixtures.mts";
 
-test("home lists fixture apps with names and keyword counts", async ({ page }) => {
+test("home renders the portfolio grid with totals and per-app cards", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "Apps", level: 1 })).toBeVisible();
-  await expect(page.getByRole("link", { name: APP_1.name ?? "" })).toBeVisible();
-  await expect(page.getByRole("link", { name: APP_2.name ?? "" })).toBeVisible();
+
+  const [first, second] = PORTFOLIO.apps;
+  await expect(page.getByRole("link", { name: first.name ?? "" })).toBeVisible();
+  await expect(page.getByRole("link", { name: second.name ?? "" })).toBeVisible();
+
   await expect(
-    page.getByText(`${APP_1.trackedKeywordCount} keywords`),
+    page.getByText(`${first.trackedKeywords} keywords`),
+  ).toBeVisible();
+
+  await expect(page.getByText("Changes this week")).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: "visibility, last 30 days" }).first(),
   ).toBeVisible();
 });
 
