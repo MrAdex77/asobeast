@@ -38,6 +38,10 @@ test("recent changes feed renders fixture events on the dashboard", async ({ pag
 test("settings exposes the weekly digest event", async ({ page }) => {
   await page.goto("/settings");
 
+  await expect(
+    page.getByText("Daily request budget", { exact: true }),
+  ).toBeVisible();
+
   await page.getByRole("button", { name: "Add webhook" }).first().click();
   await expect(
     page.getByRole("button", { name: "Weekly digest" }),

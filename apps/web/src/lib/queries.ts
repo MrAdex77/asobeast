@@ -2,6 +2,7 @@ import type { KeywordSort, KeywordSuggestionStrategy } from "@asobeast/shared";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
   getApp,
+  getBudget,
   getCategoryRanks,
   getChanges,
   getComparison,
@@ -75,6 +76,8 @@ export const webhookKeys = {
 };
 
 export const healthKey = ["health"] as const;
+
+export const budgetKey = ["budget"] as const;
 
 export const portfolioOptions = queryOptions({
   queryKey: portfolioKey,
@@ -198,6 +201,11 @@ export const healthOptions = queryOptions({
   queryKey: healthKey,
   queryFn: getHealth,
   refetchInterval: 30_000,
+});
+
+export const budgetOptions = queryOptions({
+  queryKey: budgetKey,
+  queryFn: getBudget,
 });
 
 export function invalidateKeywords(client: QueryClient, id: string): void {

@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import {
+  BUDGET,
   DATASETS,
   HEALTH,
   IMPORTED_APP,
@@ -85,6 +86,7 @@ const routes: Route[] = [
     handler: (_p, _q, res) => json(res, 200, RECENT_CHANGES),
   },
   { method: "GET", pattern: /^\/webhooks$/, handler: (_p, _q, res) => json(res, 200, []) },
+  { method: "GET", pattern: /^\/jobs\/budget$/, handler: (_p, _q, res) => json(res, 200, BUDGET) },
   {
     method: "POST",
     pattern: /^\/apps$/,

@@ -10,6 +10,7 @@ import type {
   CompetitorAnalysis,
   CompetitorDiscovery,
   CompetitorItem,
+  DailyBudget,
   HealthStatus,
   KeywordComparison,
   KeywordFieldResult,
@@ -392,4 +393,8 @@ export function testWebhook(id: string): Promise<WebhookTestResult> {
 
 export function getHealth(): Promise<HealthStatus> {
   return apiFetch<HealthStatus>("/health");
+}
+
+export function getBudget(): Promise<DailyBudget> {
+  return apiFetch<DailyBudget>("/jobs/budget");
 }

@@ -4,6 +4,7 @@ import type {
   AppListItem,
   AppSummary,
   CategoryRankSeries,
+  DailyBudget,
   ChangeTimeline,
   CompetitorItem,
   HealthStatus,
@@ -505,6 +506,16 @@ export const PORTFOLIO: PortfolioSummary = {
     },
   ],
   totals: { apps: 2, competitors: 1, trackedKeywords: 5, changes7d: 3 },
+};
+
+export const BUDGET: DailyBudget = {
+  apps: 3,
+  keywords: 12,
+  categories: 4,
+  reviews: 2,
+  total: 21,
+  capacityPerDay: 21600,
+  utilization: 0.001,
 };
 
 export const RECENT_CHANGES: ChangeTimeline = {
