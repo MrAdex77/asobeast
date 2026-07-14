@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { KeywordSource, Store } from '@prisma/client';
+import { KeywordSource, Prisma, Store } from '@prisma/client';
 import { Queue } from 'bullmq';
 import {
   KeywordComparison,
@@ -501,10 +501,11 @@ export class KeywordsService {
     );
     const day = spiderDay(utcDateKey());
 
+    const stored = results as unknown as Prisma.InputJsonValue;
     await this.prisma.suggestProbe.upsert({
       where: { appId_term_day_probe: { appId, term, day, probe } },
-      create: { appId, term, day, probe, results: results },
-      update: { results: results },
+      create: { appId, term, day, probe, results: stored },
+      update: { results: stored },
     });
   }
 

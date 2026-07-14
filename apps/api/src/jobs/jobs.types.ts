@@ -6,6 +6,8 @@ export const QUEUES = {
   ALERTS: 'alerts',
 } as const;
 
+export const LAST_DAILY_RUN_KEY = 'asobeast:last-daily-run';
+
 export const JOBS = {
   DAILY: 'daily-pipeline',
   SCORING: 'weekly-scoring',
