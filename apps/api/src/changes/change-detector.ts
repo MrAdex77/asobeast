@@ -9,6 +9,7 @@ export interface DiffableChangeSnapshot {
   price: number | null;
   screenshotsCount: number | null;
   iconUrl: string | null;
+  releaseNotes: string | null;
 }
 
 export interface DetectedChange {
@@ -17,7 +18,9 @@ export interface DetectedChange {
   after: string | null;
 }
 
-type Strategy = 'text' | 'length' | 'number';
+type Strategy = 'text' | 'length' | 'number' | 'truncate';
+
+const TRUNCATE_LIMIT = 300;
 
 interface FieldSpec {
   field: ChangeField;
@@ -34,6 +37,7 @@ const FIELD_SPECS: FieldSpec[] = [
   { field: 'price', key: 'price', strategy: 'number' },
   { field: 'screenshots', key: 'screenshotsCount', strategy: 'number' },
   { field: 'icon', key: 'iconUrl', strategy: 'text' },
+  { field: 'whatsNew', key: 'releaseNotes', strategy: 'truncate' },
 ];
 
 export function detectChanges(
@@ -69,6 +73,12 @@ function render(
   }
   if (strategy === 'length') {
     return String(String(value).length);
+  }
+  if (strategy === 'truncate') {
+    const text = String(value);
+    return text.length > TRUNCATE_LIMIT
+      ? `${text.slice(0, TRUNCATE_LIMIT)}…`
+      : text;
   }
   return String(value);
 }

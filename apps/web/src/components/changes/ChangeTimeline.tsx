@@ -14,6 +14,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { changesOptions } from "@/lib/queries";
 import { formatDate, formatNumber, formatPrice } from "@/lib/format";
 import { CHANGE_WINDOWS } from "@/lib/ranges";
@@ -29,6 +35,7 @@ const FIELD_LABELS: Record<ChangeField, string> = {
   price: "Price",
   screenshots: "Screenshots",
   icon: "Icon",
+  whatsNew: "What's New",
 };
 
 function dayKey(capturedAt: string): string {
@@ -56,6 +63,22 @@ function ChangeValue({ event }: { event: ChangeEventItem }) {
 
   if (field === "icon") {
     return <span className="text-muted-foreground">Icon updated</span>;
+  }
+
+  if (field === "whatsNew") {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="break-words">
+            <span className="text-muted-foreground">What&apos;s New updated: </span>
+            <span className="font-medium">{text(after)}</span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          Previous: {text(before)}
+        </TooltipContent>
+      </Tooltip>
+    );
   }
 
   let from: string;
@@ -128,20 +151,22 @@ function ChangeList({ id, days }: { id: string; days: number }) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      {Array.from(groups.entries()).map(([day, events]) => (
-        <section key={day} className="flex flex-col gap-1">
-          <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {formatDate(day)}
-          </h3>
-          <div className="divide-y">
-            {events.map((event) => (
-              <ChangeRow key={event.id} event={event} />
-            ))}
-          </div>
-        </section>
-      ))}
-    </div>
+    <TooltipProvider>
+      <div className="flex flex-col gap-6">
+        {Array.from(groups.entries()).map(([day, events]) => (
+          <section key={day} className="flex flex-col gap-1">
+            <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              {formatDate(day)}
+            </h3>
+            <div className="divide-y">
+              {events.map((event) => (
+                <ChangeRow key={event.id} event={event} />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </TooltipProvider>
   );
 }
 
