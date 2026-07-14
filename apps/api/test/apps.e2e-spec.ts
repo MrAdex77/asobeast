@@ -40,6 +40,7 @@ const GOOGLE_PLAY_URL =
 
 class FakeStoreProviderRegistry {
   failWith: Error | null = null;
+  getAppCalls: Array<{ storeAppId: string; country: string }> = [];
 
   get(store: Store): StoreProvider {
     if (store === Store.GOOGLE_PLAY) {
@@ -47,16 +48,17 @@ class FakeStoreProviderRegistry {
         Promise.reject(new StoreNotSupportedError(store)),
       );
     }
-    return this.buildProvider(Store.APP_STORE, () =>
-      this.failWith
+    return this.buildProvider(Store.APP_STORE, (storeAppId, country) => {
+      this.getAppCalls.push({ storeAppId, country });
+      return this.failWith
         ? Promise.reject(this.failWith)
-        : Promise.resolve(APP_STORE_FIXTURE),
-    );
+        : Promise.resolve({ ...APP_STORE_FIXTURE, storeAppId });
+    });
   }
 
   private buildProvider(
     store: Store,
-    getApp: () => Promise<NormalizedApp>,
+    getApp: (storeAppId: string, country: string) => Promise<NormalizedApp>,
   ): StoreProvider {
     return {
       store,
@@ -100,6 +102,7 @@ describe('AppsController (e2e)', () => {
 
   beforeEach(async () => {
     registry.failWith = null;
+    registry.getAppCalls = [];
     await prisma.$executeRawUnsafe(
       'TRUNCATE TABLE "App", "Keyword" RESTART IDENTITY CASCADE',
     );
@@ -139,6 +142,71 @@ describe('AppsController (e2e)', () => {
     expect((second.body as AppDetail).id).toBe((first.body as AppDetail).id);
     expect(await prisma.app.count()).toBe(1);
     expect(await prisma.appSnapshot.count()).toBe(2);
+  });
+
+  it('honors the country in the store url', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/apps')
+      .send({ url: 'https://apps.apple.com/de/app/fixture/id1234567890' })
+      .expect(201);
+
+    expect((response.body as AppDetail).country).toBe('de');
+    expect(registry.getAppCalls).toContainEqual({
+      storeAppId: '1234567890',
+      country: 'de',
+    });
+  });
+
+  it('lets an explicit country override the url', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/apps')
+      .send({
+        url: 'https://apps.apple.com/de/app/fixture/id1234567890',
+        country: 'fr',
+      })
+      .expect(201);
+
+    expect((response.body as AppDetail).country).toBe('fr');
+  });
+
+  it('returns a 400 envelope for an invalid country code', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/apps')
+      .send({ url: APP_STORE_URL, country: 'deu' })
+      .expect(400);
+
+    expectEnvelope(response.body as ApiErrorEnvelope, 400, '/apps');
+  });
+
+  it('imports the same app in a new country as a separate row', async () => {
+    await request(app.getHttpServer())
+      .post('/apps')
+      .send({ url: APP_STORE_URL })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/apps')
+      .send({ url: 'https://apps.apple.com/de/app/fixture/id1234567890' })
+      .expect(201);
+
+    expect(await prisma.app.count()).toBe(2);
+  });
+
+  it('captures competitors with the primary app country', async () => {
+    const primary = await request(app.getHttpServer())
+      .post('/apps')
+      .send({ url: 'https://apps.apple.com/de/app/fixture/id1234567890' })
+      .expect(201);
+    registry.getAppCalls = [];
+
+    await request(app.getHttpServer())
+      .post(`/apps/${(primary.body as AppDetail).id}/competitors`)
+      .send({ url: 'https://apps.apple.com/gb/app/rival/id9876543210' })
+      .expect(201);
+
+    expect(registry.getAppCalls).toContainEqual({
+      storeAppId: '9876543210',
+      country: 'de',
+    });
   });
 
   const expectEnvelope = (

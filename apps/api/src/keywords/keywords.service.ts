@@ -9,6 +9,7 @@ import { Queue } from 'bullmq';
 import {
   KeywordComparison,
   KeywordComparisonRow,
+  KeywordCountrySummary,
   KeywordFieldResult,
   KeywordSort,
   KeywordSuggestion,
@@ -71,10 +72,11 @@ export class KeywordsService {
   async listTracked(
     appId: string,
     sort?: KeywordSort,
+    country?: string,
   ): Promise<TrackedKeywordItem[]> {
     await this.ensureApp(appId);
     const rows = await this.prisma.trackedKeyword.findMany({
-      where: { appId },
+      where: { appId, ...(country ? { keyword: { is: { country } } } : {}) },
       ...this.trackedArgs(appId),
     });
     const [snapshotText, volatility] = await Promise.all([
@@ -93,6 +95,28 @@ export class KeywordsService {
       ),
       sort,
     );
+  }
+
+  async keywordCountries(appId: string): Promise<KeywordCountrySummary[]> {
+    const app = await this.ensureApp(appId);
+    const rows = await this.prisma.trackedKeyword.findMany({
+      where: { appId },
+      select: { keyword: { select: { country: true } } },
+    });
+
+    const counts = new Map<string, number>([[app.country, 0]]);
+    for (const row of rows) {
+      const country = row.keyword.country;
+      counts.set(country, (counts.get(country) ?? 0) + 1);
+    }
+
+    return [...counts.entries()]
+      .map(([country, keywordCount]) => ({ country, keywordCount }))
+      .sort((a, b) => {
+        if (a.country === app.country) return -1;
+        if (b.country === app.country) return 1;
+        return b.keywordCount - a.keywordCount;
+      });
   }
 
   private async snapshotText(appId: string): Promise<string> {
@@ -238,16 +262,18 @@ export class KeywordsService {
   async addManual(
     appId: string,
     rawKeywords: string[],
+    country?: string,
   ): Promise<TrackedKeywordItem[]> {
     const app = await this.ensureApp(appId);
+    const market = country ?? app.country;
     const texts = new Set(rawKeywords.map((raw) => this.normalizeKeyword(raw)));
 
     for (const text of texts) {
       const keyword = await this.prisma.keyword.upsert({
         where: {
-          text_store_country: { text, store: app.store, country: app.country },
+          text_store_country: { text, store: app.store, country: market },
         },
-        create: { text, store: app.store, country: app.country },
+        create: { text, store: app.store, country: market },
         update: {},
         select: { id: true },
       });
@@ -264,7 +290,7 @@ export class KeywordsService {
       await this.enqueueFirstScore(keyword.id);
     }
 
-    return this.listTracked(appId);
+    return this.listTracked(appId, undefined, market);
   }
 
   async updateKeyword(
@@ -380,15 +406,17 @@ export class KeywordsService {
     appId: string,
     strategy: KeywordSuggestionStrategy,
     limit: number,
+    country?: string,
   ): Promise<KeywordSuggestion[]> {
     const app = await this.ensureApp(appId);
+    const market = { ...app, country: country ?? app.country };
     const trackedTexts = await this.trackedTexts(appId);
 
     if (strategy === 'search') {
-      return this.suggestFromSearch(appId, app, trackedTexts, limit);
+      return this.suggestFromSearch(appId, market, trackedTexts, limit);
     }
     if (strategy === 'similar') {
-      return this.suggestFromSimilar(app, trackedTexts, limit);
+      return this.suggestFromSimilar(market, trackedTexts, limit);
     }
     if (strategy === 'competitors') {
       return this.suggestFromCompetitors(appId, trackedTexts, limit);
@@ -705,6 +733,7 @@ export class KeywordsService {
         keyword: {
           select: {
             text: true,
+            country: true,
             rankings: {
               where: { appId },
               orderBy: { date: 'desc' as const },

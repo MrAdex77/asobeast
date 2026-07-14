@@ -14,6 +14,21 @@ test("table renders fixture keywords and distinguishes a paused row", async ({ p
   await expect(pausedRow.getByText("Paused")).toBeVisible();
 });
 
+test("market filter switches to an empty market with an add prompt", async ({ page }) => {
+  await page.goto("/apps/app-1/keywords");
+
+  const usTab = page.getByRole("tab", { name: /US/ });
+  await expect(usTab).toHaveAttribute("aria-selected", "true");
+
+  await page.getByRole("tab", { name: /PL/ }).click();
+  await expect(page).toHaveURL(/country=pl/);
+
+  await expect(page.getByText(/No keywords tracked in Poland yet/)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Add keywords" }).first(),
+  ).toBeVisible();
+});
+
 test("clicking a sort header updates the url and reorders rows", async ({ page }) => {
   await page.goto("/apps/app-1/keywords");
 

@@ -36,6 +36,7 @@ export interface AppDetail {
 export interface AppListItem {
   id: string;
   store: Store;
+  country: string;
   name: string | null;
   iconUrl: string | null;
   ratingAvg: number | null;

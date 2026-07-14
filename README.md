@@ -1,6 +1,6 @@
 # asobeast
 
-**Self hosted App Store Optimization (ASO) toolkit for indie iOS developers and small teams.** Point it at an App Store URL and asobeast imports the app, snapshots its metadata, extracts and tracks keywords, checks keyword rankings daily, and scores each keyword for traffic, difficulty and opportunity — all through a web UI backed by a documented API. Every store request runs on the machine that hosts asobeast, and your data never leaves your database. Google Play is architecturally prepared but stubbed for now; region v1 is US only.
+**Self hosted App Store Optimization (ASO) toolkit for indie iOS developers and small teams.** Point it at an App Store URL and asobeast imports the app, snapshots its metadata, extracts and tracks keywords, checks keyword rankings daily, and scores each keyword for traffic, difficulty and opportunity — all through a web UI backed by a documented API. Every store request runs on the machine that hosts asobeast, and your data never leaves your database. Track any App Store storefront by country. Google Play is architecturally prepared but stubbed for now.
 
 ## Features
 
@@ -96,7 +96,7 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 | `REDIS_PORT` | `6379` | Redis port. |
 | `REDIS_DB` | `0` | Redis database index for the queues (e2e tests use a separate index). |
 | `PORT` | `4000` | API listen port. |
-| `DEFAULT_COUNTRY` | `us` | Store region for imports and searches (US only in v1). |
+| `DEFAULT_COUNTRY` | `us` | Fallback storefront for imports from a bare iTunes id or a URL without a country segment. |
 | `CRON_DAILY` | `0 3 * * *` | Cron for the daily ranking pipeline (UTC). |
 | `CRON_SCORING` | `0 4 * * 0` | Cron for weekly keyword scoring (UTC, Sunday). |
 | `SCRAPE_ITUNES_RPM` | `15` | iTunes requests per minute; the App Store worker runs concurrency 1 behind this limiter. |
@@ -116,9 +116,17 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 | --- | --- | --- |
 | `API_INTERNAL_URL` | `http://localhost:4000` | API base URL read at runtime. Server-rendered pages call it directly; browser requests reach it through the `/api/backend/*` proxy. |
 
+## Tracking multiple countries
+
+You import an app **once**. Its home storefront comes from the store URL — `apps.apple.com/de/app/...` imports a `de` home market — with an override in the import dialog; a bare iTunes id or a URL without a country segment falls back to `DEFAULT_COUNTRY`. The home storefront drives the app's metadata, category ranks and reviews.
+
+Keyword tracking is where markets live. On the keyword monitor you switch markets with a filter (each shows its keyword count), and add keywords into whichever market you choose — a market with none yet shows an empty state with an **Add keywords** button. The same phrase tracked in `us` and `pl` is two keyword rows checked by two searches, so rankings, difficulty and traffic are per storefront. Each keyword's ranking search serves your app and all its competitors in that market from a single request. Codes are two lowercase letters (`us`, `gb`, `de`, …) validated by shape, so any live Apple storefront works without maintaining a country list.
+
+Because every market multiplies the daily search volume against the same `SCRAPE_ITUNES_RPM` budget, the **settings page shows a daily request budget card** — estimated requests broken down by kind, your capacity, and a utilization meter — and the dashboard warns when the daily pipeline would exceed 85% of that capacity. When it does, remove keywords or markets, or raise `SCRAPE_ITUNES_RPM` at your own risk.
+
 ## Limitations
 
-- **App Store and US only for now.** The schema, shared `Store` union and URL parser already know Google Play, but its provider is stubbed and returns HTTP 501; other regions are not scheduled yet.
+- **App Store only for now.** The schema, shared `Store` union and URL parser already know Google Play, but its provider is stubbed and returns HTTP 501.
 - **Scrapers can break.** asobeast reads public store endpoints; when Apple changes them a parser can fail. Parse failures fail the job (BullMQ retries with backoff) and never take down request handling.
 - **Informal rate limits.** The iTunes endpoints tolerate roughly 20 requests per minute per IP; asobeast stays well under that by design. Do not point many instances at the store from one IP.
 - **Bull Board has no auth.** The `/admin/queues` dashboard is unauthenticated — keep it off the public internet or set `BULL_BOARD_ENABLED=false`.

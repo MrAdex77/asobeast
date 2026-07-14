@@ -4,6 +4,8 @@ import type {
   AppListItem,
   AppSummary,
   CategoryRankSeries,
+  DailyBudget,
+  KeywordCountrySummary,
   ChangeTimeline,
   CompetitorItem,
   HealthStatus,
@@ -45,6 +47,7 @@ export const APP_1_KEYWORDS: TrackedKeywordItem[] = [
   {
     keywordId: "kw-1",
     text: "focus timer",
+    country: "us",
     serpVolatility7d: 8,
     source: "TITLE",
     active: true,
@@ -63,6 +66,7 @@ export const APP_1_KEYWORDS: TrackedKeywordItem[] = [
   {
     keywordId: "kw-2",
     text: "pomodoro",
+    country: "us",
     serpVolatility7d: 72,
     source: "SUBTITLE",
     active: true,
@@ -81,6 +85,7 @@ export const APP_1_KEYWORDS: TrackedKeywordItem[] = [
   {
     keywordId: "kw-3",
     text: "study timer",
+    country: "us",
     serpVolatility7d: 35,
     source: "DESCRIPTION",
     active: true,
@@ -99,6 +104,7 @@ export const APP_1_KEYWORDS: TrackedKeywordItem[] = [
   {
     keywordId: "kw-4",
     text: "productivity app",
+    country: "us",
     serpVolatility7d: null,
     source: "MANUAL",
     active: true,
@@ -117,6 +123,7 @@ export const APP_1_KEYWORDS: TrackedKeywordItem[] = [
   {
     keywordId: "kw-5",
     text: "time blocking",
+    country: "us",
     serpVolatility7d: 50,
     source: "COMPETITOR",
     active: false,
@@ -330,6 +337,7 @@ export const APP_1_DETAIL: AppDetail = {
 export const APP_1: AppListItem = {
   id: "app-1",
   store: "APP_STORE",
+  country: "us",
   name: "Focus Timer",
   iconUrl: null,
   ratingAvg: 4.8,
@@ -375,6 +383,7 @@ export const APP_2_DETAIL: AppDetail = {
 export const APP_2: AppListItem = {
   id: "app-2",
   store: "APP_STORE",
+  country: "us",
   name: "Habit Tracker",
   iconUrl: null,
   ratingAvg: 4.2,
@@ -399,6 +408,7 @@ export const IMPORTED_APP_DETAIL: AppDetail = {
 export const IMPORTED_APP: AppListItem = {
   id: "app-new",
   store: "APP_STORE",
+  country: "us",
   name: "Imported App",
   iconUrl: null,
   ratingAvg: null,
@@ -502,6 +512,21 @@ export const PORTFOLIO: PortfolioSummary = {
     },
   ],
   totals: { apps: 2, competitors: 1, trackedKeywords: 5, changes7d: 3 },
+};
+
+export const APP_1_KEYWORD_COUNTRIES: KeywordCountrySummary[] = [
+  { country: "us", keywordCount: APP_1_KEYWORDS.length },
+  { country: "pl", keywordCount: 0 },
+];
+
+export const BUDGET: DailyBudget = {
+  apps: 3,
+  keywords: 12,
+  categories: 4,
+  reviews: 2,
+  total: 21,
+  capacityPerDay: 21600,
+  utilization: 0.001,
 };
 
 export const RECENT_CHANGES: ChangeTimeline = {

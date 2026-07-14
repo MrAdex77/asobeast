@@ -285,3 +285,80 @@ describe('KeywordsService.suggest competitors', () => {
     );
   });
 });
+
+describe('KeywordsService country tracking', () => {
+  const buildService = (prisma: unknown, queue: { add: jest.Mock }) =>
+    new KeywordsService(
+      prisma as PrismaService,
+      undefined as unknown as StoreProviderRegistry,
+      queue as unknown as Queue,
+    );
+
+  it('adds a keyword into the requested market, not the app home country', async () => {
+    const queue = { add: jest.fn() };
+    const keywordUpsert = jest.fn().mockResolvedValue({ id: 'kw1' });
+    const prisma = {
+      app: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'app1',
+          store: Store.APP_STORE,
+          country: 'us',
+          storeAppId: 's',
+        }),
+      },
+      keyword: { upsert: keywordUpsert },
+      keywordMetric: { findFirst: jest.fn().mockResolvedValue(null) },
+      trackedKeyword: {
+        upsert: jest.fn().mockResolvedValue(undefined),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      appSnapshot: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+
+    await buildService(prisma, queue).addManual('app1', ['fitness'], 'pl');
+
+    const calls = keywordUpsert.mock.calls as Array<
+      [
+        {
+          where: { text_store_country: { country: string } };
+          create: { country: string };
+        },
+      ]
+    >;
+    expect(calls[0][0].where.text_store_country.country).toBe('pl');
+    expect(calls[0][0].create.country).toBe('pl');
+  });
+
+  it('summarizes tracked markets home-first with counts including an empty home', async () => {
+    const prisma = {
+      app: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'app1',
+          store: Store.APP_STORE,
+          country: 'us',
+          storeAppId: 's',
+        }),
+      },
+      trackedKeyword: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            { keyword: { country: 'pl' } },
+            { keyword: { country: 'pl' } },
+            { keyword: { country: 'de' } },
+          ]),
+      },
+    };
+
+    const summary = await buildService(prisma, {
+      add: jest.fn(),
+    }).keywordCountries('app1');
+
+    expect(summary[0]).toEqual({ country: 'us', keywordCount: 0 });
+    expect(summary).toContainEqual({ country: 'pl', keywordCount: 2 });
+    expect(summary).toContainEqual({ country: 'de', keywordCount: 1 });
+    expect(summary.findIndex((row) => row.country === 'pl')).toBeLessThan(
+      summary.findIndex((row) => row.country === 'de'),
+    );
+  });
+});

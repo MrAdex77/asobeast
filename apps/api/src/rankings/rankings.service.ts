@@ -55,7 +55,7 @@ export class RankingsService {
       where: {
         keywordId,
         active: true,
-        app: { store: keyword.store, country: keyword.country },
+        app: { store: keyword.store },
       },
       select: {
         app: {

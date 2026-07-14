@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 
 export class ImportAppDto {
   @ApiProperty({
@@ -9,4 +9,9 @@ export class ImportAppDto {
   @IsString()
   @IsNotEmpty()
   url!: string;
+
+  @ApiPropertyOptional({ example: 'de' })
+  @IsOptional()
+  @Matches(/^[a-z]{2}$/)
+  country?: string;
 }

@@ -33,6 +33,8 @@ export const visibilityRangeParser =
 
 export const keywordIdsParser = parseAsArrayOf(parseAsString).withDefault([]);
 
+export const countryParser = parseAsString.withDefault("");
+
 export const onlyGapsParser = parseAsBoolean.withDefault(false);
 
 export const suggestionStrategyParser = parseAsStringLiteral(

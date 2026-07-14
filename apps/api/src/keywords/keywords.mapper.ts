@@ -16,6 +16,7 @@ export interface TrackedKeywordRow {
   relevance: number | null;
   keyword: {
     text: string;
+    country: string;
     rankings: Pick<KeywordRanking, 'position' | 'date'>[];
     metrics: Pick<KeywordMetric, 'traffic' | 'difficulty' | 'date'>[];
   };
@@ -79,6 +80,7 @@ export function toTrackedKeywordItem(
   return {
     keywordId: row.keywordId,
     text: row.keyword.text,
+    country: row.keyword.country,
     source: row.source,
     active: row.active,
     latestPosition,

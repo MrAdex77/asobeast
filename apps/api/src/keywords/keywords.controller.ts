@@ -13,6 +13,7 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   KeywordComparison,
+  KeywordCountrySummary,
   KeywordFieldResult,
   KeywordSuggestion,
   TrackedKeywordItem,
@@ -36,7 +37,13 @@ export class KeywordsController {
     @Param('id') id: string,
     @Query() query: ListKeywordsQueryDto,
   ): Promise<TrackedKeywordItem[]> {
-    return this.keywords.listTracked(id, query.sort);
+    return this.keywords.listTracked(id, query.sort, query.country);
+  }
+
+  @Get('keyword-countries')
+  @ApiOperation({ summary: 'List the markets an app tracks keywords in' })
+  countries(@Param('id') id: string): Promise<KeywordCountrySummary[]> {
+    return this.keywords.keywordCountries(id);
   }
 
   @Get('keywords/compare')
@@ -54,7 +61,12 @@ export class KeywordsController {
     @Param('id') id: string,
     @Query() query: SuggestionsQueryDto,
   ): Promise<KeywordSuggestion[]> {
-    return this.keywords.suggest(id, query.strategy, query.limit);
+    return this.keywords.suggest(
+      id,
+      query.strategy,
+      query.limit,
+      query.country,
+    );
   }
 
   @Post('keywords')
@@ -63,7 +75,7 @@ export class KeywordsController {
     @Param('id') id: string,
     @Body() dto: AddKeywordsDto,
   ): Promise<TrackedKeywordItem[]> {
-    return this.keywords.addManual(id, dto.keywords);
+    return this.keywords.addManual(id, dto.keywords, dto.country);
   }
 
   @Patch('keywords/:keywordId')

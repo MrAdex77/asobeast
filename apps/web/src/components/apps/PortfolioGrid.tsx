@@ -4,7 +4,12 @@ import { AppIcon } from "@/components/AppIcon";
 import { TrendChip } from "@/components/overview/TrendChip";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { formatDate, formatNumber, storeLabel } from "@/lib/format";
+import {
+  formatCountry,
+  formatDate,
+  formatNumber,
+  storeLabel,
+} from "@/lib/format";
 import { DeleteAppMenu } from "./DeleteAppMenu";
 import { Sparkline } from "./Sparkline";
 
@@ -29,9 +34,18 @@ function PortfolioCard({ app }: { app: PortfolioApp }) {
           <AppIcon src={app.iconUrl} name={app.name} />
           <div className="flex min-w-0 flex-1 flex-col gap-1 pr-6">
             <span className="truncate font-medium">{name}</span>
-            <Badge variant="secondary" className="w-fit">
-              {storeLabel(app.store)} · {app.country.toUpperCase()}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge variant="secondary" className="w-fit">
+                {storeLabel(app.store)}
+              </Badge>
+              <Badge
+                variant="outline"
+                className="w-fit"
+                title={`Home storefront · ${formatCountry(app.country)}`}
+              >
+                {app.country.toUpperCase()}
+              </Badge>
+            </div>
           </div>
         </div>
 

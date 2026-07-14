@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, setKeywordField } from "@/lib/api";
+import { formatCountry } from "@/lib/format";
 import { invalidateKeywordMutation } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
@@ -74,12 +75,21 @@ function ResultView({ result }: { result: KeywordFieldResult }) {
   );
 }
 
-export function KeywordFieldEditor({ id }: { id: string }) {
+export function KeywordFieldEditor({
+  id,
+  homeCountry,
+  activeMarket,
+}: {
+  id: string;
+  homeCountry: string;
+  activeMarket: string;
+}) {
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
   const [result, setResult] = useState<KeywordFieldResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const over = text.length > KEYWORD_FIELD_CHAR_LIMIT;
+  const homeMarket = activeMarket === homeCountry;
 
   const mutation = useMutation({
     mutationFn: () => setKeywordField(id, text),
@@ -106,15 +116,23 @@ export function KeywordFieldEditor({ id }: { id: string }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Lock className="size-4" />
-          App Store keyword field
+          App Store keyword field · {formatCountry(homeCountry)}
         </CardTitle>
         <CardDescription>
           This {KEYWORD_FIELD_CHAR_LIMIT}-character field is private — Apple
           never shows it and it cannot be scraped. Paste exactly what you
-          submitted in App Store Connect.
+          submitted in App Store Connect. It applies to your home market only.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      {!homeMarket ? (
+        <CardContent>
+          <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+            The keyword field is tracked for your home market (
+            {formatCountry(homeCountry)}) only. Switch to that market to edit it.
+          </p>
+        </CardContent>
+      ) : (
+        <CardContent className="flex flex-col gap-3">
         <Textarea
           value={text}
           onChange={(event) => {
@@ -149,7 +167,8 @@ export function KeywordFieldEditor({ id }: { id: string }) {
           </Button>
         </div>
         {result ? <ResultView result={result} /> : null}
-      </CardContent>
+        </CardContent>
+      )}
     </Card>
   );
 }

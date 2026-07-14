@@ -175,6 +175,60 @@ describe('KeywordsController (e2e)', () => {
     ).toBe(1);
   });
 
+  it('tracks keywords per market under a single app', async () => {
+    const id = await importApp();
+
+    const added = await request(app.getHttpServer())
+      .post(`/apps/${id}/keywords`)
+      .send({ keywords: ['aplikacja treningowa'], country: 'pl' })
+      .expect(201);
+    const pl = (added.body as TrackedKeywordItem[]).find(
+      (item) => item.text === 'aplikacja treningowa',
+    );
+    expect(pl?.country).toBe('pl');
+
+    const plOnly = await request(app.getHttpServer())
+      .get(`/apps/${id}/keywords`)
+      .query({ country: 'pl' })
+      .expect(200);
+    const plItems = plOnly.body as TrackedKeywordItem[];
+    expect(plItems).toHaveLength(1);
+    expect(plItems[0].country).toBe('pl');
+
+    const usOnly = await request(app.getHttpServer())
+      .get(`/apps/${id}/keywords`)
+      .query({ country: 'us' })
+      .expect(200);
+    const usItems = usOnly.body as TrackedKeywordItem[];
+    expect(usItems.length).toBeGreaterThan(0);
+    expect(usItems.every((item) => item.country === 'us')).toBe(true);
+
+    const countries = await request(app.getHttpServer())
+      .get(`/apps/${id}/keyword-countries`)
+      .expect(200);
+    const summary = countries.body as {
+      country: string;
+      keywordCount: number;
+    }[];
+    expect(summary[0].country).toBe('us');
+    expect(summary.find((row) => row.country === 'pl')?.keywordCount).toBe(1);
+
+    expect(
+      await prisma.keyword.count({
+        where: { text: 'aplikacja treningowa', country: 'pl' },
+      }),
+    ).toBe(1);
+  });
+
+  it('rejects an invalid market code', async () => {
+    const id = await importApp();
+
+    await request(app.getHttpServer())
+      .post(`/apps/${id}/keywords`)
+      .send({ keywords: ['habit'], country: 'deu' })
+      .expect(400);
+  });
+
   it('round trips the ios keyword field with character accounting', async () => {
     const id = await importApp();
 

@@ -43,6 +43,7 @@ export function toAppListItem(
   return {
     id: app.id,
     store: app.store,
+    country: app.country,
     name: app.name,
     iconUrl: app.iconUrl,
     ratingAvg: snapshot?.ratingAvg ?? null,

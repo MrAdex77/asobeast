@@ -14,7 +14,7 @@ import { ReviewsModule } from '../reviews/reviews.module';
 import { ScoringModule } from '../scoring/scoring.module';
 import { AppStoreWorker } from './app-store.worker';
 import { DigestService } from './digest.service';
-import { JobsController } from './jobs.controller';
+import { BudgetController, JobsController } from './jobs.controller';
 import { QUEUES } from './jobs.types';
 import { PipelineService } from './pipeline.service';
 import { PipelineWorker } from './pipeline.worker';
@@ -67,7 +67,7 @@ const bullBoardModules: DynamicModule[] =
     ReviewsModule,
     ...bullBoardModules,
   ],
-  controllers: [JobsController, ScoringController],
+  controllers: [JobsController, BudgetController, ScoringController],
   providers: [
     AppStoreWorker,
     PipelineWorker,

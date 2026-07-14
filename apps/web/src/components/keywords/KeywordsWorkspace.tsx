@@ -2,35 +2,54 @@
 
 import { Suspense } from "react";
 import { Plus } from "lucide-react";
+import { useQueryState } from "nuqs";
 import { Button } from "@/components/ui/button";
+import { countryParser } from "@/lib/search-params";
 import { AddKeywordsDialog } from "./AddKeywordsDialog";
 import { KeywordFieldEditor } from "./KeywordFieldEditor";
+import { KeywordMarketFilter } from "./KeywordMarketFilter";
 import { KeywordsTable } from "./KeywordsTable";
 import { KeywordsTableSkeleton } from "./skeletons";
 import { SuggestionsPanel } from "./SuggestionsPanel";
 
-export function KeywordsWorkspace({ id }: { id: string }) {
+export function KeywordsWorkspace({
+  id,
+  homeCountry,
+}: {
+  id: string;
+  homeCountry: string;
+}) {
+  const [country] = useQueryState("country", countryParser);
+  const market = country || homeCountry;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold">Tracked keywords</h2>
           <p className="text-sm text-muted-foreground">
-            The phrases you want this app to rank for.
+            The phrases you want this app to rank for, tracked per market.
           </p>
         </div>
-        <AddKeywordsDialog appId={id}>
+        <AddKeywordsDialog appId={id} country={market}>
           <Button>
             <Plus />
             Add keywords
           </Button>
         </AddKeywordsDialog>
       </div>
-      <Suspense fallback={<KeywordsTableSkeleton />}>
-        <KeywordsTable id={id} />
+      <Suspense fallback={null}>
+        <KeywordMarketFilter id={id} active={market} />
       </Suspense>
-      <SuggestionsPanel id={id} />
-      <KeywordFieldEditor id={id} />
+      <Suspense fallback={<KeywordsTableSkeleton />}>
+        <KeywordsTable id={id} country={market} />
+      </Suspense>
+      <SuggestionsPanel id={id} country={market} />
+      <KeywordFieldEditor
+        id={id}
+        homeCountry={homeCountry}
+        activeMarket={market}
+      />
     </div>
   );
 }

@@ -66,7 +66,13 @@ function SuggestionMeta({ suggestion }: { suggestion: KeywordSuggestion }) {
   );
 }
 
-export function SuggestionsPanel({ id }: { id: string }) {
+export function SuggestionsPanel({
+  id,
+  country,
+}: {
+  id: string;
+  country: string;
+}) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [strategy, setStrategy] = useQueryState(
@@ -75,18 +81,18 @@ export function SuggestionsPanel({ id }: { id: string }) {
   );
   const [sort] = useQueryState("sort", sortParser);
 
-  const tracked = useQuery(keywordsOptions(id, sort));
+  const tracked = useQuery(keywordsOptions(id, sort, country));
   const trackedTexts = new Set(
     (tracked.data ?? []).map((keyword) => keyword.text),
   );
 
   const suggestions = useQuery({
-    ...suggestionsOptions(id, strategy),
+    ...suggestionsOptions(id, strategy, country),
     enabled: open,
   });
 
   const track = useMutation({
-    mutationFn: (text: string) => addKeywords(id, [text]),
+    mutationFn: (text: string) => addKeywords(id, [text], country),
     onSuccess: (_data, text) => {
       invalidateKeywordMutation(queryClient, id);
       toast.success(`Tracking ${text}`);

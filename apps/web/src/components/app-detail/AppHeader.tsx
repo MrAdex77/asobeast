@@ -6,7 +6,13 @@ import type { AppDetail } from "@asobeast/shared";
 import { AppIcon } from "@/components/AppIcon";
 import { Badge } from "@/components/ui/badge";
 import { appDetailOptions } from "@/lib/queries";
-import { formatNumber, formatPrice, formatRating, storeLabel } from "@/lib/format";
+import {
+  formatCountry,
+  formatNumber,
+  formatPrice,
+  formatRating,
+  storeLabel,
+} from "@/lib/format";
 import { RefreshAction } from "./RefreshAction";
 import { RunDailyAction } from "./RunDailyAction";
 
@@ -31,7 +37,12 @@ export function AppHeader({ id }: { id: string }) {
             <h1 className="text-2xl font-semibold tracking-tight">{name}</h1>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Badge variant="secondary">{storeLabel(detail.store)}</Badge>
-              <span className="uppercase">{detail.country}</span>
+              <Badge
+                variant="outline"
+                title={`Home storefront · ${formatCountry(detail.country)}`}
+              >
+                {detail.country.toUpperCase()}
+              </Badge>
               <a
                 href={storeUrl(detail)}
                 target="_blank"

@@ -1,5 +1,11 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { ArrayNotEmpty, IsArray, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ArrayNotEmpty,
+  IsArray,
+  IsOptional,
+  IsString,
+  Matches,
+} from 'class-validator';
 
 export class AddKeywordsDto {
   @ApiProperty({ example: ['habit tracker', 'streak counter'] })
@@ -7,4 +13,9 @@ export class AddKeywordsDto {
   @ArrayNotEmpty()
   @IsString({ each: true })
   keywords!: string[];
+
+  @ApiPropertyOptional({ example: 'pl' })
+  @IsOptional()
+  @Matches(/^[a-z]{2}$/)
+  country?: string;
 }

@@ -24,6 +24,7 @@ describe('RankingsService.checkKeyword', () => {
     previous?: { position: number | null } | null;
     existingToday?: { position: number | null } | null;
     threshold?: number;
+    country?: string;
   }) => {
     const search = jest.fn().mockResolvedValue(buildSearchResults());
     const upsert = jest
@@ -69,17 +70,18 @@ describe('RankingsService.checkKeyword', () => {
         },
       },
     ];
+    const trackedFindMany = jest.fn().mockResolvedValue(tracked);
     const prisma = {
       keyword: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'kw1',
           text: 'habit tracker',
           store: Store.APP_STORE,
-          country: 'us',
+          country: options?.country ?? 'us',
         }),
       },
       trackedKeyword: {
-        findMany: jest.fn().mockResolvedValue(tracked),
+        findMany: trackedFindMany,
       },
       keywordRanking: {
         upsert,
@@ -108,6 +110,7 @@ describe('RankingsService.checkKeyword', () => {
       createMany,
       $transaction,
       dispatch,
+      trackedFindMany,
     };
   };
 
@@ -129,6 +132,19 @@ describe('RankingsService.checkKeyword', () => {
     expect(positions.get('competitorA')).toBe(31);
     expect(positions.get('competitorB')).toBeNull();
     expect(upsert).toHaveBeenCalledTimes(3);
+  });
+
+  it('captures a keyword in its own storefront without filtering apps by home country', async () => {
+    const { service, search, trackedFindMany } = setup({ country: 'de' });
+
+    await service.checkKeyword('kw1');
+
+    expect(search).toHaveBeenCalledWith('habit tracker', 'de', 100);
+    const calls = trackedFindMany.mock.calls as Array<
+      [{ where: { app: Record<string, unknown> } }]
+    >;
+    expect(calls[0][0].where.app).toEqual({ store: Store.APP_STORE });
+    expect(calls[0][0].where.app).not.toHaveProperty('country');
   });
 
   it('persists the top ten entries with 1-based positions', async () => {

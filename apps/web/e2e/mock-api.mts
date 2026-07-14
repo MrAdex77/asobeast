@@ -1,5 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import {
+  APP_1_KEYWORD_COUNTRIES,
+  BUDGET,
   DATASETS,
   HEALTH,
   IMPORTED_APP,
@@ -85,6 +87,7 @@ const routes: Route[] = [
     handler: (_p, _q, res) => json(res, 200, RECENT_CHANGES),
   },
   { method: "GET", pattern: /^\/webhooks$/, handler: (_p, _q, res) => json(res, 200, []) },
+  { method: "GET", pattern: /^\/jobs\/budget$/, handler: (_p, _q, res) => json(res, 200, BUDGET) },
   {
     method: "POST",
     pattern: /^\/apps$/,
@@ -107,8 +110,29 @@ const routes: Route[] = [
       if (id === ERROR_ID) return json(res, 500, errorEnvelope(500, path));
       const dataset = DATASETS[id];
       if (!dataset) return json(res, 404, errorEnvelope(404, path));
-      const sort = new URL(path, "http://localhost").searchParams.get("sort");
-      json(res, 200, sortKeywords(dataset.keywords, sort));
+      const query = new URL(path, "http://localhost").searchParams;
+      const country = query.get("country");
+      const scoped = country
+        ? dataset.keywords.filter((keyword) => keyword.country === country)
+        : dataset.keywords;
+      json(res, 200, sortKeywords(scoped, query.get("sort")));
+    },
+  },
+  {
+    method: "GET",
+    pattern: /^\/apps\/([^/]+)\/keyword-countries$/,
+    handler: (params, req, res) => {
+      const [id] = params;
+      const path = req.url ?? "/";
+      const dataset = DATASETS[id];
+      if (!dataset) return json(res, 404, errorEnvelope(404, path));
+      if (id === "app-1") return json(res, 200, APP_1_KEYWORD_COUNTRIES);
+      json(res, 200, [
+        {
+          country: dataset.detail.country,
+          keywordCount: dataset.keywords.length,
+        },
+      ]);
     },
   },
   appRoute(/^\/apps\/([^/]+)\/rankings$/, (dataset) => dataset.rankings),

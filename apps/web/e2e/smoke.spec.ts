@@ -18,6 +18,10 @@ test("home renders the portfolio grid with totals and per-app cards", async ({ p
     page.getByText(`${first.trackedKeywords} keywords`),
   ).toBeVisible();
 
+  await expect(
+    page.getByText(first.country.toUpperCase(), { exact: true }).first(),
+  ).toBeVisible();
+
   await expect(page.getByText("Changes this week")).toBeVisible();
   await expect(
     page.getByRole("img", { name: "visibility, last 30 days" }).first(),
@@ -33,6 +37,10 @@ test("recent changes feed renders fixture events on the dashboard", async ({ pag
 
 test("settings exposes the weekly digest event", async ({ page }) => {
   await page.goto("/settings");
+
+  await expect(
+    page.getByText("Daily request budget", { exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Add webhook" }).first().click();
   await expect(

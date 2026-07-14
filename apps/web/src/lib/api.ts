@@ -10,7 +10,9 @@ import type {
   CompetitorAnalysis,
   CompetitorDiscovery,
   CompetitorItem,
+  DailyBudget,
   HealthStatus,
+  KeywordCountrySummary,
   KeywordComparison,
   KeywordFieldResult,
   KeywordSort,
@@ -84,10 +86,10 @@ export function getApp(id: string): Promise<AppDetail> {
   return apiFetch<AppDetail>(`/apps/${id}`);
 }
 
-export function importApp(url: string): Promise<AppDetail> {
+export function importApp(url: string, country?: string): Promise<AppDetail> {
   return apiFetch<AppDetail>("/apps", {
     method: "POST",
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, country }),
   });
 }
 
@@ -98,18 +100,30 @@ export function deleteApp(id: string): Promise<void> {
 export function getKeywords(
   appId: string,
   sort?: KeywordSort,
+  country?: string,
 ): Promise<TrackedKeywordItem[]> {
-  const query = sort ? `?sort=${sort}` : "";
-  return apiFetch<TrackedKeywordItem[]>(`/apps/${appId}/keywords${query}`);
+  const params = new URLSearchParams();
+  if (sort) params.set("sort", sort);
+  if (country) params.set("country", country);
+  return apiFetch<TrackedKeywordItem[]>(
+    withQuery(`/apps/${appId}/keywords`, params),
+  );
+}
+
+export function getKeywordCountries(
+  appId: string,
+): Promise<KeywordCountrySummary[]> {
+  return apiFetch<KeywordCountrySummary[]>(`/apps/${appId}/keyword-countries`);
 }
 
 export function addKeywords(
   appId: string,
   keywords: string[],
+  country?: string,
 ): Promise<TrackedKeywordItem[]> {
   return apiFetch<TrackedKeywordItem[]>(`/apps/${appId}/keywords`, {
     method: "POST",
-    body: JSON.stringify({ keywords }),
+    body: JSON.stringify({ keywords, country }),
   });
 }
 
@@ -137,9 +151,11 @@ export function getSuggestions(
   appId: string,
   strategy: KeywordSuggestionStrategy,
   limit?: number,
+  country?: string,
 ): Promise<KeywordSuggestion[]> {
   const params = new URLSearchParams({ strategy });
   if (limit !== undefined) params.set("limit", String(limit));
+  if (country) params.set("country", country);
   return apiFetch<KeywordSuggestion[]>(
     withQuery(`/apps/${appId}/keywords/suggestions`, params),
   );
@@ -392,4 +408,8 @@ export function testWebhook(id: string): Promise<WebhookTestResult> {
 
 export function getHealth(): Promise<HealthStatus> {
   return apiFetch<HealthStatus>("/health");
+}
+
+export function getBudget(): Promise<DailyBudget> {
+  return apiFetch<DailyBudget>("/jobs/budget");
 }
