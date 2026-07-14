@@ -7,9 +7,9 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
-import { KeyRound, Loader2, Plus, Send, Trash2 } from "lucide-react";
+import { Loader2, Plus, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import type { WebhookEvent, WebhookItem } from "@asobeast/shared";
+import type { EmailAlertItem, WebhookEvent } from "@asobeast/shared";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,41 +52,49 @@ import {
 } from "@/components/ui/table";
 import {
   ApiError,
-  createWebhook,
-  deleteWebhook,
-  testWebhook,
-  updateWebhook,
+  createEmailAlert,
+  deleteEmailAlert,
+  testEmailAlert,
+  updateEmailAlert,
 } from "@/lib/api";
-import { invalidateWebhookMutation, webhooksOptions } from "@/lib/queries";
+import {
+  alertsConfigOptions,
+  emailAlertsOptions,
+  invalidateEmailAlertMutation,
+} from "@/lib/queries";
 import { EVENT_LABELS, EventToggles } from "./alert-events";
 import { DeliveriesSection } from "./DeliveriesSection";
 
-function AddWebhookDialog() {
+const SMTP_VARS = [
+  "SMTP_HOST",
+  "SMTP_PORT",
+  "SMTP_SECURE",
+  "SMTP_USER",
+  "SMTP_PASSWORD",
+  "SMTP_FROM",
+];
+
+function AddEmailAlertDialog() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [url, setUrl] = useState("");
+  const [email, setEmail] = useState("");
   const [events, setEvents] = useState<WebhookEvent[]>(["metadata.changed"]);
-  const [secret, setSecret] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: () =>
-      createWebhook({
-        url,
-        events,
-        secret: secret.trim() === "" ? undefined : secret,
-      }),
+    mutationFn: () => createEmailAlert({ email, events }),
     onSuccess: () => {
-      invalidateWebhookMutation(queryClient);
-      toast.success("Webhook added");
+      invalidateEmailAlertMutation(queryClient);
+      toast.success("Email alert added");
       setOpen(false);
-      setUrl("");
+      setEmail("");
       setEvents(["metadata.changed"]);
-      setSecret("");
     },
     onError: (err) => {
       setError(
-        err instanceof ApiError ? err.envelope.message : "Could not add webhook",
+        err instanceof ApiError
+          ? err.envelope.message
+          : "Could not add email alert",
       );
     },
   });
@@ -95,21 +103,12 @@ function AddWebhookDialog() {
     formEvent.preventDefault();
     setError(null);
 
-    try {
-      const parsed = new URL(url);
-      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-        throw new Error();
-      }
-    } catch {
-      setError("Enter a valid http(s) URL");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Enter a valid email address");
       return;
     }
     if (events.length === 0) {
       setError("Select at least one event");
-      return;
-    }
-    if (secret.trim() !== "" && secret.length < 8) {
-      setError("Secret must be at least 8 characters");
       return;
     }
 
@@ -121,26 +120,27 @@ function AddWebhookDialog() {
       <DialogTrigger asChild>
         <Button size="sm">
           <Plus />
-          Add webhook
+          Add email alert
         </Button>
       </DialogTrigger>
       <DialogContent>
         <form onSubmit={submit} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>Add webhook</DialogTitle>
+            <DialogTitle>Add email alert</DialogTitle>
             <DialogDescription>
-              asobeast POSTs a JSON payload to this URL when a subscribed event
-              fires. Add a secret to receive an HMAC signature header.
+              asobeast emails this recipient when a subscribed event fires,
+              using your configured SMTP server.
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="webhook-url">Endpoint URL</Label>
+            <Label htmlFor="email-alert-address">Recipient email</Label>
             <Input
-              id="webhook-url"
-              value={url}
-              onChange={(event) => setUrl(event.target.value)}
-              placeholder="https://hooks.example.com/asobeast"
+              id="email-alert-address"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="alerts@example.com"
               aria-invalid={error !== null}
             />
           </div>
@@ -150,23 +150,12 @@ function AddWebhookDialog() {
             <EventToggles value={events} onChange={setEvents} />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="webhook-secret">Secret (optional)</Label>
-            <Input
-              id="webhook-secret"
-              type="password"
-              value={secret}
-              onChange={(event) => setSecret(event.target.value)}
-              placeholder="At least 8 characters"
-            />
-          </div>
-
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           <DialogFooter>
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending ? <Loader2 className="animate-spin" /> : null}
-              Add webhook
+              Add email alert
             </Button>
           </DialogFooter>
         </form>
@@ -175,51 +164,49 @@ function AddWebhookDialog() {
   );
 }
 
-function WebhookRow({ webhook }: { webhook: WebhookItem }) {
+function EmailAlertRow({ alert }: { alert: EmailAlertItem }) {
   const queryClient = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const toggle = useMutation({
-    mutationFn: (active: boolean) => updateWebhook(webhook.id, { active }),
-    onSuccess: () => invalidateWebhookMutation(queryClient),
-    onError: () => toast.error("Could not update webhook"),
+    mutationFn: (active: boolean) => updateEmailAlert(alert.id, { active }),
+    onSuccess: () => invalidateEmailAlertMutation(queryClient),
+    onError: () => toast.error("Could not update email alert"),
   });
 
   const test = useMutation({
-    mutationFn: () => testWebhook(webhook.id),
+    mutationFn: () => testEmailAlert(alert.id),
     onSuccess: (result) => {
       if (result.delivered) {
-        toast.success(`Delivered (status ${result.status ?? "—"})`);
+        toast.success("Test email sent");
       } else {
-        toast.error(
-          `Not delivered${result.status !== null ? ` (status ${result.status})` : ""}`,
-        );
+        toast.error("Could not send the test email");
       }
     },
-    onError: () => toast.error("Could not reach the webhook"),
+    onError: () => toast.error("Could not send the test email"),
   });
 
   const remove = useMutation({
-    mutationFn: () => deleteWebhook(webhook.id),
+    mutationFn: () => deleteEmailAlert(alert.id),
     onSuccess: () => {
-      invalidateWebhookMutation(queryClient);
+      invalidateEmailAlertMutation(queryClient);
       setConfirmOpen(false);
-      toast.success("Webhook removed");
+      toast.success("Email alert removed");
     },
-    onError: () => toast.error("Could not remove webhook"),
+    onError: () => toast.error("Could not remove email alert"),
   });
 
   return (
     <TableRow>
       <TableCell className="max-w-[18rem] align-top font-medium">
-        <span className="block truncate">{webhook.url}</span>
+        <span className="block truncate">{alert.email}</span>
         <div className="mt-2">
-          <DeliveriesSection channel="webhook" id={webhook.id} />
+          <DeliveriesSection channel="email" id={alert.id} />
         </div>
       </TableCell>
       <TableCell>
         <div className="flex flex-wrap gap-1">
-          {webhook.events.map((event) => (
+          {alert.events.map((event) => (
             <Badge key={event} variant="outline">
               {EVENT_LABELS[event]}
             </Badge>
@@ -227,20 +214,10 @@ function WebhookRow({ webhook }: { webhook: WebhookItem }) {
         </div>
       </TableCell>
       <TableCell>
-        {webhook.hasSecret ? (
-          <Badge variant="secondary">
-            <KeyRound />
-            Signed
-          </Badge>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
-      </TableCell>
-      <TableCell>
         <Switch
-          checked={webhook.active}
+          checked={alert.active}
           disabled={toggle.isPending}
-          aria-label={`Toggle ${webhook.url}`}
+          aria-label={`Toggle ${alert.email}`}
           onCheckedChange={(active) => toggle.mutate(active)}
         />
       </TableCell>
@@ -258,7 +235,7 @@ function WebhookRow({ webhook }: { webhook: WebhookItem }) {
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label={`Delete ${webhook.url}`}
+            aria-label={`Delete ${alert.email}`}
             onClick={() => setConfirmOpen(true)}
           >
             <Trash2 />
@@ -268,10 +245,9 @@ function WebhookRow({ webhook }: { webhook: WebhookItem }) {
         <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete this webhook?</AlertDialogTitle>
+              <AlertDialogTitle>Delete this email alert?</AlertDialogTitle>
               <AlertDialogDescription>
-                asobeast will stop delivering alerts to {webhook.url}. This
-                cannot be undone.
+                asobeast will stop emailing {alert.email}. This cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -296,42 +272,69 @@ function WebhookRow({ webhook }: { webhook: WebhookItem }) {
   );
 }
 
-export function WebhooksCard() {
-  const { data } = useSuspenseQuery(webhooksOptions);
+function SetupHint() {
+  return (
+    <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
+      <p className="font-medium text-foreground">Email alerts are disabled.</p>
+      <p className="mt-1">
+        Set the SMTP environment variables on the API to enable them:
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {SMTP_VARS.map((name) => (
+          <code
+            key={name}
+            className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground"
+          >
+            {name}
+          </code>
+        ))}
+      </div>
+      <p className="mt-3">
+        <code className="font-mono text-xs">SMTP_HOST</code> and{" "}
+        <code className="font-mono text-xs">SMTP_FROM</code> are required.
+      </p>
+    </div>
+  );
+}
+
+export function EmailAlertsCard() {
+  const { data: config } = useSuspenseQuery(alertsConfigOptions);
+  const { data } = useSuspenseQuery(emailAlertsOptions);
 
   return (
     <Card>
       <CardHeader className="flex-row items-start justify-between gap-4">
         <div className="flex flex-col gap-1.5">
           <CardDescription>Alerts</CardDescription>
-          <CardTitle>Webhooks</CardTitle>
+          <CardTitle>Email</CardTitle>
         </div>
-        <AddWebhookDialog />
+        {config.emailEnabled ? <AddEmailAlertDialog /> : null}
       </CardHeader>
       <CardContent>
-        {data.length === 0 ? (
+        {!config.emailEnabled ? (
+          <SetupHint />
+        ) : data.length === 0 ? (
           <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-            No webhooks yet. Add one to receive metadata and rank alerts in
-            Slack, Discord, ntfy or your own endpoint.
+            No email alerts yet. Add a recipient to receive metadata and rank
+            alerts by email.
           </div>
         ) : (
           <div className="overflow-x-auto rounded-xl border">
             <Table>
               <TableCaption className="sr-only">
-                Configured alert webhooks and their subscribed events.
+                Configured email alerts and their subscribed events.
               </TableCaption>
               <TableHeader>
                 <TableRow>
-                  <TableHead>URL</TableHead>
+                  <TableHead>Recipient</TableHead>
                   <TableHead>Events</TableHead>
-                  <TableHead>Secret</TableHead>
                   <TableHead>Active</TableHead>
                   <TableHead className="w-0" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.map((webhook) => (
-                  <WebhookRow key={webhook.id} webhook={webhook} />
+                {data.map((alert) => (
+                  <EmailAlertRow key={alert.id} alert={alert} />
                 ))}
               </TableBody>
             </Table>

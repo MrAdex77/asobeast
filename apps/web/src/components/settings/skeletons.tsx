@@ -23,7 +23,7 @@ export function BudgetCardSkeleton() {
   );
 }
 
-export function WebhooksCardSkeleton() {
+function AlertsCardSkeleton() {
   return (
     <Card>
       <CardHeader className="flex-row items-start justify-between gap-4">
@@ -44,4 +44,12 @@ export function WebhooksCardSkeleton() {
       </CardContent>
     </Card>
   );
+}
+
+export function WebhooksCardSkeleton() {
+  return <AlertsCardSkeleton />;
+}
+
+export function EmailAlertsCardSkeleton() {
+  return <AlertsCardSkeleton />;
 }

@@ -20,6 +20,21 @@ const priceFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
 });
+const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: "UTC",
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+const relativeTimeFormatter = new Intl.RelativeTimeFormat("en-US", {
+  numeric: "auto",
+});
+const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ["year", 31_536_000_000],
+  ["month", 2_592_000_000],
+  ["day", 86_400_000],
+  ["hour", 3_600_000],
+  ["minute", 60_000],
+];
 
 const STORE_LABELS: Record<Store, string> = {
   APP_STORE: "App Store",
@@ -51,6 +66,21 @@ export function formatDate(value: string | null): string {
 
 export function formatDayMonth(value: string): string {
   return dayMonthFormatter.format(new Date(value));
+}
+
+export function formatDateTime(value: string): string {
+  return `${dateTimeFormatter.format(new Date(value))} UTC`;
+}
+
+export function formatRelativeTime(value: string, now = Date.now()): string {
+  const diff = new Date(value).getTime() - now;
+  const magnitude = Math.abs(diff);
+  for (const [unit, ms] of RELATIVE_UNITS) {
+    if (magnitude >= ms) {
+      return relativeTimeFormatter.format(Math.round(diff / ms), unit);
+    }
+  }
+  return relativeTimeFormatter.format(Math.round(diff / 1000), "second");
 }
 
 export function formatPosition(value: number | null): string {

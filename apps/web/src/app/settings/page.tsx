@@ -1,18 +1,27 @@
 import { Suspense } from "react";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { BudgetCard } from "@/components/settings/BudgetCard";
+import { EmailAlertsCard } from "@/components/settings/EmailAlertsCard";
 import { WebhooksCard } from "@/components/settings/WebhooksCard";
 import {
   BudgetCardSkeleton,
+  EmailAlertsCardSkeleton,
   WebhooksCardSkeleton,
 } from "@/components/settings/skeletons";
 import { getQueryClient } from "@/lib/get-query-client";
-import { budgetOptions, webhooksOptions } from "@/lib/queries";
+import {
+  alertsConfigOptions,
+  budgetOptions,
+  emailAlertsOptions,
+  webhooksOptions,
+} from "@/lib/queries";
 
 export default async function SettingsPage() {
   const queryClient = getQueryClient();
   await Promise.all([
     queryClient.prefetchQuery(webhooksOptions),
+    queryClient.prefetchQuery(emailAlertsOptions),
+    queryClient.prefetchQuery(alertsConfigOptions),
     queryClient.prefetchQuery(budgetOptions),
   ]);
 
@@ -22,7 +31,7 @@ export default async function SettingsPage() {
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
           <p className="text-sm text-muted-foreground">
-            Configure webhook alerts and review your daily request budget.
+            Configure alert channels and review your daily request budget.
           </p>
         </div>
         <Suspense fallback={<BudgetCardSkeleton />}>
@@ -30,6 +39,9 @@ export default async function SettingsPage() {
         </Suspense>
         <Suspense fallback={<WebhooksCardSkeleton />}>
           <WebhooksCard />
+        </Suspense>
+        <Suspense fallback={<EmailAlertsCardSkeleton />}>
+          <EmailAlertsCard />
         </Suspense>
       </div>
     </HydrationBoundary>

@@ -1,10 +1,16 @@
-import type { KeywordSort, KeywordSuggestionStrategy } from "@asobeast/shared";
+import type {
+  AlertChannel,
+  KeywordSort,
+  KeywordSuggestionStrategy,
+} from "@asobeast/shared";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
+  getAlertsConfig,
   getApp,
   getBudget,
   getCategoryRanks,
   getChanges,
+  getEmailAlerts,
   getComparison,
   getCompetitorDiscovery,
   getCompetitors,
@@ -79,6 +85,18 @@ export const recentChangesKey = (limit?: number) =>
 
 export const webhookKeys = {
   all: ["webhooks"] as const,
+};
+
+export const emailAlertKeys = {
+  all: ["email-alerts"] as const,
+};
+
+export const alertsConfigKey = ["alerts", "config"] as const;
+
+export const deliveryKeys = {
+  all: ["alert-deliveries"] as const,
+  list: (channel: AlertChannel, id: string) =>
+    ["alert-deliveries", channel, id] as const,
 };
 
 export const healthKey = ["health"] as const;
@@ -214,6 +232,16 @@ export const webhooksOptions = queryOptions({
   queryFn: getWebhooks,
 });
 
+export const emailAlertsOptions = queryOptions({
+  queryKey: emailAlertKeys.all,
+  queryFn: getEmailAlerts,
+});
+
+export const alertsConfigOptions = queryOptions({
+  queryKey: alertsConfigKey,
+  queryFn: getAlertsConfig,
+});
+
 export const healthOptions = queryOptions({
   queryKey: healthKey,
   queryFn: getHealth,
@@ -250,4 +278,8 @@ export function invalidateCompetitorMutation(
 
 export function invalidateWebhookMutation(client: QueryClient): void {
   void client.invalidateQueries({ queryKey: webhookKeys.all });
+}
+
+export function invalidateEmailAlertMutation(client: QueryClient): void {
+  void client.invalidateQueries({ queryKey: emailAlertKeys.all });
 }

@@ -31,6 +31,9 @@ import type {
   SnapshotDiffResult,
   TrackedKeywordItem,
   VisibilityHistory,
+  AlertDeliveryItem,
+  AlertsConfig,
+  EmailAlertItem,
   WebhookEvent,
   WebhookItem,
   WebhookTestResult,
@@ -404,6 +407,55 @@ export function testWebhook(id: string): Promise<WebhookTestResult> {
   return apiFetch<WebhookTestResult>(`/webhooks/${id}/test`, {
     method: "POST",
   });
+}
+
+export function getAlertsConfig(): Promise<AlertsConfig> {
+  return apiFetch<AlertsConfig>("/alerts/config");
+}
+
+export function getEmailAlerts(): Promise<EmailAlertItem[]> {
+  return apiFetch<EmailAlertItem[]>("/email-alerts");
+}
+
+export function createEmailAlert(body: {
+  email: string;
+  events: WebhookEvent[];
+}): Promise<EmailAlertItem> {
+  return apiFetch<EmailAlertItem>("/email-alerts", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateEmailAlert(
+  id: string,
+  body: {
+    email?: string;
+    events?: WebhookEvent[];
+    active?: boolean;
+  },
+): Promise<EmailAlertItem> {
+  return apiFetch<EmailAlertItem>(`/email-alerts/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteEmailAlert(id: string): Promise<void> {
+  return apiFetch<void>(`/email-alerts/${id}`, { method: "DELETE" });
+}
+
+export function testEmailAlert(id: string): Promise<WebhookTestResult> {
+  return apiFetch<WebhookTestResult>(`/email-alerts/${id}/test`, {
+    method: "POST",
+  });
+}
+
+export function getDeliveries(
+  filter: { webhookId: string } | { emailAlertId: string },
+): Promise<AlertDeliveryItem[]> {
+  const params = new URLSearchParams(filter);
+  return apiFetch<AlertDeliveryItem[]>(`/alerts/deliveries?${params}`);
 }
 
 export function getHealth(): Promise<HealthStatus> {

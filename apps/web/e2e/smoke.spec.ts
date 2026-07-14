@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { PORTFOLIO } from "./fixtures.mts";
+import { EMAIL_ALERTS, PORTFOLIO } from "./fixtures.mts";
 
 test("home renders the portfolio grid with totals and per-app cards", async ({ page }) => {
   await page.goto("/");
@@ -46,6 +46,27 @@ test("settings exposes the weekly digest event", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "Weekly digest" }),
   ).toBeVisible();
+});
+
+test("settings lists email alerts and expands their delivery log", async ({
+  page,
+}) => {
+  await page.goto("/settings");
+
+  const [alert] = EMAIL_ALERTS;
+  await expect(page.getByText(alert.email, { exact: true })).toBeVisible();
+
+  await expect(
+    page.getByRole("button", { name: "Add email alert" }),
+  ).toBeVisible();
+
+  await page
+    .getByRole("button", { name: "Recent deliveries" })
+    .last()
+    .click();
+
+  await expect(page.getByText("Failed").first()).toBeVisible();
+  await expect(page.getByText("Success").first()).toBeVisible();
 });
 
 test("health badge reflects the mocked health endpoint", async ({ page }) => {
