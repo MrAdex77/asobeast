@@ -68,6 +68,14 @@ pnpm --filter api db:studio
 
 The web end-to-end suite is hermetic: a tiny `node:http` mock API (typed by `@asobeast/shared` contracts) runs on port 4100 and serves both server-side prefetching and browser fetches, so no Postgres, Redis or store calls are needed. Playwright reuses a running dev server locally and builds the production bundle in CI. Install the browser once with `pnpm --filter web exec playwright install chromium`.
 
+To exercise email alerts locally, run [Mailpit](https://mailpit.axllent.org/) as a throwaway SMTP sink and point the API at it:
+
+```bash
+docker run -p 1025:1025 -p 8025:8025 axllent/mailpit   # SMTP on 1025, web UI on 8025
+```
+
+Then set `SMTP_HOST=localhost`, `SMTP_PORT=1025` and `SMTP_FROM=asobeast <alerts@localhost>` in `apps/api/.env`, add an email alert on the settings page, and watch messages arrive at http://localhost:8025.
+
 ### Layout
 
 ```text
@@ -107,8 +115,17 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 | `RETENTION_SNAPSHOTS_DAYS` | `180` | Prune app snapshots older than N days; the newest snapshot per app is always kept; `0` keeps forever. |
 | `RETENTION_CATEGORY_RANKS_DAYS` | `365` | Prune category ranks older than N days; `0` keeps forever. |
 | `RETENTION_CHANGE_EVENTS_DAYS` | `0` | Prune change events older than N days; `0` keeps forever. |
+| `RETENTION_DELIVERIES_DAYS` | `30` | Prune alert delivery log rows older than N days; `0` keeps forever. |
+| `SMTP_HOST` | — | SMTP server host. Set together with `SMTP_FROM` to enable email alerts; leave empty to disable. |
+| `SMTP_PORT` | `587` | SMTP server port (`465` with `SMTP_SECURE=true`). |
+| `SMTP_SECURE` | `false` | `true` wraps the connection in TLS (port 465). |
+| `SMTP_USER` | — | SMTP username; leave empty for unauthenticated relays. |
+| `SMTP_PASSWORD` | — | SMTP password. |
+| `SMTP_FROM` | — | From address, e.g. `asobeast <alerts@example.com>`. Required to enable email alerts. |
 | `BULL_BOARD_ENABLED` | `true` | Serve the Bull Board queue dashboard at `/admin/queues`. |
 | `LOG_LEVEL` | `debug` | `error`, `warn`, `log`, `debug` or `verbose`. |
+
+Alerts fan out to two channels: **webhooks** (Slack, Discord, ntfy or any endpoint) and **email** (SMTP, enabled only when `SMTP_HOST` and `SMTP_FROM` are set). Both carry the same events and record every attempt in a delivery log, surfaced per channel on the settings page so failed deliveries are visible instead of silently retrying.
 
 `apps/web/.env`:
 
