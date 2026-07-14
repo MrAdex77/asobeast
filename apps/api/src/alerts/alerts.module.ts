@@ -1,8 +1,11 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { QUEUES } from '../jobs/jobs.types';
+import { AlertsController } from './alerts.controller';
 import { AlertsDispatcher } from './alerts.dispatcher';
 import { AlertsWorker } from './alerts.worker';
+import { EmailAlertsController } from './email-alerts.controller';
+import { EmailAlertsService } from './email-alerts.service';
 import { MailerService } from './mailer.service';
 import { WebhookDelivery } from './webhook-delivery';
 import { WebhooksController } from './webhooks.controller';
@@ -18,9 +21,10 @@ import { WebhooksService } from './webhooks.service';
       },
     }),
   ],
-  controllers: [WebhooksController],
+  controllers: [WebhooksController, EmailAlertsController, AlertsController],
   providers: [
     WebhooksService,
+    EmailAlertsService,
     WebhookDelivery,
     MailerService,
     AlertsDispatcher,
