@@ -9,7 +9,7 @@ import {
   useReactTable,
   type RowSelectionState,
 } from "@tanstack/react-table";
-import { ChevronDown, Download, ListOrdered } from "lucide-react";
+import { ChevronDown, Download, ListOrdered, Plus } from "lucide-react";
 import { useQueryState } from "nuqs";
 import type { KeywordSort, TrackedKeywordItem } from "@asobeast/shared";
 import { Badge } from "@/components/ui/badge";
@@ -31,10 +31,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toCsv, downloadCsv } from "@/lib/csv";
-import { formatDate, formatPosition } from "@/lib/format";
+import { formatCountry, formatDate, formatPosition } from "@/lib/format";
 import { keywordsOptions } from "@/lib/queries";
 import { serpParser, sortParser } from "@/lib/search-params";
 import { cn } from "@/lib/utils";
+import { AddKeywordsDialog } from "./AddKeywordsDialog";
 import { DeltaChip, PositionDeltaChip } from "./DeltaChip";
 import { KeywordRowActions } from "./KeywordRowActions";
 import { KeywordsBulkActions } from "./KeywordsBulkActions";
@@ -222,10 +223,16 @@ function exportKeywords(appId: string, rows: TrackedKeywordItem[]): void {
 
 const columnHelper = createColumnHelper<TrackedKeywordItem>();
 
-export function KeywordsTable({ id }: { id: string }) {
+export function KeywordsTable({
+  id,
+  country,
+}: {
+  id: string;
+  country: string;
+}) {
   const [sort, setSort] = useQueryState("sort", sortParser);
   const [, setSerp] = useQueryState("serp", serpParser);
-  const { data: keywords } = useSuspenseQuery(keywordsOptions(id, sort));
+  const { data: keywords } = useSuspenseQuery(keywordsOptions(id, sort, country));
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
   const columns = useMemo(
@@ -422,9 +429,20 @@ export function KeywordsTable({ id }: { id: string }) {
 
   if (keywords.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-        No tracked keywords yet. Add keywords or track a suggestion below to
-        start capturing rankings.
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
+        <p>
+          No keywords tracked in{" "}
+          <span className="font-medium text-foreground">
+            {formatCountry(country)}
+          </span>{" "}
+          yet. Add keywords to start capturing rankings in this market.
+        </p>
+        <AddKeywordsDialog appId={id} country={country}>
+          <Button>
+            <Plus />
+            Add keywords
+          </Button>
+        </AddKeywordsDialog>
       </div>
     );
   }

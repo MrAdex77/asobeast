@@ -27,30 +27,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ApiError, importApp } from "@/lib/api";
+import { COUNTRY_CODE, COUNTRY_OPTIONS, OTHER } from "@/lib/countries";
 import { formatCountry } from "@/lib/format";
 import { appKeys, portfolioKey } from "@/lib/queries";
-
-const COUNTRY_OPTIONS = [
-  "us",
-  "gb",
-  "de",
-  "fr",
-  "es",
-  "it",
-  "nl",
-  "pl",
-  "br",
-  "mx",
-  "jp",
-  "kr",
-  "cn",
-  "in",
-  "au",
-  "ca",
-];
-
-const OTHER = "other";
-const COUNTRY_CODE = /^[a-z]{2}$/;
 
 export function ImportAppDialog({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();

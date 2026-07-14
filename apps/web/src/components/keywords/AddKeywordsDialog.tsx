@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { normalizeText, type TrackedKeywordItem } from "@asobeast/shared";
+import { CountrySelect } from "@/components/CountrySelect";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,8 +17,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { addKeywords, ApiError } from "@/lib/api";
+import { COUNTRY_CODE } from "@/lib/countries";
 import { appKeys, invalidateKeywordMutation } from "@/lib/queries";
 
 function parseKeywords(input: string): string[] {
@@ -35,19 +38,22 @@ function parseKeywords(input: string): string[] {
 
 export function AddKeywordsDialog({
   appId,
+  country,
   children,
 }: {
   appId: string;
+  country: string;
   children: ReactNode;
 }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [raw, setRaw] = useState("");
+  const [market, setMarket] = useState(country);
   const [error, setError] = useState<string | null>(null);
   const chips = useMemo(() => parseKeywords(raw), [raw]);
 
   const mutation = useMutation({
-    mutationFn: (list: string[]) => addKeywords(appId, list),
+    mutationFn: (list: string[]) => addKeywords(appId, list, market),
     onSuccess: (_tracked, list) => {
       const before = new Set(
         queryClient
@@ -75,11 +81,22 @@ export function AddKeywordsDialog({
 
   function onOpenChange(next: boolean) {
     setOpen(next);
-    if (!next) {
+    if (next) {
+      setMarket(country);
+    } else {
       setRaw("");
       setError(null);
       mutation.reset();
     }
+  }
+
+  function submit() {
+    setError(null);
+    if (!COUNTRY_CODE.test(market)) {
+      setError("Market must be a two letter code, e.g. us");
+      return;
+    }
+    mutation.mutate(chips);
   }
 
   return (
@@ -95,6 +112,15 @@ export function AddKeywordsDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="add-keywords-market">Market</Label>
+            <CountrySelect
+              id="add-keywords-market"
+              value={market}
+              onChange={setMarket}
+              ariaLabel="Keyword market"
+            />
+          </div>
           <Textarea
             value={raw}
             onChange={(event) => {
@@ -124,10 +150,7 @@ export function AddKeywordsDialog({
         <DialogFooter>
           <Button
             disabled={mutation.isPending || chips.length === 0}
-            onClick={() => {
-              setError(null);
-              mutation.mutate(chips);
-            }}
+            onClick={submit}
           >
             {mutation.isPending ? <Loader2 className="animate-spin" /> : null}
             {mutation.isPending ? "Adding…" : "Add keywords"}

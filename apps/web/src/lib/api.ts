@@ -151,9 +151,11 @@ export function getSuggestions(
   appId: string,
   strategy: KeywordSuggestionStrategy,
   limit?: number,
+  country?: string,
 ): Promise<KeywordSuggestion[]> {
   const params = new URLSearchParams({ strategy });
   if (limit !== undefined) params.set("limit", String(limit));
+  if (country) params.set("country", country);
   return apiFetch<KeywordSuggestion[]>(
     withQuery(`/apps/${appId}/keywords/suggestions`, params),
   );

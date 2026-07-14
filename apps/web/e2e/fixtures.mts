@@ -5,6 +5,7 @@ import type {
   AppSummary,
   CategoryRankSeries,
   DailyBudget,
+  KeywordCountrySummary,
   ChangeTimeline,
   CompetitorItem,
   HealthStatus,
@@ -512,6 +513,11 @@ export const PORTFOLIO: PortfolioSummary = {
   ],
   totals: { apps: 2, competitors: 1, trackedKeywords: 5, changes7d: 3 },
 };
+
+export const APP_1_KEYWORD_COUNTRIES: KeywordCountrySummary[] = [
+  { country: "us", keywordCount: APP_1_KEYWORDS.length },
+  { country: "pl", keywordCount: 0 },
+];
 
 export const BUDGET: DailyBudget = {
   apps: 3,

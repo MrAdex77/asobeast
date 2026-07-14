@@ -38,8 +38,11 @@ export const appKeys = {
     [...appKeys.detail(id), "keywords", { sort, country }] as const,
   keywordCountries: (id: string) =>
     [...appKeys.detail(id), "keyword-countries"] as const,
-  suggestions: (id: string, strategy: KeywordSuggestionStrategy) =>
-    [...appKeys.detail(id), "suggestions", strategy] as const,
+  suggestions: (
+    id: string,
+    strategy: KeywordSuggestionStrategy,
+    country?: string,
+  ) => [...appKeys.detail(id), "suggestions", strategy, { country }] as const,
   compare: (id: string, onlyGaps: boolean) =>
     [...appKeys.detail(id), "compare", { onlyGaps }] as const,
   rankings: (id: string, params: RankingParams) =>
@@ -124,10 +127,11 @@ export const keywordCountriesOptions = (id: string) =>
 export const suggestionsOptions = (
   id: string,
   strategy: KeywordSuggestionStrategy,
+  country?: string,
 ) =>
   queryOptions({
-    queryKey: appKeys.suggestions(id, strategy),
-    queryFn: () => getSuggestions(id, strategy),
+    queryKey: appKeys.suggestions(id, strategy, country),
+    queryFn: () => getSuggestions(id, strategy, undefined, country),
   });
 
 export const comparisonOptions = (id: string, onlyGaps: boolean) =>
