@@ -28,8 +28,18 @@ export const EnvSchema = z.object({
   RETENTION_SNAPSHOTS_DAYS: z.coerce.number().int().min(0).default(180),
   RETENTION_CATEGORY_RANKS_DAYS: z.coerce.number().int().min(0).default(365),
   RETENTION_CHANGE_EVENTS_DAYS: z.coerce.number().int().min(0).default(0),
+  RETENTION_DELIVERIES_DAYS: z.coerce.number().int().min(0).default(30),
   CRON_RETENTION: z.string().min(1).default('0 5 * * *'),
   CRON_DIGEST: z.string().min(1).default('0 8 * * 1'),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
   BULL_BOARD_ENABLED: z
     .enum(['true', 'false'])
     .default('true')

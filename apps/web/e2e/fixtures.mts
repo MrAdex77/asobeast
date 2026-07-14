@@ -1,10 +1,12 @@
 import type {
+  AlertDeliveryItem,
   ApiErrorEnvelope,
   AppDetail,
   AppListItem,
   AppSummary,
   CategoryRankSeries,
   DailyBudget,
+  EmailAlertItem,
   KeywordCountrySummary,
   ChangeTimeline,
   CompetitorItem,
@@ -553,6 +555,37 @@ export const RECENT_CHANGES: ChangeTimeline = {
     },
   ],
 };
+
+export const EMAIL_ALERTS: EmailAlertItem[] = [
+  {
+    id: "email-1",
+    email: "ops@example.com",
+    events: ["metadata.changed", "rank.dropped"],
+    active: true,
+    createdAt: utcTimestampDaysAgo(3),
+  },
+];
+
+export const EMAIL_DELIVERIES: AlertDeliveryItem[] = [
+  {
+    id: "del-1",
+    channel: "email",
+    event: "rank.dropped",
+    status: "failed",
+    detail: "smtp timeout",
+    attempt: 2,
+    createdAt: utcTimestampDaysAgo(1),
+  },
+  {
+    id: "del-2",
+    channel: "email",
+    event: "metadata.changed",
+    status: "success",
+    detail: null,
+    attempt: 1,
+    createdAt: utcTimestampDaysAgo(2),
+  },
+];
 
 export const IMPORTED_PORTFOLIO_APP: PortfolioSummary["apps"][number] = {
   id: "app-new",

@@ -17,6 +17,7 @@ export const JOBS = {
   SCORE_KEYWORD: 'score-keyword',
   SYNC_REVIEWS: 'sync-reviews',
   DELIVER_ALERT: 'deliver-alert',
+  DELIVER_EMAIL: 'deliver-email',
 } as const;
 
 export interface RefreshAppPayload {
@@ -25,6 +26,11 @@ export interface RefreshAppPayload {
 
 export interface DeliverAlertPayload {
   webhookId: string;
+  payload: AlertPayload;
+}
+
+export interface DeliverEmailPayload {
+  emailAlertId: string;
   payload: AlertPayload;
 }
 

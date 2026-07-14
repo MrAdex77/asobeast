@@ -28,6 +28,8 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+    env_file:
+      - apps/api/.env
     environment:
       DATABASE_URL: postgresql://asobeast:asobeast@postgres:5432/asobeast
       REDIS_HOST: redis

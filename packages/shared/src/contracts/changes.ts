@@ -51,6 +51,31 @@ export interface WebhookTestResult {
   status: number | null;
 }
 
+export interface EmailAlertItem {
+  id: string;
+  email: string;
+  events: WebhookEvent[];
+  active: boolean;
+  createdAt: string;
+}
+
+export type AlertChannel = 'webhook' | 'email';
+export type DeliveryStatus = 'success' | 'failed';
+
+export interface AlertDeliveryItem {
+  id: string;
+  channel: AlertChannel;
+  event: WebhookEvent;
+  status: DeliveryStatus;
+  detail: string | null;
+  attempt: number;
+  createdAt: string;
+}
+
+export interface AlertsConfig {
+  emailEnabled: boolean;
+}
+
 export interface MetadataChangedPayload {
   event: 'metadata.changed';
   occurredAt: string;

@@ -22,11 +22,12 @@ enum KeywordSource {
 }
 
 model Workspace {
-  id        String    @id @default(cuid())
-  name      String    @default("Default")
-  apps      App[]
-  webhooks  Webhook[]
-  createdAt DateTime  @default(now())
+  id          String       @id @default(cuid())
+  name        String       @default("Default")
+  apps        App[]
+  webhooks    Webhook[]
+  emailAlerts EmailAlert[]
+  createdAt   DateTime     @default(now())
 }
 
 model App {
@@ -201,14 +202,46 @@ model Review {
 }
 
 model Webhook {
-  id          String    @id @default(cuid())
+  id          String          @id @default(cuid())
   workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   url         String
   events      String[]
   secret      String?
-  active      Boolean   @default(true)
-  createdAt   DateTime  @default(now())
+  active      Boolean         @default(true)
+  deliveries  AlertDelivery[]
+  createdAt   DateTime        @default(now())
 
   @@index([workspaceId])
+}
+
+model EmailAlert {
+  id          String          @id @default(cuid())
+  workspaceId String
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  email       String
+  events      String[]
+  active      Boolean         @default(true)
+  deliveries  AlertDelivery[]
+  createdAt   DateTime        @default(now())
+
+  @@index([workspaceId])
+}
+
+model AlertDelivery {
+  id           String      @id @default(cuid())
+  channel      String
+  webhookId    String?
+  webhook      Webhook?    @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  emailAlertId String?
+  emailAlert   EmailAlert? @relation(fields: [emailAlertId], references: [id], onDelete: Cascade)
+  event        String
+  status       String
+  detail       String?
+  attempt      Int
+  createdAt    DateTime    @default(now())
+
+  @@index([webhookId, createdAt])
+  @@index([emailAlertId, createdAt])
+  @@index([createdAt])
 }

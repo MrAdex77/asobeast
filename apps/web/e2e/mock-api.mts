@@ -3,6 +3,8 @@ import {
   APP_1_KEYWORD_COUNTRIES,
   BUDGET,
   DATASETS,
+  EMAIL_ALERTS,
+  EMAIL_DELIVERIES,
   HEALTH,
   IMPORTED_APP,
   IMPORTED_APP_DETAIL,
@@ -87,6 +89,24 @@ const routes: Route[] = [
     handler: (_p, _q, res) => json(res, 200, RECENT_CHANGES),
   },
   { method: "GET", pattern: /^\/webhooks$/, handler: (_p, _q, res) => json(res, 200, []) },
+  {
+    method: "GET",
+    pattern: /^\/alerts\/config$/,
+    handler: (_p, _q, res) => json(res, 200, { emailEnabled: true }),
+  },
+  {
+    method: "GET",
+    pattern: /^\/email-alerts$/,
+    handler: (_p, _q, res) => json(res, 200, EMAIL_ALERTS),
+  },
+  {
+    method: "GET",
+    pattern: /^\/alerts\/deliveries$/,
+    handler: (_p, req, res) => {
+      const query = new URL(req.url ?? "/", "http://localhost").searchParams;
+      json(res, 200, query.get("emailAlertId") ? EMAIL_DELIVERIES : []);
+    },
+  },
   { method: "GET", pattern: /^\/jobs\/budget$/, handler: (_p, _q, res) => json(res, 200, BUDGET) },
   {
     method: "POST",
