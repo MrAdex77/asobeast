@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { QUEUES } from '../jobs/jobs.types';
 import { AlertsDispatcher } from './alerts.dispatcher';
 import { AlertsWorker } from './alerts.worker';
+import { MailerService } from './mailer.service';
 import { WebhookDelivery } from './webhook-delivery';
 import { WebhooksController } from './webhooks.controller';
 import { WebhooksService } from './webhooks.service';
@@ -18,7 +19,13 @@ import { WebhooksService } from './webhooks.service';
     }),
   ],
   controllers: [WebhooksController],
-  providers: [WebhooksService, WebhookDelivery, AlertsDispatcher, AlertsWorker],
+  providers: [
+    WebhooksService,
+    WebhookDelivery,
+    MailerService,
+    AlertsDispatcher,
+    AlertsWorker,
+  ],
   exports: [AlertsDispatcher, BullModule],
 })
 export class AlertsModule {}

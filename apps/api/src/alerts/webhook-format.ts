@@ -1,4 +1,5 @@
 import { AlertPayload, DigestWeeklyPayload } from '@asobeast/shared';
+import { position, stars } from './alert-summary';
 
 const DIGEST_APP_CAP = 10;
 
@@ -17,14 +18,6 @@ function isDiscord(url: string): boolean {
 
 function isSlack(url: string): boolean {
   return host(url) === 'hooks.slack.com';
-}
-
-function position(value: number | null): string {
-  return value === null ? 'outside top 100' : `#${value}`;
-}
-
-function stars(score: number): string {
-  return '★'.repeat(score) + '☆'.repeat(Math.max(0, 5 - score));
 }
 
 export function renderMessage(payload: AlertPayload): string {
