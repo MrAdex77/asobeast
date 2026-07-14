@@ -20,6 +20,7 @@ export class RetentionService {
       ['categoryRank', () => this.pruneCategoryRanks(now)],
       ['changeEvent', () => this.pruneChangeEvents(now)],
       ['appSnapshot', () => this.pruneSnapshots(now)],
+      ['alertDelivery', () => this.pruneDeliveries(now)],
     ];
 
     const settled = await Promise.allSettled(rules.map(([, run]) => run()));
@@ -97,6 +98,17 @@ export class RetentionService {
     }
     const { count } = await this.prisma.changeEvent.deleteMany({
       where: { capturedAt: { lt: this.cutoff(days, now) } },
+    });
+    return count;
+  }
+
+  private async pruneDeliveries(now: Date): Promise<number> {
+    const days = this.config.get('RETENTION_DELIVERIES_DAYS', { infer: true });
+    if (days === 0) {
+      return 0;
+    }
+    const { count } = await this.prisma.alertDelivery.deleteMany({
+      where: { createdAt: { lt: this.cutoff(days, now) } },
     });
     return count;
   }

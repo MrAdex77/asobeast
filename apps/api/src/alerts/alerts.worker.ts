@@ -1,5 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { Job } from 'bullmq';
 import {
   DeliverAlertPayload,
@@ -13,6 +14,8 @@ import { MailerService } from './mailer.service';
 import { WebhookDelivery } from './webhook-delivery';
 
 type AlertJob = Job<DeliverAlertPayload | DeliverEmailPayload>;
+
+const DETAIL_MAX = 500;
 
 @Processor(QUEUES.ALERTS, { concurrency: 5 })
 export class AlertsWorker extends WorkerHost {
@@ -43,8 +46,14 @@ export class AlertsWorker extends WorkerHost {
     if (!webhook) {
       return;
     }
-    await this.delivery.send(webhook.url, webhook.secret, payload);
-    this.logger.debug(`delivered ${payload.event} to webhook ${webhookId}`);
+    try {
+      await this.delivery.send(webhook.url, webhook.secret, payload);
+      await this.record('webhook', { webhookId }, payload.event, job, null);
+      this.logger.debug(`delivered ${payload.event} to webhook ${webhookId}`);
+    } catch (error) {
+      await this.record('webhook', { webhookId }, payload.event, job, error);
+      throw error;
+    }
   }
 
   private async deliverEmail(job: Job<DeliverEmailPayload>): Promise<void> {
@@ -57,7 +66,35 @@ export class AlertsWorker extends WorkerHost {
       return;
     }
     const { subject, text, html } = formatEmail(payload);
-    await this.mailer.send(alert.email, subject, text, html);
-    this.logger.debug(`delivered ${payload.event} to email ${emailAlertId}`);
+    try {
+      await this.mailer.send(alert.email, subject, text, html);
+      await this.record('email', { emailAlertId }, payload.event, job, null);
+      this.logger.debug(`delivered ${payload.event} to email ${emailAlertId}`);
+    } catch (error) {
+      await this.record('email', { emailAlertId }, payload.event, job, error);
+      throw error;
+    }
+  }
+
+  private async record(
+    channel: string,
+    ref: { webhookId?: string; emailAlertId?: string },
+    event: string,
+    job: AlertJob,
+    error: unknown,
+  ): Promise<void> {
+    const data: Prisma.AlertDeliveryUncheckedCreateInput = {
+      channel,
+      ...ref,
+      event,
+      status: error ? 'failed' : 'success',
+      detail: error ? (error as Error).message.slice(0, DETAIL_MAX) : null,
+      attempt: job.attemptsMade + 1,
+    };
+    try {
+      await this.prisma.alertDelivery.create({ data });
+    } catch (logError) {
+      this.logger.warn(`delivery log failed: ${(logError as Error).message}`);
+    }
   }
 }

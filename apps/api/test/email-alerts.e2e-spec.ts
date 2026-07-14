@@ -3,6 +3,7 @@ import { join } from 'path';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
+  AlertDeliveryItem,
   AlertsConfig,
   ApiErrorEnvelope,
   EmailAlertItem,
@@ -55,7 +56,7 @@ describe('EmailAlertsController (e2e, smtp enabled)', () => {
   beforeEach(async () => {
     send.mockClear();
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE "EmailAlert" RESTART IDENTITY CASCADE',
+      'TRUNCATE TABLE "EmailAlert", "Webhook", "AlertDelivery" RESTART IDENTITY CASCADE',
     );
   });
 
@@ -122,6 +123,65 @@ describe('EmailAlertsController (e2e, smtp enabled)', () => {
       status: null,
     });
     expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it('lists deliveries filtered by a single channel', async () => {
+    const alert = await prisma.emailAlert.create({
+      data: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        email: 'ops@example.com',
+        events: ['metadata.changed'],
+      },
+    });
+    await prisma.alertDelivery.create({
+      data: {
+        channel: 'email',
+        emailAlertId: alert.id,
+        event: 'metadata.changed',
+        status: 'success',
+        attempt: 1,
+      },
+    });
+    const webhook = await prisma.webhook.create({
+      data: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        url: 'https://hooks.example.com/x',
+        events: ['rank.dropped'],
+      },
+    });
+    await prisma.alertDelivery.create({
+      data: {
+        channel: 'webhook',
+        webhookId: webhook.id,
+        event: 'rank.dropped',
+        status: 'failed',
+        detail: 'boom',
+        attempt: 2,
+      },
+    });
+
+    const byEmail = await request(server())
+      .get(`/alerts/deliveries?emailAlertId=${alert.id}`)
+      .expect(200);
+    const emailRows = byEmail.body as AlertDeliveryItem[];
+    expect(emailRows).toHaveLength(1);
+    expect(emailRows[0].channel).toBe('email');
+    expect(emailRows[0].status).toBe('success');
+
+    const byWebhook = await request(server())
+      .get(`/alerts/deliveries?webhookId=${webhook.id}`)
+      .expect(200);
+    const webhookRows = byWebhook.body as AlertDeliveryItem[];
+    expect(webhookRows).toHaveLength(1);
+    expect(webhookRows[0].detail).toBe('boom');
+    expect(webhookRows[0].attempt).toBe(2);
+  });
+
+  it('requires exactly one channel filter', async () => {
+    await request(server()).get('/alerts/deliveries').expect(400);
+    await request(server())
+      .get('/alerts/deliveries?webhookId=a&emailAlertId=b')
+      .expect(400);
   });
 });
 
