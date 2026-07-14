@@ -3,6 +3,7 @@ import { KeywordBucket, KeywordSource, KeywordSuggestionStrategy } from '../inde
 export interface TrackedKeywordItem {
   keywordId: string;
   text: string;
+  country: string;
   source: KeywordSource;
   active: boolean;
   latestPosition: number | null;
@@ -17,6 +18,11 @@ export interface TrackedKeywordItem {
   bucket: KeywordBucket | null;
   scoredAt: string | null;
   serpVolatility7d: number | null;
+}
+
+export interface KeywordCountrySummary {
+  country: string;
+  keywordCount: number;
 }
 
 export interface KeywordSuggestion {
