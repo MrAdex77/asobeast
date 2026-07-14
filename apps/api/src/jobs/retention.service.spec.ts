@@ -26,6 +26,7 @@ const buildPrisma = () => ({
   categoryRank: { deleteMany: jest.fn().mockResolvedValue({ count: 3 }) },
   changeEvent: { deleteMany: jest.fn().mockResolvedValue({ count: 4 }) },
   alertDelivery: { deleteMany: jest.fn().mockResolvedValue({ count: 6 }) },
+  suggestProbe: { deleteMany: jest.fn().mockResolvedValue({ count: 7 }) },
   appSnapshot: {
     findMany: jest.fn().mockResolvedValue([{ id: 'a' }, { id: 'b' }]),
     deleteMany: jest.fn().mockResolvedValue({ count: 5 }),
@@ -137,6 +138,7 @@ describe('RetentionService', () => {
     prisma.categoryRank.deleteMany.mockImplementation(boom);
     prisma.changeEvent.deleteMany.mockImplementation(boom);
     prisma.alertDelivery.deleteMany.mockImplementation(boom);
+    prisma.suggestProbe.deleteMany.mockImplementation(boom);
     prisma.appSnapshot.deleteMany.mockImplementation(boom);
     const service = new RetentionService(
       buildConfig({ RETENTION_CHANGE_EVENTS_DAYS: 30 }),
