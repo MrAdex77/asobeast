@@ -9,6 +9,7 @@ import { AnalyticsModule } from '../analytics/analytics.module';
 import { AppsModule } from '../apps/apps.module';
 import { CategoryRanksModule } from '../category-ranks/category-ranks.module';
 import { Env } from '../config/env';
+import { KeywordsModule } from '../keywords/keywords.module';
 import { RankingsModule } from '../rankings/rankings.module';
 import { ReviewsModule } from '../reviews/reviews.module';
 import { ScoringModule } from '../scoring/scoring.module';
@@ -61,6 +62,7 @@ const bullBoardModules: DynamicModule[] =
     AppsModule,
     RankingsModule,
     CategoryRanksModule,
+    KeywordsModule,
     ScoringModule,
     AlertsModule,
     AnalyticsModule,

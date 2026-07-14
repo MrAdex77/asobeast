@@ -91,7 +91,11 @@ describe('detectChanges', () => {
     const next = makeSnapshot({ releaseNotes: 'Fixed the crash on launch' });
 
     expect(detectChanges(prev, next)).toEqual([
-      { field: 'whatsNew', before: 'Old notes', after: 'Fixed the crash on launch' },
+      {
+        field: 'whatsNew',
+        before: 'Old notes',
+        after: 'Fixed the crash on launch',
+      },
     ]);
   });
 
@@ -114,9 +118,9 @@ describe('detectChanges', () => {
   });
 
   it('does not emit whats new for the first snapshot', () => {
-    expect(detectChanges(null, makeSnapshot({ releaseNotes: 'First' }))).toEqual(
-      [],
-    );
+    expect(
+      detectChanges(null, makeSnapshot({ releaseNotes: 'First' })),
+    ).toEqual([]);
   });
 
   it('represents a nullable field going from null to a value', () => {

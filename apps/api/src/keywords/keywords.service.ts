@@ -16,18 +16,30 @@ import {
   KeywordSuggestionStrategy,
   KEYWORD_FIELD_CHAR_LIMIT,
   normalizeText,
+  SpiderEnqueueResult,
+  SpiderStatus,
   TrackedKeywordItem,
 } from '@asobeast/shared';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
-import { isoWeekKey, JOBS, QUEUES, scoreJobId } from '../jobs/jobs.types';
+import {
+  isoWeekKey,
+  JOBS,
+  QUEUES,
+  scoreJobId,
+  SpiderProbePayload,
+  spiderJobId,
+  utcDateKey,
+} from '../jobs/jobs.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { serpVolatility } from '../rankings/serp-volatility';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
+import { SuggestItem } from '../store-providers/types';
 import { classifyBuckets } from './buckets';
 import { extractCandidates } from './extraction';
 import { toTrackedKeywordItem } from './keywords.mapper';
 import { mineReviewPhrases } from './review-mining';
 import { seasonalSuggestions } from './seasonal-suggestions';
+import { aggregateSpider, SPIDER_PROBES, spiderQuery } from './spider';
 
 const AUTO_TRACK_LIMIT = 15;
 const MAX_KEYWORD_WORDS = 5;
@@ -430,6 +442,72 @@ export class KeywordsService {
     return this.suggestFromMetadata(appId, trackedTexts, limit);
   }
 
+  async startSpider(appId: string, term: string): Promise<SpiderEnqueueResult> {
+    await this.ensureApp(appId);
+    const date = utcDateKey();
+    const day = spiderDay(date);
+
+    const existing = await this.prisma.suggestProbe.findMany({
+      where: { appId, term, day },
+      select: { probe: true },
+    });
+    const done = new Set(existing.map((row) => row.probe));
+
+    let enqueued = 0;
+    for (const probe of SPIDER_PROBES) {
+      if (done.has(probe)) {
+        continue;
+      }
+      await this.appStoreQueue.add(
+        JOBS.SPIDER_PROBE,
+        { appId, term, probe } satisfies SpiderProbePayload,
+        { jobId: spiderJobId(appId, term, probe, date) },
+      );
+      enqueued += 1;
+    }
+
+    return { enqueued };
+  }
+
+  async spiderStatus(appId: string, term: string): Promise<SpiderStatus> {
+    await this.ensureApp(appId);
+    const day = spiderDay(utcDateKey());
+
+    const [rows, trackedTexts] = await Promise.all([
+      this.prisma.suggestProbe.findMany({
+        where: { appId, term, day },
+        select: { probe: true, results: true },
+      }),
+      this.trackedTexts(appId),
+    ]);
+
+    return aggregateSpider(
+      term,
+      rows.map((row) => ({
+        probe: row.probe,
+        results: (row.results as unknown as SuggestItem[]) ?? [],
+      })),
+      trackedTexts,
+    );
+  }
+
+  async runSpiderProbe(payload: SpiderProbePayload): Promise<void> {
+    const { appId, term, probe } = payload;
+    const app = await this.ensureApp(appId);
+    const provider = this.registry.get(app.store);
+    const results = await provider.suggest(
+      spiderQuery(term, probe),
+      app.country,
+    );
+    const day = spiderDay(utcDateKey());
+
+    await this.prisma.suggestProbe.upsert({
+      where: { appId_term_day_probe: { appId, term, day, probe } },
+      create: { appId, term, day, probe, results: results },
+      update: { results: results },
+    });
+  }
+
   private async suggestFromReviews(
     appId: string,
     trackedTexts: Set<string>,
@@ -757,6 +835,10 @@ const GAP_PRIMARY_WORSE_THAN = 30;
 
 function positionKey(appId: string, keywordId: string): string {
   return `${appId}:${keywordId}`;
+}
+
+function spiderDay(date: string): Date {
+  return new Date(`${date}T00:00:00.000Z`);
 }
 
 function isGap(

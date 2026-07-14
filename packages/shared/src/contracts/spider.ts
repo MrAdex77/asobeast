@@ -1,3 +1,7 @@
+export interface SpiderEnqueueResult {
+  enqueued: number;
+}
+
 export interface SpiderSuggestion {
   text: string;
   priority: number | null;

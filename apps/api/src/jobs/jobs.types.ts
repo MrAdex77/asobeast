@@ -15,6 +15,7 @@ export const JOBS = {
   CHECK_KEYWORD: 'check-keyword',
   CHECK_CATEGORY: 'check-category',
   SCORE_KEYWORD: 'score-keyword',
+  SPIDER_PROBE: 'spider-probe',
   SYNC_REVIEWS: 'sync-reviews',
   DELIVER_ALERT: 'deliver-alert',
   DELIVER_EMAIL: 'deliver-email',
@@ -48,6 +49,12 @@ export interface ScoreKeywordPayload {
   keywordId: string;
 }
 
+export interface SpiderProbePayload {
+  appId: string;
+  term: string;
+  probe: string;
+}
+
 export interface SyncReviewsPayload {
   appId: string;
   pages: number;
@@ -73,6 +80,16 @@ export function isoWeekKey(date = new Date()): string {
 
 export function scoreJobId(keywordId: string, bucket: string): string {
   return `score:${keywordId}:${bucket}`;
+}
+
+export function spiderJobId(
+  appId: string,
+  term: string,
+  probe: string,
+  date: string,
+): string {
+  const slug = `${term}~${probe || '_'}~${date}`.replace(/:/g, '-');
+  return `spider:${appId}:${slug}`;
 }
 
 export function reviewsJobId(appId: string, date: string): string {
