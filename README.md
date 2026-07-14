@@ -123,6 +123,8 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 | `SMTP_PASSWORD` | — | SMTP password. |
 | `SMTP_FROM` | — | From address, e.g. `asobeast <alerts@example.com>`. Required to enable email alerts. |
 | `BULL_BOARD_ENABLED` | `true` | Serve the Bull Board queue dashboard at `/admin/queues`. |
+| `BULL_BOARD_USER` | — | Set together with `BULL_BOARD_PASSWORD` to protect `/admin/queues` with HTTP basic auth. |
+| `BULL_BOARD_PASSWORD` | — | Basic-auth password for `/admin/queues`; the guard activates only when both are set. |
 | `LOG_LEVEL` | `debug` | `error`, `warn`, `log`, `debug` or `verbose`. |
 
 Alerts fan out to two channels: **webhooks** (Slack, Discord, ntfy or any endpoint) and **email** (SMTP, enabled only when `SMTP_HOST` and `SMTP_FROM` are set). Both carry the same events and record every attempt in a delivery log, surfaced per channel on the settings page so failed deliveries are visible instead of silently retrying.
@@ -146,7 +148,7 @@ Because every market multiplies the daily search volume against the same `SCRAPE
 - **App Store only for now.** The schema, shared `Store` union and URL parser already know Google Play, but its provider is stubbed and returns HTTP 501.
 - **Scrapers can break.** asobeast reads public store endpoints; when Apple changes them a parser can fail. Parse failures fail the job (BullMQ retries with backoff) and never take down request handling.
 - **Informal rate limits.** The iTunes endpoints tolerate roughly 20 requests per minute per IP; asobeast stays well under that by design. Do not point many instances at the store from one IP.
-- **Bull Board has no auth.** The `/admin/queues` dashboard is unauthenticated — keep it off the public internet or set `BULL_BOARD_ENABLED=false`.
+- **Protect Bull Board before exposing it.** The `/admin/queues` dashboard is unauthenticated by default; set both `BULL_BOARD_USER` and `BULL_BOARD_PASSWORD` for HTTP basic auth, or `BULL_BOARD_ENABLED=false` to disable it. Even with auth, prefer keeping it off the public internet.
 - **No authentication or multi tenancy in v1.** Tenant owned rows carry a `workspaceId` and v1 uses a single seeded workspace.
 
 ## Roadmap
