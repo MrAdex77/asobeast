@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { EMAIL_ALERTS, PORTFOLIO } from "./fixtures.mts";
+import { EMAIL_ALERTS, HEALTH_DEGRADED, PORTFOLIO } from "./fixtures.mts";
 
 test("home renders the portfolio grid with totals and per-app cards", async ({ page }) => {
   await page.goto("/");
@@ -76,4 +76,21 @@ test("health badge reflects the mocked health endpoint", async ({ page }) => {
   await expect(badge).toBeVisible();
   await badge.hover();
   await expect(page.getByText("API healthy · database up")).toBeVisible();
+});
+
+test("health badge surfaces a degraded pipeline", async ({ page }) => {
+  await page.route("**/api/backend/health", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(HEALTH_DEGRADED),
+    }),
+  );
+
+  await page.goto("/");
+
+  const badge = page.getByRole("banner").getByText("degraded", { exact: true });
+  await expect(badge).toBeVisible();
+  await badge.hover();
+  await expect(page.getByText(/3 failed jobs — check \/admin\/queues/)).toBeVisible();
 });

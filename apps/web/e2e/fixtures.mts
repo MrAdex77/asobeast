@@ -43,7 +43,27 @@ function pointsFrom(positions: Array<number | null>): RankingPoint[] {
   }));
 }
 
-export const HEALTH: HealthStatus = { status: "ok", db: "up" };
+export const HEALTH: HealthStatus = {
+  status: "ok",
+  db: "up",
+  redis: "up",
+  pipeline: {
+    lastDailyRunAt: new Date().toISOString(),
+    stale: false,
+    failedJobs: 0,
+  },
+};
+
+export const HEALTH_DEGRADED: HealthStatus = {
+  status: "ok",
+  db: "up",
+  redis: "up",
+  pipeline: {
+    lastDailyRunAt: new Date(Date.now() - 32 * 60 * 60 * 1000).toISOString(),
+    stale: true,
+    failedJobs: 3,
+  },
+};
 
 export const APP_1_KEYWORDS: TrackedKeywordItem[] = [
   {
