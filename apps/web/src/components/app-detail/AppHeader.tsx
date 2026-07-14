@@ -37,7 +37,10 @@ export function AppHeader({ id }: { id: string }) {
             <h1 className="text-2xl font-semibold tracking-tight">{name}</h1>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Badge variant="secondary">{storeLabel(detail.store)}</Badge>
-              <Badge variant="outline" title={formatCountry(detail.country)}>
+              <Badge
+                variant="outline"
+                title={`Home storefront · ${formatCountry(detail.country)}`}
+              >
                 {detail.country.toUpperCase()}
               </Badge>
               <a

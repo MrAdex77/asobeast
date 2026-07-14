@@ -41,7 +41,7 @@ function PortfolioCard({ app }: { app: PortfolioApp }) {
               <Badge
                 variant="outline"
                 className="w-fit"
-                title={formatCountry(app.country)}
+                title={`Home storefront · ${formatCountry(app.country)}`}
               >
                 {app.country.toUpperCase()}
               </Badge>

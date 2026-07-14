@@ -152,7 +152,11 @@ export function ImportAppDialog({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="import-country">Storefront</Label>
+            <Label htmlFor="import-country">Home storefront</Label>
+            <p className="text-xs text-muted-foreground">
+              Where this app&apos;s metadata and category ranks are read. Add
+              other markets later from the keyword monitor.
+            </p>
             <Select value={selected} onValueChange={setSelected}>
               <SelectTrigger id="import-country" className="w-[200px]">
                 <SelectValue />
