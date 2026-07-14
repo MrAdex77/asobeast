@@ -9,6 +9,7 @@ import {
   getCompetitorDiscovery,
   getCompetitors,
   getHealth,
+  getKeywordCountries,
   getKeywords,
   getPortfolio,
   getRankDistributionHistory,
@@ -33,8 +34,10 @@ export const appKeys = {
   summary: (id: string) => [...appKeys.detail(id), "summary"] as const,
   keywordsRoot: (id: string) => [...appKeys.detail(id), "keywords"] as const,
   compareRoot: (id: string) => [...appKeys.detail(id), "compare"] as const,
-  keywords: (id: string, sort?: KeywordSort) =>
-    [...appKeys.detail(id), "keywords", { sort }] as const,
+  keywords: (id: string, sort?: KeywordSort, country?: string) =>
+    [...appKeys.detail(id), "keywords", { sort, country }] as const,
+  keywordCountries: (id: string) =>
+    [...appKeys.detail(id), "keyword-countries"] as const,
   suggestions: (id: string, strategy: KeywordSuggestionStrategy) =>
     [...appKeys.detail(id), "suggestions", strategy] as const,
   compare: (id: string, onlyGaps: boolean) =>
@@ -102,10 +105,20 @@ export const appSummaryOptions = (id: string) =>
     queryFn: () => getSummary(id),
   });
 
-export const keywordsOptions = (id: string, sort?: KeywordSort) =>
+export const keywordsOptions = (
+  id: string,
+  sort?: KeywordSort,
+  country?: string,
+) =>
   queryOptions({
-    queryKey: appKeys.keywords(id, sort),
-    queryFn: () => getKeywords(id, sort),
+    queryKey: appKeys.keywords(id, sort, country),
+    queryFn: () => getKeywords(id, sort, country),
+  });
+
+export const keywordCountriesOptions = (id: string) =>
+  queryOptions({
+    queryKey: appKeys.keywordCountries(id),
+    queryFn: () => getKeywordCountries(id),
   });
 
 export const suggestionsOptions = (
@@ -217,6 +230,7 @@ export function invalidateKeywordMutation(
   id: string,
 ): void {
   void client.invalidateQueries({ queryKey: appKeys.keywordsRoot(id) });
+  void client.invalidateQueries({ queryKey: appKeys.keywordCountries(id) });
   void client.invalidateQueries({ queryKey: appKeys.summary(id) });
   void client.invalidateQueries({ queryKey: appKeys.compareRoot(id) });
 }

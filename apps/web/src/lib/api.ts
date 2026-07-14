@@ -12,6 +12,7 @@ import type {
   CompetitorItem,
   DailyBudget,
   HealthStatus,
+  KeywordCountrySummary,
   KeywordComparison,
   KeywordFieldResult,
   KeywordSort,
@@ -99,18 +100,30 @@ export function deleteApp(id: string): Promise<void> {
 export function getKeywords(
   appId: string,
   sort?: KeywordSort,
+  country?: string,
 ): Promise<TrackedKeywordItem[]> {
-  const query = sort ? `?sort=${sort}` : "";
-  return apiFetch<TrackedKeywordItem[]>(`/apps/${appId}/keywords${query}`);
+  const params = new URLSearchParams();
+  if (sort) params.set("sort", sort);
+  if (country) params.set("country", country);
+  return apiFetch<TrackedKeywordItem[]>(
+    withQuery(`/apps/${appId}/keywords`, params),
+  );
+}
+
+export function getKeywordCountries(
+  appId: string,
+): Promise<KeywordCountrySummary[]> {
+  return apiFetch<KeywordCountrySummary[]>(`/apps/${appId}/keyword-countries`);
 }
 
 export function addKeywords(
   appId: string,
   keywords: string[],
+  country?: string,
 ): Promise<TrackedKeywordItem[]> {
   return apiFetch<TrackedKeywordItem[]>(`/apps/${appId}/keywords`, {
     method: "POST",
-    body: JSON.stringify({ keywords }),
+    body: JSON.stringify({ keywords, country }),
   });
 }
 
