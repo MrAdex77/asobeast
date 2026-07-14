@@ -50,6 +50,15 @@ export function isPaid(raw: unknown): boolean {
   return typeof value === 'number' && value > 0;
 }
 
+export function releaseNotes(raw: unknown): string | null {
+  const value = asRecord(raw)?.releaseNotes;
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export function extractAppStoreRawFacts(raw: unknown): RawAppFacts {
   const record = asRecord(raw);
   if (!record) {
