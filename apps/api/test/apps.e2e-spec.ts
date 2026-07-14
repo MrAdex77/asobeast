@@ -7,7 +7,7 @@ import { ApiErrorEnvelope, AppDetail } from '@asobeast/shared';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
-import { obliterateQueues } from './obliterate-queues';
+import { obliterateQueues, pauseQueues } from './obliterate-queues';
 import { DEFAULT_WORKSPACE_ID } from '../src/common/workspace';
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
@@ -91,6 +91,7 @@ describe('AppsController (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
+    await pauseQueues(app);
 
     prisma = app.get(PrismaService);
     await prisma.workspace.upsert({

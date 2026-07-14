@@ -193,7 +193,10 @@ describe('EmailAlertsController (e2e, smtp disabled)', () => {
     migrate();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(MailerService)
+      .useValue({ enabled: false, send: jest.fn() })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
