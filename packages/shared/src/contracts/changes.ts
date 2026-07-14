@@ -10,6 +10,7 @@ export const CHANGE_FIELDS = [
   'price',
   'screenshots',
   'icon',
+  'whatsNew',
 ] as const;
 export type ChangeField = (typeof CHANGE_FIELDS)[number];
 
