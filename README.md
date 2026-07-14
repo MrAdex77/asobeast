@@ -118,11 +118,11 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 
 ## Tracking multiple countries
 
-asobeast tracks any App Store storefront by country. The country comes from the store URL — `apps.apple.com/de/app/...` imports a `de` app — and the import dialog reflects it in a storefront selector you can override; a bare iTunes id or a URL without a country segment falls back to `DEFAULT_COUNTRY`. Codes are two lowercase letters (`us`, `gb`, `de`, …) validated by shape, so any live Apple storefront works without maintaining a country list.
+You import an app **once**. Its home storefront comes from the store URL — `apps.apple.com/de/app/...` imports a `de` home market — with an override in the import dialog; a bare iTunes id or a URL without a country segment falls back to `DEFAULT_COUNTRY`. The home storefront drives the app's metadata, category ranks and reviews.
 
-The same app in two countries is two independent rows with their own snapshots, keywords, rankings, category buckets and competitors; rankings differ per storefront, so a keyword tracked in `de` and `us` is checked by two searches. Competitors inherit their primary app's country.
+Keyword tracking is where markets live. On the keyword monitor you switch markets with a filter (each shows its keyword count), and add keywords into whichever market you choose — a market with none yet shows an empty state with an **Add keywords** button. The same phrase tracked in `us` and `pl` is two keyword rows checked by two searches, so rankings, difficulty and traffic are per storefront. Each keyword's ranking search serves your app and all its competitors in that market from a single request. Codes are two lowercase letters (`us`, `gb`, `de`, …) validated by shape, so any live Apple storefront works without maintaining a country list.
 
-Because every country multiplies the daily search volume against the same `SCRAPE_ITUNES_RPM` budget, the **settings page shows a daily request budget card** — estimated requests broken down by kind, your capacity, and a utilization meter — and the dashboard warns when the daily pipeline would exceed 85% of that capacity. When it does, remove keywords or countries, or raise `SCRAPE_ITUNES_RPM` at your own risk.
+Because every market multiplies the daily search volume against the same `SCRAPE_ITUNES_RPM` budget, the **settings page shows a daily request budget card** — estimated requests broken down by kind, your capacity, and a utilization meter — and the dashboard warns when the daily pipeline would exceed 85% of that capacity. When it does, remove keywords or markets, or raise `SCRAPE_ITUNES_RPM` at your own risk.
 
 ## Limitations
 
