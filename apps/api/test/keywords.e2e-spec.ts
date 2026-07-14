@@ -7,6 +7,8 @@ import {
   AppDetail,
   KeywordFieldResult,
   KeywordSuggestion,
+  SpiderEnqueueResult,
+  SpiderStatus,
   TrackedKeywordItem,
 } from '@asobeast/shared';
 import request from 'supertest';
@@ -14,6 +16,7 @@ import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { obliterateQueues, pauseQueues } from './obliterate-queues';
 import { DEFAULT_WORKSPACE_ID } from '../src/common/workspace';
+import { KeywordsService } from '../src/keywords/keywords.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { StoreProviderRegistry } from '../src/store-providers/store-provider.registry';
 import { NormalizedApp, StoreProvider } from '../src/store-providers/types';
@@ -341,6 +344,78 @@ describe('KeywordsController (e2e)', () => {
     const darkMode = suggestions.find((item) => item.text === 'dark mode');
     expect(darkMode?.strategy).toBe('reviews');
     expect(darkMode?.usedByCount).toBe(2);
+  });
+
+  it('enqueues spider probes and aggregates them progressively', async () => {
+    const id = await importApp();
+    const keywords = app.get(KeywordsService);
+
+    const started = await request(app.getHttpServer())
+      .post(`/apps/${id}/keywords/spider`)
+      .send({ term: 'Habit Tracker' })
+      .expect(202);
+    expect((started.body as SpiderEnqueueResult).enqueued).toBe(27);
+
+    const empty = await request(app.getHttpServer())
+      .get(`/apps/${id}/keywords/spider`)
+      .query({ term: 'habit tracker' })
+      .expect(200);
+    const emptyStatus = empty.body as SpiderStatus;
+    expect(emptyStatus.probesTotal).toBe(27);
+    expect(emptyStatus.probesDone).toBe(0);
+    expect(emptyStatus.complete).toBe(false);
+
+    await keywords.runSpiderProbe({
+      appId: id,
+      term: 'habit tracker',
+      probe: '',
+    });
+
+    const afterOne = await request(app.getHttpServer())
+      .get(`/apps/${id}/keywords/spider`)
+      .query({ term: 'habit tracker' })
+      .expect(200);
+    const oneStatus = afterOne.body as SpiderStatus;
+    expect(oneStatus.probesDone).toBe(1);
+    const productivity = oneStatus.suggestions.find(
+      (item) => item.text === 'productivity',
+    );
+    expect(productivity?.probes).toBe(1);
+    expect(oneStatus.suggestions.some((item) => item.text === 'habit')).toBe(
+      false,
+    );
+
+    await keywords.runSpiderProbe({
+      appId: id,
+      term: 'habit tracker',
+      probe: 'a',
+    });
+
+    const afterTwo = await request(app.getHttpServer())
+      .get(`/apps/${id}/keywords/spider`)
+      .query({ term: 'habit tracker' })
+      .expect(200);
+    const twoStatus = afterTwo.body as SpiderStatus;
+    expect(twoStatus.probesDone).toBe(2);
+    expect(
+      twoStatus.suggestions.find((item) => item.text === 'productivity')
+        ?.probes,
+    ).toBe(2);
+
+    const reStarted = await request(app.getHttpServer())
+      .post(`/apps/${id}/keywords/spider`)
+      .send({ term: 'habit tracker' })
+      .expect(202);
+    expect((reStarted.body as SpiderEnqueueResult).enqueued).toBe(25);
+  });
+
+  it('rejects a spider term shorter than two characters', async () => {
+    const id = await importApp();
+
+    await request(app.getHttpServer())
+      .post(`/apps/${id}/keywords/spider`)
+      .send({ term: 'a' })
+      .expect(400);
   });
 
   it('rejects empty and overly long keyword phrases', async () => {

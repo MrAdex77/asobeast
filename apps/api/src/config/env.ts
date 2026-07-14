@@ -44,6 +44,8 @@ export const EnvSchema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((value) => value === 'true'),
+  BULL_BOARD_USER: z.string().min(1).optional(),
+  BULL_BOARD_PASSWORD: z.string().min(1).optional(),
   LOG_LEVEL: z
     .enum(['error', 'warn', 'log', 'debug', 'verbose'])
     .default('debug'),

@@ -17,6 +17,7 @@ function makeSnapshot(
     price: 0,
     screenshotsCount: 5,
     iconUrl: 'https://cdn/icon-1.png',
+    releaseNotes: 'Initial release.',
     ...overrides,
   };
 }

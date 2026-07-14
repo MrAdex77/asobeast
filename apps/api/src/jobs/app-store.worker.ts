@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { AppsService } from '../apps/apps.service';
 import { CategoryRanksService } from '../category-ranks/category-ranks.service';
+import { KeywordsService } from '../keywords/keywords.service';
 import { RankingsService } from '../rankings/rankings.service';
 import { ReviewsService } from '../reviews/reviews.service';
 import { ScoringService } from '../scoring/scoring.service';
@@ -13,6 +14,7 @@ import {
   QUEUES,
   RefreshAppPayload,
   ScoreKeywordPayload,
+  SpiderProbePayload,
   SyncReviewsPayload,
 } from './jobs.types';
 
@@ -31,6 +33,7 @@ export class AppStoreWorker extends WorkerHost {
     private readonly scoring: ScoringService,
     private readonly categoryRanks: CategoryRanksService,
     private readonly reviews: ReviewsService,
+    private readonly keywords: KeywordsService,
   ) {
     super();
   }
@@ -73,6 +76,9 @@ export class AppStoreWorker extends WorkerHost {
         return;
       case JOBS.SYNC_REVIEWS:
         await this.reviews.syncReviews(job.data as SyncReviewsPayload);
+        return;
+      case JOBS.SPIDER_PROBE:
+        await this.keywords.runSpiderProbe(job.data as SpiderProbePayload);
         return;
       default:
         throw new Error(`Unknown job ${job.name}`);

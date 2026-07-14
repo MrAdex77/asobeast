@@ -25,6 +25,7 @@ import {
   getReviews,
   getSerp,
   getSerpMovers,
+  getSpiderStatus,
   getSuggestions,
   getSummary,
   getVisibilityHistory,
@@ -49,6 +50,8 @@ export const appKeys = {
     strategy: KeywordSuggestionStrategy,
     country?: string,
   ) => [...appKeys.detail(id), "suggestions", strategy, { country }] as const,
+  spider: (id: string, term: string) =>
+    [...appKeys.detail(id), "spider", { term }] as const,
   compare: (id: string, onlyGaps: boolean) =>
     [...appKeys.detail(id), "compare", { onlyGaps }] as const,
   rankings: (id: string, params: RankingParams) =>
@@ -150,6 +153,13 @@ export const suggestionsOptions = (
   queryOptions({
     queryKey: appKeys.suggestions(id, strategy, country),
     queryFn: () => getSuggestions(id, strategy, undefined, country),
+  });
+
+export const spiderOptions = (id: string, term: string) =>
+  queryOptions({
+    queryKey: appKeys.spider(id, term),
+    queryFn: () => getSpiderStatus(id, term),
+    refetchInterval: (query) => (query.state.data?.complete ? false : 3000),
   });
 
 export const comparisonOptions = (id: string, onlyGaps: boolean) =>

@@ -3,6 +3,7 @@ import {
   isPaid,
   primaryGenreId,
   primaryGenreName,
+  releaseNotes,
   screenshotsCount,
 } from './raw-facts';
 
@@ -89,6 +90,29 @@ describe('genre and price facts', () => {
       expect(primaryGenreId(garbage)).toBeNull();
       expect(primaryGenreName(garbage)).toBeNull();
       expect(isPaid(garbage)).toBe(false);
+    }
+  });
+});
+
+describe('releaseNotes', () => {
+  it('reads and trims the release notes from a real payload', () => {
+    expect(releaseNotes(realPayload)).toBe(
+      'Bug fixes and performance improvements.',
+    );
+    expect(releaseNotes({ releaseNotes: '  Whats new  ' })).toBe('Whats new');
+  });
+
+  it('returns null when absent, blank, or non-string', () => {
+    for (const garbage of [
+      null,
+      undefined,
+      42,
+      'nope',
+      {},
+      { releaseNotes: '   ' },
+      { releaseNotes: 123 },
+    ]) {
+      expect(releaseNotes(garbage)).toBeNull();
     }
   });
 });

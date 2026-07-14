@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
 
+const SUGGEST_PROBE_DAYS = 7;
+
 @Injectable()
 export class RetentionService {
   private readonly logger = new Logger(RetentionService.name);
@@ -21,6 +23,7 @@ export class RetentionService {
       ['changeEvent', () => this.pruneChangeEvents(now)],
       ['appSnapshot', () => this.pruneSnapshots(now)],
       ['alertDelivery', () => this.pruneDeliveries(now)],
+      ['suggestProbe', () => this.pruneSuggestProbes(now)],
     ];
 
     const settled = await Promise.allSettled(rules.map(([, run]) => run()));
@@ -109,6 +112,13 @@ export class RetentionService {
     }
     const { count } = await this.prisma.alertDelivery.deleteMany({
       where: { createdAt: { lt: this.cutoff(days, now) } },
+    });
+    return count;
+  }
+
+  private async pruneSuggestProbes(now: Date): Promise<number> {
+    const { count } = await this.prisma.suggestProbe.deleteMany({
+      where: { day: { lt: this.cutoff(SUGGEST_PROBE_DAYS, now) } },
     });
     return count;
   }

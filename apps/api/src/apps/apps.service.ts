@@ -20,7 +20,7 @@ import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { KeywordsService } from '../keywords/keywords.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreNotSupportedError } from '../store-providers/errors';
-import { screenshotsCount } from '../store-providers/raw-facts';
+import { releaseNotes, screenshotsCount } from '../store-providers/raw-facts';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
 import { NormalizedApp } from '../store-providers/types';
 import { JOBS, QUEUES, reviewsBackfillJobId } from '../jobs/jobs.types';
@@ -294,6 +294,7 @@ export class AppsService {
       price: snapshot.price,
       screenshotsCount: screenshotsCount(snapshot.raw),
       iconUrl,
+      releaseNotes: releaseNotes(snapshot.raw),
     };
   }
 

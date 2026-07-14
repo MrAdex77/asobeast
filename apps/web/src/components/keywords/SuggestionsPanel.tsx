@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, Loader2, Plus, RotateCw } from "lucide-react";
+import { Check, ChevronDown, Loader2, Plus, RotateCw, Search } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { toast } from "sonner";
 import type {
@@ -28,6 +28,7 @@ import {
 } from "@/lib/queries";
 import { sortParser, suggestionStrategyParser } from "@/lib/search-params";
 import { cn } from "@/lib/utils";
+import { SpiderDialog } from "./SpiderDialog";
 
 const STRATEGIES: {
   value: KeywordSuggestionStrategy;
@@ -147,9 +148,17 @@ export function SuggestionsPanel({
             </TabsList>
           </Tabs>
 
-          <p className="text-xs text-muted-foreground">
-            {STRATEGIES.find((item) => item.value === strategy)?.description}
-          </p>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-xs text-muted-foreground">
+              {STRATEGIES.find((item) => item.value === strategy)?.description}
+            </p>
+            <SpiderDialog appId={id} country={country}>
+              <Button variant="outline" size="sm">
+                <Search />
+                Deep search
+              </Button>
+            </SpiderDialog>
+          </div>
 
           {suggestions.isPending ? (
             <div className="flex flex-col gap-2">

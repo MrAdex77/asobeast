@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { Job, Queue } from 'bullmq';
 import { Env } from '../config/env';
 import { DigestService } from './digest.service';
-import { JOBS, QUEUES } from './jobs.types';
+import { JOBS, LAST_DAILY_RUN_KEY, QUEUES } from './jobs.types';
 import { PipelineService } from './pipeline.service';
 import { RetentionService } from './retention.service';
 
@@ -51,6 +51,8 @@ export class PipelineWorker extends WorkerHost implements OnModuleInit {
   async process(job: Job): Promise<void> {
     if (job.name === JOBS.DAILY) {
       await this.pipeline.fanOutDaily();
+      const client = await this.pipelineQueue.client;
+      await client.set(LAST_DAILY_RUN_KEY, new Date().toISOString());
       return;
     }
     if (job.name === JOBS.SCORING) {

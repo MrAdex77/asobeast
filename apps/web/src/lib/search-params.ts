@@ -43,6 +43,8 @@ export const suggestionStrategyParser = parseAsStringLiteral(
 
 export const serpParser = parseAsString.withDefault("");
 
+export const spiderTermParser = parseAsString.withDefault("");
+
 export const ratingsRangeParser =
   parseAsStringLiteral(RATINGS_RANGES).withDefault("30d");
 

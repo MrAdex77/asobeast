@@ -9,10 +9,12 @@ import { AnalyticsModule } from '../analytics/analytics.module';
 import { AppsModule } from '../apps/apps.module';
 import { CategoryRanksModule } from '../category-ranks/category-ranks.module';
 import { Env } from '../config/env';
+import { KeywordsModule } from '../keywords/keywords.module';
 import { RankingsModule } from '../rankings/rankings.module';
 import { ReviewsModule } from '../reviews/reviews.module';
 import { ScoringModule } from '../scoring/scoring.module';
 import { AppStoreWorker } from './app-store.worker';
+import { bullBoardAuthMiddleware } from './bull-board-auth';
 import { DigestService } from './digest.service';
 import { BudgetController, JobsController } from './jobs.controller';
 import { QUEUES } from './jobs.types';
@@ -28,6 +30,7 @@ const bullBoardModules: DynamicModule[] =
         BullBoardModule.forRoot({
           route: '/admin/queues',
           adapter: ExpressAdapter,
+          middleware: bullBoardAuthMiddleware,
         }),
         BullBoardModule.forFeature(
           { name: QUEUES.PIPELINE, adapter: BullMQAdapter },
@@ -61,6 +64,7 @@ const bullBoardModules: DynamicModule[] =
     AppsModule,
     RankingsModule,
     CategoryRanksModule,
+    KeywordsModule,
     ScoringModule,
     AlertsModule,
     AnalyticsModule,

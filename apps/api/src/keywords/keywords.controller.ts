@@ -16,12 +16,15 @@ import {
   KeywordCountrySummary,
   KeywordFieldResult,
   KeywordSuggestion,
+  SpiderEnqueueResult,
+  SpiderStatus,
   TrackedKeywordItem,
 } from '@asobeast/shared';
 import { AddKeywordsDto } from './dto/add-keywords.dto';
 import { CompareQueryDto } from './dto/compare-query.dto';
 import { KeywordFieldDto } from './dto/keyword-field.dto';
 import { ListKeywordsQueryDto } from './dto/list-keywords-query.dto';
+import { SpiderQueryDto, SpiderStartDto } from './dto/spider.dto';
 import { SuggestionsQueryDto } from './dto/suggestions-query.dto';
 import { UpdateKeywordDto } from './dto/update-keyword.dto';
 import { KeywordsService } from './keywords.service';
@@ -67,6 +70,25 @@ export class KeywordsController {
       query.limit,
       query.country,
     );
+  }
+
+  @Get('keywords/spider')
+  @ApiOperation({ summary: 'Aggregate suggest spider probes for a term' })
+  spiderStatus(
+    @Param('id') id: string,
+    @Query() query: SpiderQueryDto,
+  ): Promise<SpiderStatus> {
+    return this.keywords.spiderStatus(id, query.term);
+  }
+
+  @Post('keywords/spider')
+  @HttpCode(202)
+  @ApiOperation({ summary: 'Enqueue suggest spider probes for a term' })
+  startSpider(
+    @Param('id') id: string,
+    @Body() dto: SpiderStartDto,
+  ): Promise<SpiderEnqueueResult> {
+    return this.keywords.startSpider(id, dto.term);
   }
 
   @Post('keywords')

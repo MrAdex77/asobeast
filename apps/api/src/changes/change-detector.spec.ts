@@ -12,6 +12,7 @@ function makeSnapshot(
     price: 0,
     screenshotsCount: 5,
     iconUrl: 'https://cdn/icon-1.png',
+    releaseNotes: 'Initial release.',
     ...overrides,
   };
 }
@@ -83,6 +84,43 @@ describe('detectChanges', () => {
         after: 'https://cdn/icon-2.png',
       },
     ]);
+  });
+
+  it('stores whats new release notes on change', () => {
+    const prev = makeSnapshot({ releaseNotes: 'Old notes' });
+    const next = makeSnapshot({ releaseNotes: 'Fixed the crash on launch' });
+
+    expect(detectChanges(prev, next)).toEqual([
+      {
+        field: 'whatsNew',
+        before: 'Old notes',
+        after: 'Fixed the crash on launch',
+      },
+    ]);
+  });
+
+  it('ignores unchanged release notes', () => {
+    const prev = makeSnapshot({ releaseNotes: 'Same notes' });
+    const next = makeSnapshot({ releaseNotes: 'Same notes' });
+
+    expect(detectChanges(prev, next)).toEqual([]);
+  });
+
+  it('truncates long release notes to 300 chars with an ellipsis', () => {
+    const long = 'x'.repeat(400);
+    const prev = makeSnapshot({ releaseNotes: 'short' });
+    const next = makeSnapshot({ releaseNotes: long });
+
+    const [change] = detectChanges(prev, next);
+    expect(change.field).toBe('whatsNew');
+    expect(change.before).toBe('short');
+    expect(change.after).toBe(`${'x'.repeat(300)}…`);
+  });
+
+  it('does not emit whats new for the first snapshot', () => {
+    expect(
+      detectChanges(null, makeSnapshot({ releaseNotes: 'First' })),
+    ).toEqual([]);
   });
 
   it('represents a nullable field going from null to a value', () => {

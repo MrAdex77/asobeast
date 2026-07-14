@@ -49,6 +49,7 @@ model App {
   categoryRanks CategoryRank[]
   changeEvents ChangeEvent[]
   reviews      Review[]
+  suggestProbes SuggestProbe[]
   auditInput   AuditInput?
   createdAt    DateTime         @default(now())
 
@@ -244,4 +245,16 @@ model AlertDelivery {
   @@index([webhookId, createdAt])
   @@index([emailAlertId, createdAt])
   @@index([createdAt])
+}
+
+model SuggestProbe {
+  appId     String
+  app       App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  term      String
+  day       DateTime @db.Date
+  probe     String
+  results   Json
+  createdAt DateTime @default(now())
+
+  @@id([appId, term, day, probe])
 }
