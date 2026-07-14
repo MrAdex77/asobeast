@@ -29,6 +29,8 @@ import type {
   SerpMovers,
   SerpSnapshot,
   SnapshotDiffResult,
+  SpiderEnqueueResult,
+  SpiderStatus,
   TrackedKeywordItem,
   VisibilityHistory,
   AlertDeliveryItem,
@@ -161,6 +163,26 @@ export function getSuggestions(
   if (country) params.set("country", country);
   return apiFetch<KeywordSuggestion[]>(
     withQuery(`/apps/${appId}/keywords/suggestions`, params),
+  );
+}
+
+export function startSpider(
+  appId: string,
+  term: string,
+): Promise<SpiderEnqueueResult> {
+  return apiFetch<SpiderEnqueueResult>(`/apps/${appId}/keywords/spider`, {
+    method: "POST",
+    body: JSON.stringify({ term }),
+  });
+}
+
+export function getSpiderStatus(
+  appId: string,
+  term: string,
+): Promise<SpiderStatus> {
+  const params = new URLSearchParams({ term });
+  return apiFetch<SpiderStatus>(
+    withQuery(`/apps/${appId}/keywords/spider`, params),
   );
 }
 
