@@ -8,6 +8,7 @@ import { HealthController } from './health.controller';
     BullModule.registerQueue(
       { name: QUEUES.PIPELINE },
       { name: QUEUES.APP_STORE },
+      { name: QUEUES.GPLAY },
       { name: QUEUES.ALERTS },
     ),
   ],

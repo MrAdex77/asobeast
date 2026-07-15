@@ -3,6 +3,7 @@ import { AlertPayload, CategoryCollection, Store } from '@asobeast/shared';
 export const QUEUES = {
   PIPELINE: 'pipeline',
   APP_STORE: 'appstore',
+  GPLAY: 'gplay',
   ALERTS: 'alerts',
 } as const;
 

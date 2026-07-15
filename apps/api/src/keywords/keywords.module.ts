@@ -8,7 +8,10 @@ import { KeywordsService } from './keywords.service';
 @Module({
   imports: [
     StoreProvidersModule,
-    BullModule.registerQueue({ name: QUEUES.APP_STORE }),
+    BullModule.registerQueue(
+      { name: QUEUES.APP_STORE },
+      { name: QUEUES.GPLAY },
+    ),
   ],
   controllers: [KeywordsController],
   providers: [KeywordsService],

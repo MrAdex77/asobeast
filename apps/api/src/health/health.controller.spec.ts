@@ -11,6 +11,7 @@ interface Options {
   lastRun?: string | null;
   appCount?: number;
   appStoreFailed?: number;
+  gplayFailed?: number;
   alertsFailed?: number;
 }
 
@@ -21,6 +22,7 @@ function build(options: Options = {}) {
     lastRun = new Date().toISOString(),
     appCount = 1,
     appStoreFailed = 0,
+    gplayFailed = 0,
     alertsFailed = 0,
   } = options;
 
@@ -44,6 +46,9 @@ function build(options: Options = {}) {
   const appStoreQueue = {
     getFailedCount: jest.fn().mockResolvedValue(appStoreFailed),
   } as unknown as Queue;
+  const gplayQueue = {
+    getFailedCount: jest.fn().mockResolvedValue(gplayFailed),
+  } as unknown as Queue;
   const alertsQueue = {
     getFailedCount: jest.fn().mockResolvedValue(alertsFailed),
   } as unknown as Queue;
@@ -52,6 +57,7 @@ function build(options: Options = {}) {
     prisma,
     pipelineQueue,
     appStoreQueue,
+    gplayQueue,
     alertsQueue,
   );
 }
@@ -98,10 +104,14 @@ describe('HealthController', () => {
     expect(result.pipeline?.stale).toBe(false);
   });
 
-  it('sums failed jobs across the app store and alerts queues', async () => {
-    const result = await build({ appStoreFailed: 2, alertsFailed: 3 }).check();
+  it('sums failed jobs across the app store, gplay and alerts queues', async () => {
+    const result = await build({
+      appStoreFailed: 2,
+      gplayFailed: 4,
+      alertsFailed: 3,
+    }).check();
 
-    expect(result.pipeline?.failedJobs).toBe(5);
+    expect(result.pipeline?.failedJobs).toBe(9);
   });
 
   it('degrades to redis down and pipeline null when redis is unreachable', async () => {

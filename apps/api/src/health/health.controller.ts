@@ -26,6 +26,7 @@ export class HealthController {
     private readonly prisma: PrismaService,
     @InjectQueue(QUEUES.PIPELINE) private readonly pipelineQueue: Queue,
     @InjectQueue(QUEUES.APP_STORE) private readonly appStoreQueue: Queue,
+    @InjectQueue(QUEUES.GPLAY) private readonly gplayQueue: Queue,
     @InjectQueue(QUEUES.ALERTS) private readonly alertsQueue: Queue,
   ) {}
 
@@ -75,12 +76,14 @@ export class HealthController {
     const client = (await this.pipelineQueue.client) as unknown as RedisReader;
     await client.ping();
 
-    const [iso, appCount, appStoreFailed, alertsFailed] = await Promise.all([
-      client.get(LAST_DAILY_RUN_KEY),
-      this.prisma.app.count(),
-      this.appStoreQueue.getFailedCount(),
-      this.alertsQueue.getFailedCount(),
-    ]);
+    const [iso, appCount, appStoreFailed, gplayFailed, alertsFailed] =
+      await Promise.all([
+        client.get(LAST_DAILY_RUN_KEY),
+        this.prisma.app.count(),
+        this.appStoreQueue.getFailedCount(),
+        this.gplayQueue.getFailedCount(),
+        this.alertsQueue.getFailedCount(),
+      ]);
 
     const lastDailyRunAt = iso ?? null;
     return {
@@ -88,7 +91,7 @@ export class HealthController {
       pipeline: {
         lastDailyRunAt,
         stale: isStale(lastDailyRunAt, appCount),
-        failedJobs: appStoreFailed + alertsFailed,
+        failedJobs: appStoreFailed + gplayFailed + alertsFailed,
       },
     };
   }

@@ -21,6 +21,7 @@ export const EnvSchema = z.object({
   CRON_DAILY: z.string().min(1).default('0 3 * * *'),
   CRON_SCORING: z.string().min(1).default('0 4 * * 0'),
   SCRAPE_ITUNES_RPM: z.coerce.number().int().positive().default(15),
+  SCRAPE_GPLAY_RPM: z.coerce.number().int().positive().default(10),
   ALERT_RANK_DROP_THRESHOLD: z.coerce.number().int().positive().default(5),
   ALERT_REVIEW_SCORE_MAX: z.coerce.number().int().min(1).max(4).default(2),
   RETENTION_RANKINGS_DAYS: z.coerce.number().int().min(0).default(365),
