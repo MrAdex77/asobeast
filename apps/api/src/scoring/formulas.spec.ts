@@ -5,6 +5,8 @@ import {
   computeTraffic,
   defaultRelevance,
   freshnessScore,
+  gplaySuggestScore,
+  installsScore,
   KeywordStats,
   lengthScore,
   strengthScore,
@@ -15,6 +17,7 @@ import {
 } from './formulas';
 
 const genericKeyword: KeywordStats = {
+  store: 'APP_STORE',
   keywordText: 'games',
   top10: Array.from({ length: 10 }, (_, index) => ({
     title: `Best Games ${index}`,
@@ -27,6 +30,7 @@ const genericKeyword: KeywordStats = {
 };
 
 const longTailKeyword: KeywordStats = {
+  store: 'APP_STORE',
   keywordText: 'offline pixel dungeon crawler',
   top10: Array.from({ length: 10 }, (_, index) => ({
     title: `Random App ${index}`,
@@ -38,6 +42,7 @@ const longTailKeyword: KeywordStats = {
 };
 
 const midKeyword: KeywordStats = {
+  store: 'APP_STORE',
   keywordText: 'puzzle game',
   top10: [
     'Puzzle Game Deluxe',
@@ -94,6 +99,72 @@ describe('scoring formulas', () => {
     expect(computeTraffic(midKeyword)).toBeCloseTo(5.04, 2);
   });
 
+  describe('google play path', () => {
+    const playKeyword: KeywordStats = {
+      store: 'GOOGLE_PLAY',
+      keywordText: 'puzzle game',
+      top10: Array.from({ length: 10 }, (_, index) => ({
+        title: `Puzzle Game ${index}`,
+        ratingCount: 10_000,
+        ratingAvg: 4.4,
+        daysSinceUpdate: 45,
+        installs: 1_000_000,
+      })),
+      top30TitleMatchCount: 12,
+      suggest: { prefixHitLength: 1 },
+    };
+
+    const withInstalls = (
+      installs: Array<number | undefined>,
+    ): KeywordStats => ({
+      ...playKeyword,
+      top10: installs.map((value) => ({
+        title: 'Puzzle Game',
+        ...(value === undefined ? {} : { installs: value }),
+      })),
+    });
+
+    it('scores a full suggest hit at the first prefix character', () => {
+      expect(gplaySuggestScore(playKeyword)).toBeCloseTo(10, 2);
+    });
+
+    it('decays the suggest score as the hitting prefix gets longer', () => {
+      expect(
+        gplaySuggestScore({ ...playKeyword, suggest: { prefixHitLength: 7 } }),
+      ).toBeCloseTo(4.55, 2);
+    });
+
+    it('falls back to 1 when no prefix ever completes the term', () => {
+      expect(
+        gplaySuggestScore({
+          ...playKeyword,
+          suggest: { prefixHitLength: null },
+        }),
+      ).toBeCloseTo(1, 2);
+    });
+
+    it('scores installs on a 1k-to-1B log scale', () => {
+      expect(installsScore(withInstalls([]))).toBeCloseTo(0, 2);
+      expect(installsScore(withInstalls([1_000]))).toBeCloseTo(0, 2);
+      expect(installsScore(withInstalls([1_000_000]))).toBeCloseTo(5, 2);
+      expect(installsScore(withInstalls([1_000_000_000]))).toBeCloseTo(10, 2);
+    });
+
+    it('ignores top-10 entries with no installs figure', () => {
+      expect(
+        installsScore(withInstalls([1_000_000_000, undefined])),
+      ).toBeCloseTo(10, 2);
+    });
+
+    it('composes play traffic from suggest, installs, strength and length', () => {
+      expect(computeTraffic(playKeyword)).toBeCloseTo(7.61, 2);
+    });
+
+    it('composes play difficulty from the four enriched signals', () => {
+      expect(computeDifficulty(playKeyword)).toBeCloseTo(6.45, 2);
+    });
+  });
+
   describe('scale bridging', () => {
     it('maps traffic to a 0-100 volume', () => {
       expect(toVolume(8)).toBeCloseTo(80, 2);
@@ -143,6 +214,7 @@ describe('scoring formulas', () => {
 
   it('falls back to partial suggest priority when no exact match', () => {
     const stats: KeywordStats = {
+      store: 'APP_STORE',
       keywordText: 'race',
       top10: [],
       top30TitleMatchCount: 0,

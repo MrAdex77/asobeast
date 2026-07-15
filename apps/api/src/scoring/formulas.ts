@@ -1,4 +1,4 @@
-import { KeywordSource, tokenize } from '@asobeast/shared';
+import { KeywordSource, Store, tokenize } from '@asobeast/shared';
 
 export const clamp = (v: number, lo = 0, hi = 10): number =>
   Math.min(hi, Math.max(lo, v));
@@ -10,17 +10,20 @@ export const logScale = (v: number, min: number, max: number): number =>
   v <= 0 ? 0 : linear(Math.log10(v), Math.log10(min), Math.log10(max));
 
 export interface KeywordStats {
+  store: Store;
   keywordText: string;
   top10: Array<{
     title: string;
     ratingCount?: number;
     ratingAvg?: number;
     daysSinceUpdate?: number;
+    installs?: number;
   }>;
   top30TitleMatchCount: number;
   suggest: {
     priority?: number;
     partialPriority?: number;
+    prefixHitLength?: number | null;
   };
 }
 
@@ -34,6 +37,21 @@ export const WEIGHTS = {
   traffic: {
     suggest: 0.5,
     strength: 0.3,
+    length: 0.2,
+  },
+} as const;
+
+export const GPLAY_WEIGHTS = {
+  difficulty: {
+    titleMatch: 0.35,
+    strength: 0.3,
+    competitors: 0.2,
+    freshness: 0.15,
+  },
+  traffic: {
+    suggest: 0.4,
+    installs: 0.3,
+    strength: 0.1,
     length: 0.2,
   },
 } as const;
@@ -92,6 +110,21 @@ export const suggestScore = (stats: KeywordStats): number => {
   return 1;
 };
 
+export const installsScore = (stats: KeywordStats): number =>
+  logScale(
+    average(definedNumbers(stats.top10.map((item) => item.installs))),
+    1_000,
+    1_000_000_000,
+  );
+
+export const gplaySuggestScore = (stats: KeywordStats): number => {
+  const hit = stats.suggest.prefixHitLength;
+  if (typeof hit === 'number') {
+    return clamp(10 * (1 - (hit - 1) / stats.keywordText.length));
+  }
+  return 1;
+};
+
 export const lengthScore = (stats: KeywordStats): number => {
   const chars = stats.keywordText.length;
   if (chars <= 7) {
@@ -103,20 +136,34 @@ export const lengthScore = (stats: KeywordStats): number => {
   return 10 - ((chars - 7) / (25 - 7)) * (10 - 2);
 };
 
-export const computeDifficulty = (stats: KeywordStats): number =>
-  clamp(
-    WEIGHTS.difficulty.titleMatch * titleMatchScore(stats) +
-      WEIGHTS.difficulty.strength * strengthScore(stats) +
-      WEIGHTS.difficulty.competitors * competitorsScore(stats) +
-      WEIGHTS.difficulty.freshness * freshnessScore(stats),
+export const computeDifficulty = (stats: KeywordStats): number => {
+  const weights =
+    stats.store === 'GOOGLE_PLAY'
+      ? GPLAY_WEIGHTS.difficulty
+      : WEIGHTS.difficulty;
+  return clamp(
+    weights.titleMatch * titleMatchScore(stats) +
+      weights.strength * strengthScore(stats) +
+      weights.competitors * competitorsScore(stats) +
+      weights.freshness * freshnessScore(stats),
   );
+};
 
-export const computeTraffic = (stats: KeywordStats): number =>
-  clamp(
+export const computeTraffic = (stats: KeywordStats): number => {
+  if (stats.store === 'GOOGLE_PLAY') {
+    return clamp(
+      GPLAY_WEIGHTS.traffic.suggest * gplaySuggestScore(stats) +
+        GPLAY_WEIGHTS.traffic.installs * installsScore(stats) +
+        GPLAY_WEIGHTS.traffic.strength * strengthScore(stats) +
+        GPLAY_WEIGHTS.traffic.length * lengthScore(stats),
+    );
+  }
+  return clamp(
     WEIGHTS.traffic.suggest * suggestScore(stats) +
       WEIGHTS.traffic.strength * strengthScore(stats) +
       WEIGHTS.traffic.length * lengthScore(stats),
   );
+};
 
 const round1 = (v: number): number => Math.round(v * 10) / 10;
 

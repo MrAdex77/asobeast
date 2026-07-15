@@ -38,6 +38,45 @@ function buildPrisma() {
   } as unknown as PrismaService;
 }
 
+function buildApp(overrides: Record<string, unknown> = {}) {
+  return {
+    store: Store.GOOGLE_PLAY,
+    storeAppId: 'app0',
+    title: 'Puzzle Game',
+    description: '',
+    ratingCount: 5000,
+    ratingAvg: 4.3,
+    installs: 1_000_000n,
+    storeUpdatedAt: daysAgo(20),
+    raw: {},
+    ...overrides,
+  };
+}
+
+function buildGplayProvider(
+  overrides: { getApp?: jest.Mock; suggest?: jest.Mock } = {},
+) {
+  const search = jest.fn().mockResolvedValue(buildSearch());
+  const getApp = overrides.getApp ?? jest.fn().mockResolvedValue(buildApp());
+  const suggest = overrides.suggest ?? jest.fn().mockResolvedValue([]);
+  const registry = {
+    get: jest.fn().mockReturnValue({ search, getApp, suggest }),
+  } as unknown as StoreProviderRegistry;
+  return { registry, search, getApp, suggest };
+}
+
+function buildGplayPrisma() {
+  return {
+    keyword: {
+      findUnique: jest.fn().mockResolvedValue({
+        text: 'puzzle game',
+        store: Store.GOOGLE_PLAY,
+        country: 'us',
+      }),
+    },
+  } as unknown as PrismaService;
+}
+
 describe('StatsCollectorService', () => {
   it('assembles stats from two provider requests', async () => {
     const { registry, search, suggestFn } = buildProvider([
@@ -100,5 +139,66 @@ describe('StatsCollectorService', () => {
     const stats = await service.collect('kw1');
 
     expect(stats.suggest).toEqual({ partialPriority: 6000 });
+  });
+
+  it('enriches the google play top10 via sequential getApp', async () => {
+    const suggest = jest.fn().mockResolvedValue([{ term: 'puzzle game' }]);
+    const { registry, search, getApp } = buildGplayProvider({ suggest });
+    const service = new StatsCollectorService(buildGplayPrisma(), registry);
+
+    const stats = await service.collect('kw1');
+
+    expect(search).toHaveBeenCalledWith('puzzle game', 'us', 100);
+    expect(getApp).toHaveBeenCalledTimes(10);
+    expect(stats.store).toBe('GOOGLE_PLAY');
+    expect(stats.top10).toHaveLength(10);
+    expect(stats.top10[0]).toEqual({
+      title: 'Puzzle Game',
+      ratingCount: 5000,
+      ratingAvg: 4.3,
+      daysSinceUpdate: 20,
+      installs: 1_000_000,
+    });
+    expect(stats.top30TitleMatchCount).toBe(12);
+  });
+
+  it('drops a google play entry when its detail lookup fails', async () => {
+    const getApp = jest
+      .fn()
+      .mockResolvedValue(buildApp())
+      .mockRejectedValueOnce(new Error('detail failed'));
+    const { registry } = buildGplayProvider({ getApp });
+    const service = new StatsCollectorService(buildGplayPrisma(), registry);
+
+    const stats = await service.collect('kw1');
+
+    expect(getApp).toHaveBeenCalledTimes(10);
+    expect(stats.top10).toHaveLength(9);
+  });
+
+  it('stops prefix probing at the first suggest hit', async () => {
+    const suggest = jest
+      .fn()
+      .mockImplementation((prefix: string) =>
+        Promise.resolve(prefix.length >= 2 ? [{ term: 'puzzle game' }] : []),
+      );
+    const { registry } = buildGplayProvider({ suggest });
+    const service = new StatsCollectorService(buildGplayPrisma(), registry);
+
+    const stats = await service.collect('kw1');
+
+    expect(suggest).toHaveBeenCalledTimes(2);
+    expect(stats.suggest).toEqual({ prefixHitLength: 2 });
+  });
+
+  it('caps prefix probing at seven and reports no hit', async () => {
+    const suggest = jest.fn().mockResolvedValue([]);
+    const { registry } = buildGplayProvider({ suggest });
+    const service = new StatsCollectorService(buildGplayPrisma(), registry);
+
+    const stats = await service.collect('kw1');
+
+    expect(suggest).toHaveBeenCalledTimes(7);
+    expect(stats.suggest).toEqual({ prefixHitLength: null });
   });
 });
