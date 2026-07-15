@@ -33,7 +33,7 @@ export default async function KeywordsPage({
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <KeywordsWorkspace id={id} homeCountry={app.country} />
+      <KeywordsWorkspace id={id} homeCountry={app.country} store={app.store} />
     </HydrationBoundary>
   );
 }

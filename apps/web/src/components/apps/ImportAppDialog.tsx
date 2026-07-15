@@ -124,19 +124,19 @@ export function ImportAppDialog({ children }: { children: React.ReactNode }) {
         <DialogHeader>
           <DialogTitle>Import an app</DialogTitle>
           <DialogDescription>
-            Paste an App Store URL to import the app and start tracking its
-            keywords.
+            Paste an App Store or Google Play URL to import the app and start
+            tracking its keywords.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={submit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="import-url">App Store URL</Label>
+            <Label htmlFor="import-url">Store URL</Label>
             <Input
               id="import-url"
               value={url}
               onChange={(event) => onUrlChange(event.target.value)}
-              placeholder="https://apps.apple.com/us/app/name/id123456789"
+              placeholder="apps.apple.com/us/app/name/id123 or play.google.com/store/apps/details?id=com.name"
               autoFocus
               aria-invalid={error !== null}
             />

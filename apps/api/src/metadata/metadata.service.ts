@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Store } from '@prisma/client';
 import {
+  CoverageFieldStatus,
   KeywordCoverageRow,
   KeywordFieldSuggestion,
   lintDescription,
   lintKeywordField,
+  lintShortDescription,
   lintSubtitle,
   lintTitle,
   LintContext,
@@ -19,7 +21,6 @@ import {
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { KeywordsService } from '../keywords/keywords.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { StoreNotSupportedError } from '../store-providers/errors';
 
 const KEYWORD_FIELD_LIMIT = STORE_FIELD_LIMITS.APP_STORE.keywordField!.limit;
 
@@ -43,12 +44,17 @@ export class MetadataService {
   ) {}
 
   async audit(appId: string): Promise<MetadataAuditResult> {
-    const app = await this.ensureAppStoreApp(appId);
+    const app = await this.ensureApp(appId);
     const [snapshot, tracked, competitors] = await Promise.all([
       this.prisma.appSnapshot.findFirst({
         where: { appId },
         orderBy: { capturedAt: 'desc' },
-        select: { title: true, subtitle: true, description: true },
+        select: {
+          title: true,
+          subtitle: true,
+          summary: true,
+          description: true,
+        },
       }),
       this.keywords.listTracked(appId),
       this.prisma.app.findMany({
@@ -60,11 +66,8 @@ export class MetadataService {
     const active = tracked.filter((item) => item.active);
     const title = snapshot?.title ?? '';
     const subtitle = snapshot?.subtitle ?? '';
+    const summary = snapshot?.summary ?? '';
     const description = snapshot?.description ?? '';
-    const keywordFieldValue = active
-      .filter((item) => item.source === 'KEYWORD_FIELD')
-      .map((item) => item.text)
-      .join(',');
 
     const context: LintContext = {
       titleWords: tokenize(title),
@@ -76,13 +79,59 @@ export class MetadataService {
       trackedKeywords: active.map((item) => item.text),
     };
 
+    if (app.store === Store.GOOGLE_PLAY) {
+      const fields: MetadataFieldAudit[] = [
+        this.field(app.store, 'title', title, lintTitle(title, 30)),
+        this.field(
+          app.store,
+          'shortDescription',
+          summary,
+          lintShortDescription(summary, context, 80),
+        ),
+        this.field(
+          app.store,
+          'description',
+          description,
+          lintDescription(
+            description,
+            STORE_FIELD_LIMITS.GOOGLE_PLAY.description!.limit,
+          ),
+        ),
+      ];
+      const coverage = active.map((item) =>
+        this.coverageRow(item, [
+          { field: 'title', value: title },
+          { field: 'shortDescription', value: summary },
+          { field: 'description', value: description },
+        ]),
+      );
+      return {
+        appId,
+        store: app.store,
+        fields,
+        coverage,
+        keywordFieldSuggestion: null,
+      };
+    }
+
+    const keywordFieldValue = active
+      .filter((item) => item.source === 'KEYWORD_FIELD')
+      .map((item) => item.text)
+      .join(',');
+
     const fields: MetadataFieldAudit[] = [
-      this.field('title', title, lintTitle(title, 30)),
-      this.field('subtitle', subtitle, lintSubtitle(subtitle, context, 30)),
+      this.field(app.store, 'title', title, lintTitle(title, 30)),
+      this.field(
+        app.store,
+        'subtitle',
+        subtitle,
+        lintSubtitle(subtitle, context, 30),
+      ),
     ];
     if (keywordFieldValue.length > 0) {
       fields.push(
         this.field(
+          app.store,
           'keywordField',
           keywordFieldValue,
           lintKeywordField(keywordFieldValue, context, KEYWORD_FIELD_LIMIT),
@@ -91,6 +140,7 @@ export class MetadataService {
     }
     fields.push(
       this.field(
+        app.store,
         'description',
         description,
         lintDescription(
@@ -101,7 +151,11 @@ export class MetadataService {
     );
 
     const coverage = active.map((item) =>
-      this.coverageRow(item, title, subtitle, keywordFieldValue),
+      this.coverageRow(item, [
+        { field: 'title', value: title },
+        { field: 'subtitle', value: subtitle },
+        { field: 'keywordField', value: keywordFieldValue },
+      ]),
     );
 
     return {
@@ -114,11 +168,12 @@ export class MetadataService {
   }
 
   private field(
+    store: Store,
     field: MetadataField,
     value: string,
     issues: MetadataFieldAudit['issues'],
   ): MetadataFieldAudit {
-    const limit = STORE_FIELD_LIMITS.APP_STORE[field]!;
+    const limit = STORE_FIELD_LIMITS[store][field]!;
     return {
       field,
       value,
@@ -131,21 +186,18 @@ export class MetadataService {
 
   private coverageRow(
     item: TrackedKeywordItem,
-    title: string,
-    subtitle: string,
-    keywordField: string,
+    surfaces: Array<{ field: MetadataField; value: string }>,
   ): KeywordCoverageRow {
-    const inTitle = covers(title, item.text);
-    const inSubtitle = covers(subtitle, item.text);
-    const inKeywordField = covers(keywordField, item.text);
+    const fields: CoverageFieldStatus[] = surfaces.map((surface) => ({
+      field: surface.field,
+      covered: covers(surface.value, item.text),
+    }));
     return {
       keywordId: item.keywordId,
       text: item.text,
       bucket: item.bucket,
-      inTitle,
-      inSubtitle,
-      inKeywordField,
-      uncovered: !inTitle && !inSubtitle && !inKeywordField,
+      fields,
+      uncovered: fields.every((field) => !field.covered),
     };
   }
 
@@ -187,7 +239,7 @@ export class MetadataService {
     };
   }
 
-  private async ensureAppStoreApp(
+  private async ensureApp(
     appId: string,
   ): Promise<{ id: string; store: Store; name: string | null }> {
     const app = await this.prisma.app.findFirst({
@@ -196,9 +248,6 @@ export class MetadataService {
     });
     if (!app) {
       throw new NotFoundException(`App ${appId} not found`);
-    }
-    if (app.store !== Store.APP_STORE) {
-      throw new StoreNotSupportedError(app.store);
     }
     return app;
   }

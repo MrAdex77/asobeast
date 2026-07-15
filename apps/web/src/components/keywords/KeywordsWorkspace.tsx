@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { Plus } from "lucide-react";
 import { useQueryState } from "nuqs";
+import type { Store } from "@asobeast/shared";
 import { Button } from "@/components/ui/button";
 import { countryParser } from "@/lib/search-params";
 import { AddKeywordsDialog } from "./AddKeywordsDialog";
@@ -15,9 +16,11 @@ import { SuggestionsPanel } from "./SuggestionsPanel";
 export function KeywordsWorkspace({
   id,
   homeCountry,
+  store,
 }: {
   id: string;
   homeCountry: string;
+  store: Store;
 }) {
   const [country] = useQueryState("country", countryParser);
   const market = country || homeCountry;
@@ -45,11 +48,13 @@ export function KeywordsWorkspace({
         <KeywordsTable id={id} country={market} />
       </Suspense>
       <SuggestionsPanel id={id} country={market} />
-      <KeywordFieldEditor
-        id={id}
-        homeCountry={homeCountry}
-        activeMarket={market}
-      />
+      {store === "APP_STORE" ? (
+        <KeywordFieldEditor
+          id={id}
+          homeCountry={homeCountry}
+          activeMarket={market}
+        />
+      ) : null}
     </div>
   );
 }

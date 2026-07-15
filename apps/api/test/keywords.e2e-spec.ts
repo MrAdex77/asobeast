@@ -18,6 +18,7 @@ import { obliterateQueues, pauseQueues } from './obliterate-queues';
 import { DEFAULT_WORKSPACE_ID } from '../src/common/workspace';
 import { KeywordsService } from '../src/keywords/keywords.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { RankingsService } from '../src/rankings/rankings.service';
 import { StoreProviderRegistry } from '../src/store-providers/store-provider.registry';
 import { NormalizedApp, StoreProvider } from '../src/store-providers/types';
 
@@ -33,12 +34,23 @@ const FIXTURE: NormalizedApp = {
 
 const APP_STORE_URL = 'https://apps.apple.com/us/app/fixture/id1234567890';
 
+const PLAY_SERP = [
+  {
+    storeAppId: 'com.example.game',
+    title: 'Idle Tower Defense',
+    developer: 'Fixture Studio',
+    ratingAvg: 4.5,
+  },
+  { storeAppId: 'com.other.game', title: 'Rival Tower', developer: 'Rival' },
+];
+
 class FakeRegistry {
   get(store: Store): StoreProvider {
     return {
       store,
       getApp: () => Promise.resolve(FIXTURE),
-      search: () => Promise.resolve([]),
+      search: () =>
+        Promise.resolve(store === Store.GOOGLE_PLAY ? PLAY_SERP : []),
       suggest: () =>
         Promise.resolve([
           { term: 'productivity', priority: 6000 },
@@ -416,6 +428,44 @@ describe('KeywordsController (e2e)', () => {
       .post(`/apps/${id}/keywords/spider`)
       .send({ term: 'a' })
       .expect(400);
+  });
+
+  it('checks a tracked google play keyword and writes ranking and serp rows', async () => {
+    const you = await prisma.app.create({
+      data: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        store: Store.GOOGLE_PLAY,
+        storeAppId: 'com.example.game',
+        country: 'us',
+        name: 'Idle Tower Defense',
+      },
+    });
+    const keyword = await prisma.keyword.create({
+      data: { text: 'tower defense', store: Store.GOOGLE_PLAY, country: 'us' },
+    });
+    await prisma.trackedKeyword.create({
+      data: {
+        appId: you.id,
+        keywordId: keyword.id,
+        source: 'MANUAL',
+        active: true,
+      },
+    });
+
+    await app.get(RankingsService).checkKeyword(keyword.id);
+
+    const ranking = await prisma.keywordRanking.findFirst({
+      where: { appId: you.id, keywordId: keyword.id },
+    });
+    expect(ranking?.position).toBe(1);
+
+    const serp = await prisma.serpEntry.findMany({
+      where: { keywordId: keyword.id },
+      orderBy: { position: 'asc' },
+    });
+    expect(serp).toHaveLength(2);
+    expect(serp[0].storeAppId).toBe('com.example.game');
+    expect(serp[0].ratingCount).toBeNull();
   });
 
   it('rejects empty and overly long keyword phrases', async () => {

@@ -12,6 +12,7 @@ describe('KeywordsService.syncFromSnapshot', () => {
       prisma as PrismaService,
       undefined as unknown as StoreProviderRegistry,
       queue as unknown as Queue,
+      queue as unknown as Queue,
     );
 
   const buildPrisma = () => {
@@ -66,6 +67,25 @@ describe('KeywordsService.syncFromSnapshot', () => {
       expect(args.create.active).toBe(true);
       expect(args.update).toEqual({});
     }
+  });
+
+  it('tracks title and summary candidates for google play, not subtitle', async () => {
+    const prisma = buildPrisma();
+    prisma.app.findUnique.mockResolvedValue({
+      id: 'app1',
+      store: Store.GOOGLE_PLAY,
+      country: 'us',
+    });
+    const service = buildService(prisma, buildQueue());
+
+    await service.syncFromSnapshot('app1');
+
+    const trackedSources = prisma.trackedKeyword.upsert.mock.calls.map(
+      ([args]) => args.create.source,
+    );
+    expect(trackedSources).toContain('TITLE');
+    expect(trackedSources).toContain('DESCRIPTION');
+    expect(trackedSources).not.toContain('SUBTITLE');
   });
 
   it('caps auto tracked keywords at 15', async () => {

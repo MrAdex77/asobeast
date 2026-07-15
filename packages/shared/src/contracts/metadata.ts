@@ -11,13 +11,16 @@ export interface MetadataFieldAudit {
   issues: LintIssue[];
 }
 
+export interface CoverageFieldStatus {
+  field: MetadataField;
+  covered: boolean;
+}
+
 export interface KeywordCoverageRow {
   keywordId: string;
   text: string;
   bucket: KeywordBucket | null;
-  inTitle: boolean;
-  inSubtitle: boolean;
-  inKeywordField: boolean;
+  fields: CoverageFieldStatus[];
   uncovered: boolean;
 }
 
@@ -33,5 +36,5 @@ export interface MetadataAuditResult {
   store: Store;
   fields: MetadataFieldAudit[];
   coverage: KeywordCoverageRow[];
-  keywordFieldSuggestion: KeywordFieldSuggestion;
+  keywordFieldSuggestion: KeywordFieldSuggestion | null;
 }

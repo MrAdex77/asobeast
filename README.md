@@ -1,14 +1,14 @@
 # asobeast
 
-**Self hosted App Store Optimization (ASO) toolkit for indie iOS developers and small teams.** Point it at an App Store URL and asobeast imports the app, snapshots its metadata, extracts and tracks keywords, checks keyword rankings daily, and scores each keyword for traffic, difficulty and opportunity — all through a web UI backed by a documented API. Every store request runs on the machine that hosts asobeast, and your data never leaves your database. Track any App Store storefront by country. Google Play is architecturally prepared but stubbed for now.
+**Self hosted App Store Optimization (ASO) toolkit for indie developers and small teams.** Point it at an App Store or Google Play URL and asobeast imports the app, snapshots its metadata, extracts and tracks keywords, checks keyword rankings daily, and scores each keyword for traffic, difficulty and opportunity — all through a web UI backed by a documented API. Every store request runs on the machine that hosts asobeast, and your data never leaves your database. Track any storefront by country, on both the App Store and Google Play.
 
 ## Features
 
-- **Import from a store URL** — paste an App Store link, get the app, its icon and a first metadata snapshot.
+- **Import from a store URL** — paste an App Store or Google Play link, get the app, its icon and a first metadata snapshot.
 - **Metadata snapshots & diffs** — refresh an app to capture a new snapshot and see exactly what changed.
-- **Keyword tracking** — title and subtitle keywords are auto tracked; add your own, or paste the private 100 character iOS keyword field (it cannot be scraped).
-- **Daily rankings** — one store search per keyword serves the primary app and all its competitors; positions are 1 based, `null` when the app is not found within the checked depth.
-- **Keyword scoring** — traffic and difficulty persist per keyword; opportunity is computed per app from its current position. Scoring uses the Apple autocomplete "suggest" priority signal.
+- **Keyword tracking** — App Store apps auto track title and subtitle keywords; Google Play apps auto track title and short-description keywords. Add your own, or paste the private 100 character iOS keyword field (App Store only; it cannot be scraped).
+- **Daily rankings** — one store search per keyword serves the primary app and all its competitors; positions are 1 based, `null` when the app is not found within the checked depth. Per-market keyword tracking works on both stores.
+- **Keyword scoring** — traffic and difficulty persist per keyword; opportunity is computed per app from its current position. App Store scoring uses the Apple autocomplete "suggest" priority signal; Google Play scoring uses prefix-probed suggest plus an installs strength signal.
 - **Competitors** — track rival apps and compare keyword coverage with gap analysis.
 - **Analytics** — per app visibility score, a dashboard summary and a visibility history series.
 - **Web dashboard** — a Next.js App Router frontend covering every API capability:
@@ -38,7 +38,7 @@ Then open:
 - API docs — http://localhost:4000/docs
 - Health — http://localhost:4000/health
 
-`docker compose up` starts Postgres, Redis, the API (which runs database migrations and seeds the default workspace on boot) and the web app. Import an App Store app from the UI and its keywords start tracking immediately.
+`docker compose up` starts Postgres, Redis, the API (which runs database migrations and seeds the default workspace on boot) and the web app. Import an App Store or Google Play app from the UI and its keywords start tracking immediately.
 
 > Expose only the web app; it proxies the API. The browser talks to the web origin at `/api/backend/*`, which forwards to `API_INTERNAL_URL` (default `http://localhost:4000`, set to `http://api:4000` by `docker-compose.yml`). The web image is environment-agnostic — point it at any API address at runtime, no rebuild.
 
@@ -108,6 +108,7 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 | `CRON_DAILY` | `0 3 * * *` | Cron for the daily ranking pipeline (UTC). |
 | `CRON_SCORING` | `0 4 * * 0` | Cron for weekly keyword scoring (UTC, Sunday). |
 | `SCRAPE_ITUNES_RPM` | `15` | iTunes requests per minute; the App Store worker runs concurrency 1 behind this limiter. |
+| `SCRAPE_GPLAY_RPM` | `10` | Google Play job-starts per minute; the `gplay` worker runs concurrency 1 behind this limiter. A Play score job makes ≈15–18 requests (1 search + ≤7 suggests + 10 detail fetches) against ≈2 for Apple; self-hosters with hundreds of Play keywords should lower this or expect the weekly scoring window to stretch. |
 | `CRON_RETENTION` | `0 5 * * *` | Cron for the data retention pruning job (UTC). |
 | `CRON_DIGEST` | `0 8 * * 1` | Cron for the weekly digest webhook (UTC, Monday 08:00). |
 | `RETENTION_RANKINGS_DAYS` | `365` | Prune keyword rankings older than N days; `0` keeps forever. |
@@ -145,15 +146,14 @@ Because every market multiplies the daily search volume against the same `SCRAPE
 
 ## Limitations
 
-- **App Store only for now.** The schema, shared `Store` union and URL parser already know Google Play, but its provider is stubbed and returns HTTP 501.
-- **Scrapers can break.** asobeast reads public store endpoints; when Apple changes them a parser can fail. Parse failures fail the job (BullMQ retries with backoff) and never take down request handling.
-- **Informal rate limits.** The iTunes endpoints tolerate roughly 20 requests per minute per IP; asobeast stays well under that by design. Do not point many instances at the store from one IP.
+- **Per-store caveats.** Both stores are live, but their public data differs. Google Play's suggest endpoint carries no priority signal (asobeast prefix-probes it instead), Play search results carry no rating counts (so SERP rating columns stay empty for Play), and `released` dates are best-effort outside the `en` storefront. The iOS keyword field and subtitle are App Store concepts with no Play equivalent; Google Play's indexed 80-character short description takes their place.
+- **Scrapers can break.** asobeast reads public store endpoints; when Apple or Google change them a parser can fail. Parse failures fail the job (BullMQ retries with backoff) and never take down request handling.
+- **Informal rate limits.** The iTunes and Google Play endpoints tolerate only modest request rates per IP; asobeast stays well under that by design. Do not point many instances at the stores from one IP.
 - **Protect Bull Board before exposing it.** The `/admin/queues` dashboard is unauthenticated by default; set both `BULL_BOARD_USER` and `BULL_BOARD_PASSWORD` for HTTP basic auth, or `BULL_BOARD_ENABLED=false` to disable it. Even with auth, prefer keeping it off the public internet.
 - **No authentication or multi tenancy in v1.** Tenant owned rows carry a `workspaceId` and v1 uses a single seeded workspace.
 
 ## Roadmap
 
-- Google Play support (implement the stubbed provider, add a `gplay` worker and its rate limit).
 - More regions.
 - Alerts on rank drops and competitor metadata changes.
 - Authentication and real multi workspace tenancy for a hosted version.

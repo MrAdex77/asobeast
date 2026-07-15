@@ -10,10 +10,7 @@ import { AppModule } from '../src/app.module';
 import { obliterateQueues, pauseQueues } from './obliterate-queues';
 import { DEFAULT_WORKSPACE_ID } from '../src/common/workspace';
 import { PrismaService } from '../src/prisma/prisma.service';
-import {
-  StoreNotSupportedError,
-  StoreRequestError,
-} from '../src/store-providers/errors';
+import { StoreRequestError } from '../src/store-providers/errors';
 import { StoreProviderRegistry } from '../src/store-providers/store-provider.registry';
 import { NormalizedApp, StoreProvider } from '../src/store-providers/types';
 
@@ -34,6 +31,24 @@ const APP_STORE_FIXTURE: NormalizedApp = {
   raw: { source: 'fixture' },
 };
 
+const GOOGLE_PLAY_FIXTURE: NormalizedApp = {
+  store: Store.GOOGLE_PLAY,
+  storeAppId: 'com.example.app',
+  title: 'Play Fixture',
+  subtitle: undefined,
+  summary: 'Play fixture short description',
+  description: 'Play fixture description',
+  iconUrl: 'https://example.com/play-icon.png',
+  ratingAvg: 4.2,
+  ratingCount: 4321,
+  installs: 1000000n,
+  price: 0,
+  version: '2.0.0',
+  releasedAt: new Date('2021-06-01T00:00:00Z'),
+  storeUpdatedAt: new Date('2022-01-01T00:00:00Z'),
+  raw: { source: 'fixture', genreId: 'TOOLS', recentChanges: 'Bug fixes' },
+};
+
 const APP_STORE_URL = 'https://apps.apple.com/us/app/fixture/id1234567890';
 const GOOGLE_PLAY_URL =
   'https://play.google.com/store/apps/details?id=com.example.app';
@@ -44,9 +59,12 @@ class FakeStoreProviderRegistry {
 
   get(store: Store): StoreProvider {
     if (store === Store.GOOGLE_PLAY) {
-      return this.buildProvider(store, () =>
-        Promise.reject(new StoreNotSupportedError(store)),
-      );
+      return this.buildProvider(store, (storeAppId, country) => {
+        this.getAppCalls.push({ storeAppId, country });
+        return this.failWith
+          ? Promise.reject(this.failWith)
+          : Promise.resolve({ ...GOOGLE_PLAY_FIXTURE, storeAppId });
+      });
     }
     return this.buildProvider(Store.APP_STORE, (storeAppId, country) => {
       this.getAppCalls.push({ storeAppId, country });
@@ -243,17 +261,25 @@ describe('AppsController (e2e)', () => {
     );
   });
 
-  it('returns a 501 envelope for a Google Play url', async () => {
+  it('imports a Google Play app with summary and installs', async () => {
     const response = await request(app.getHttpServer())
       .post('/apps')
-      .send({ url: GOOGLE_PLAY_URL })
-      .expect(501);
-    const body = response.body as ApiErrorEnvelope;
+      .send({ url: `${GOOGLE_PLAY_URL}&gl=de` })
+      .expect(201);
+    const body = response.body as AppDetail;
 
-    expectEnvelope(body, 501, '/apps');
-    expect(body.message).toBe(
-      'Google Play support is planned; asobeast currently tracks App Store apps only',
-    );
+    expect(body.store).toBe('GOOGLE_PLAY');
+    expect(body.storeAppId).toBe('com.example.app');
+    expect(body.country).toBe('de');
+    expect(body.latestSnapshot?.title).toBe('Play Fixture');
+    expect(body.latestSnapshot?.summary).toBe('Play fixture short description');
+    expect(body.latestSnapshot?.installs).toBe(1000000);
+
+    expect(registry.getAppCalls).toContainEqual({
+      storeAppId: 'com.example.app',
+      country: 'de',
+    });
+    expect(await prisma.appSnapshot.count()).toBe(1);
   });
 
   it('returns a 400 envelope for an invalid url', async () => {

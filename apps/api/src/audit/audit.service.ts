@@ -9,7 +9,6 @@ import {
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { KeywordsService } from '../keywords/keywords.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { StoreNotSupportedError } from '../store-providers/errors';
 import { extractRawFacts } from '../store-providers/raw-facts';
 import { AuditContext, AuditKeyword } from './audit-checks';
 import { computeAudit } from './rubric';
@@ -32,7 +31,7 @@ export class AuditService {
     appId: string,
     answers: AuditInputAnswers,
   ): Promise<AppAuditResult> {
-    await this.ensureAppStoreApp(appId);
+    await this.ensureApp(appId);
     const payload = answers as Prisma.InputJsonValue;
     await this.prisma.auditInput.upsert({
       where: { appId },
@@ -42,7 +41,7 @@ export class AuditService {
     return this.audit(appId);
   }
 
-  private async ensureAppStoreApp(
+  private async ensureApp(
     appId: string,
   ): Promise<{ id: string; store: Store; name: string | null }> {
     const app = await this.prisma.app.findFirst({
@@ -52,14 +51,11 @@ export class AuditService {
     if (!app) {
       throw new NotFoundException(`App ${appId} not found`);
     }
-    if (app.store !== Store.APP_STORE) {
-      throw new StoreNotSupportedError(app.store);
-    }
     return app;
   }
 
   private async buildContext(appId: string): Promise<AuditContext> {
-    const app = await this.ensureAppStoreApp(appId);
+    const app = await this.ensureApp(appId);
     const cutoff = new Date(Date.now() - TREND_WINDOW_DAYS * DAY_MS);
 
     const [latest, prior, tracked, comparison, competitors, inputRow] =

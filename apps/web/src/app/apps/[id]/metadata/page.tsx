@@ -1,9 +1,27 @@
 import { notFound } from "next/navigation";
-import type { KeywordCoverageRow } from "@asobeast/shared";
+import type { KeywordCoverageRow, MetadataField } from "@asobeast/shared";
 import { BucketBadge } from "@/components/BucketBadge";
 import { KeywordFieldSuggestionCard } from "@/components/KeywordFieldSuggestionCard";
 import { MetadataFieldCard } from "@/components/MetadataFieldCard";
 import { ApiError, getMetadataAudit } from "@/lib/api";
+
+const FIELD_ORDER: MetadataField[] = [
+  "title",
+  "subtitle",
+  "shortDescription",
+  "keywordField",
+  "description",
+];
+
+const FIELD_LABELS: Record<MetadataField, string> = {
+  title: "Title",
+  subtitle: "Subtitle",
+  keywordField: "Keyword field",
+  description: "Description",
+  promotionalText: "Promotional text",
+  whatsNew: "What's New",
+  shortDescription: "Short description",
+};
 
 function Tick({ on }: { on: boolean }) {
   return on ? (
@@ -14,47 +32,57 @@ function Tick({ on }: { on: boolean }) {
 }
 
 function CoverageTable({ rows }: { rows: KeywordCoverageRow[] }) {
+  const present = new Set(
+    rows.flatMap((row) => row.fields.map((field) => field.field)),
+  );
+  const columns = FIELD_ORDER.filter((field) => present.has(field));
+
   return (
     <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
       <table className="w-full text-left text-sm">
         <caption className="sr-only">
-          Keyword coverage across title, subtitle and keyword field, with
-          uncovered keywords highlighted.
+          Keyword coverage across {columns.map((c) => FIELD_LABELS[c]).join(", ")}
+          , with uncovered keywords highlighted.
         </caption>
         <thead className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
           <tr>
             <th className="px-4 py-3 font-medium">Keyword</th>
             <th className="px-4 py-3 font-medium">Bucket</th>
-            <th className="px-4 py-3 font-medium">Title</th>
-            <th className="px-4 py-3 font-medium">Subtitle</th>
-            <th className="px-4 py-3 font-medium">Keyword field</th>
+            {columns.map((column) => (
+              <th key={column} className="px-4 py-3 font-medium">
+                {FIELD_LABELS[column]}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-          {rows.map((row) => (
-            <tr
-              key={row.keywordId}
-              className={
-                row.uncovered ? "bg-amber-50/60 dark:bg-amber-950/20" : undefined
-              }
-            >
-              <td className="px-4 py-3 text-zinc-900 dark:text-zinc-100">
-                {row.text}
-              </td>
-              <td className="px-4 py-3">
-                <BucketBadge bucket={row.bucket} />
-              </td>
-              <td className="px-4 py-3">
-                <Tick on={row.inTitle} />
-              </td>
-              <td className="px-4 py-3">
-                <Tick on={row.inSubtitle} />
-              </td>
-              <td className="px-4 py-3">
-                <Tick on={row.inKeywordField} />
-              </td>
-            </tr>
-          ))}
+          {rows.map((row) => {
+            const covered = new Map(
+              row.fields.map((field) => [field.field, field.covered]),
+            );
+            return (
+              <tr
+                key={row.keywordId}
+                className={
+                  row.uncovered
+                    ? "bg-amber-50/60 dark:bg-amber-950/20"
+                    : undefined
+                }
+              >
+                <td className="px-4 py-3 text-zinc-900 dark:text-zinc-100">
+                  {row.text}
+                </td>
+                <td className="px-4 py-3">
+                  <BucketBadge bucket={row.bucket} />
+                </td>
+                {columns.map((column) => (
+                  <td key={column} className="px-4 py-3">
+                    <Tick on={covered.get(column) ?? false} />
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -87,6 +115,7 @@ export default async function MetadataPage({
             key={field.field}
             field={field.field}
             value={field.value ?? ""}
+            limit={field.limit}
             issues={field.issues}
           />
         ))}
@@ -103,10 +132,14 @@ export default async function MetadataPage({
         )}
       </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">Suggestion</h2>
-        <KeywordFieldSuggestionCard suggestion={result.keywordFieldSuggestion} />
-      </section>
+      {result.store === "APP_STORE" && result.keywordFieldSuggestion !== null ? (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-lg font-medium">Suggestion</h2>
+          <KeywordFieldSuggestionCard
+            suggestion={result.keywordFieldSuggestion}
+          />
+        </section>
+      ) : null}
     </div>
   );
 }
