@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   lintDescription,
   lintKeywordField,
+  lintShortDescription,
   lintSubtitle,
   lintTitle,
   LintIssue,
@@ -51,6 +52,47 @@ describe('lintSubtitle', () => {
     expect(rules(lintSubtitle('Daily Streak Counter', ctx))).not.toContain(
       'repeats-title-word',
     );
+  });
+});
+
+describe('lintShortDescription', () => {
+  const ctx = {
+    titleWords: ['habit', 'tracker'],
+    trackedKeywords: ['daily streaks', 'water'],
+  };
+
+  it('returns no issues for an empty short description', () => {
+    expect(lintShortDescription('')).toEqual([]);
+  });
+
+  it('flags over-limit', () => {
+    expect(rules(lintShortDescription('a'.repeat(81)))).toContain('over-limit');
+  });
+
+  it('flags repeats-title-word', () => {
+    expect(
+      rules(lintShortDescription('Build a habit today with daily streaks', ctx)),
+    ).toContain('repeats-title-word');
+  });
+
+  it('flags no-tracked-keyword when none appear', () => {
+    expect(
+      rules(lintShortDescription('Reach your goals every single morning', ctx)),
+    ).toContain('no-tracked-keyword');
+    expect(
+      rules(lintShortDescription('Build daily streaks and log water', ctx)),
+    ).not.toContain('no-tracked-keyword');
+  });
+
+  it('is healthy when well utilized with a tracked keyword and no title repeat', () => {
+    expect(
+      rules(
+        lintShortDescription(
+          'Log water and build daily streaks to reach your goals faster now',
+          ctx,
+        ),
+      ),
+    ).toEqual([]);
   });
 });
 

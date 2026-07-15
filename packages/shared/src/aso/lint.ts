@@ -1,4 +1,4 @@
-import { isStopword, tokenize } from '../text';
+import { isStopword, normalizeText, tokenize } from '../text';
 import { countChars } from './limits';
 
 export type LintSeverity = 'error' | 'warn' | 'info';
@@ -136,6 +136,37 @@ export function lintSubtitle(
     ),
     ...keywordStuffing(subtitle),
   ];
+}
+
+export function lintShortDescription(
+  text: string,
+  context: LintContext = {},
+  limit = 80,
+): LintIssue[] {
+  const issues: LintIssue[] = [
+    ...overLimit(text, limit),
+    ...underUtilized(text, limit),
+    ...repeats(text, toSet(context.titleWords), 'repeats-title-word', 'title'),
+    ...keywordStuffing(text),
+  ];
+
+  const tracked = context.trackedKeywords ?? [];
+  if (text.trim().length > 0 && tracked.length > 0) {
+    const haystack = ` ${normalizeText(text)} `;
+    const covers = tracked.some((keyword) => {
+      const normalized = normalizeText(keyword);
+      return normalized.length > 0 && haystack.includes(` ${normalized} `);
+    });
+    if (!covers) {
+      issues.push({
+        rule: 'no-tracked-keyword',
+        severity: 'warn',
+        message: 'No tracked keyword appears in the short description.',
+      });
+    }
+  }
+
+  return issues;
 }
 
 export function lintKeywordField(
