@@ -1,10 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import {
-  OVERALL_GENRE_ID,
-  type CategoryRankSeriesItem,
-} from "@asobeast/shared";
+import { OVERALL_GENRE, type CategoryRankSeriesItem } from "@asobeast/shared";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useQueryState } from "nuqs";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
@@ -40,7 +37,7 @@ interface CategoryChartData {
 }
 
 function seriesKey(item: CategoryRankSeriesItem): string {
-  return `${item.collection}_${item.genreId}`;
+  return `${item.collection}_${item.genre}`;
 }
 
 function buildCategoryChart(series: CategoryRankSeriesItem[]): CategoryChartData {
@@ -73,7 +70,7 @@ function buildCategoryChart(series: CategoryRankSeriesItem[]): CategoryChartData
 function primaryGenreItem(
   series: CategoryRankSeriesItem[],
 ): CategoryRankSeriesItem | undefined {
-  return series.find((item) => item.genreId !== OVERALL_GENRE_ID);
+  return series.find((item) => item.genre !== OVERALL_GENRE);
 }
 
 function CategoryTooltip({
