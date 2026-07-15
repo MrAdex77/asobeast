@@ -2,6 +2,7 @@ import type {
   ApiErrorEnvelope,
   AppAuditResult,
   AppDetail,
+  AppGroupSummary,
   AppListItem,
   AppSummary,
   AuditInputAnswers,
@@ -100,6 +101,17 @@ export function importApp(url: string, country?: string): Promise<AppDetail> {
 
 export function deleteApp(id: string): Promise<void> {
   return apiFetch<void>(`/apps/${id}`, { method: "DELETE" });
+}
+
+export function linkApp(id: string, appId: string): Promise<AppGroupSummary> {
+  return apiFetch<AppGroupSummary>(`/apps/${id}/link`, {
+    method: "POST",
+    body: JSON.stringify({ appId }),
+  });
+}
+
+export function unlinkApp(id: string): Promise<void> {
+  return apiFetch<void>(`/apps/${id}/link`, { method: "DELETE" });
 }
 
 export function getKeywords(

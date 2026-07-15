@@ -14,6 +14,7 @@ import {
   formatRating,
   storeLabel,
 } from "@/lib/format";
+import { AppLink } from "./AppLink";
 import { RefreshAction } from "./RefreshAction";
 import { RunDailyAction } from "./RunDailyAction";
 
@@ -57,7 +58,8 @@ export function AppHeader({ id }: { id: string }) {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <AppLink detail={detail} />
           <RefreshAction appId={detail.id} />
           <RunDailyAction appId={detail.id} />
         </div>
