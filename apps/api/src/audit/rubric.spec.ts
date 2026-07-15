@@ -2,6 +2,7 @@ import { AUDIT_WEIGHTS, computeAudit } from './rubric';
 import {
   AuditContext,
   AuditKeyword,
+  previewVideoChecks,
   ratingChecks,
   titleChecks,
 } from './audit-checks';
@@ -13,6 +14,9 @@ const emptyFacts = {
   releaseNotes: null,
   languages: [],
   contentRating: null,
+  genreKey: null,
+  genreName: null,
+  hasVideo: null,
 };
 
 const NOW = new Date('2026-07-09T00:00:00.000Z');
@@ -215,5 +219,36 @@ describe('factor bands', () => {
     expect(scoreFor(4.2)).toBeGreaterThanOrEqual(5);
     expect(scoreFor(4.2)).toBeLessThanOrEqual(8);
     expect(scoreFor(3.5)).toBeLessThanOrEqual(4);
+  });
+
+  const previewExists = (context: AuditContext) =>
+    previewVideoChecks(context).find((c) => c.id === 'preview-video-exists');
+
+  it('scores the preview video from data when hasVideo is known', () => {
+    const present = previewExists(
+      withContext({ rawFacts: { ...emptyFacts, hasVideo: true } }),
+    );
+    const absent = previewExists(
+      withContext({ rawFacts: { ...emptyFacts, hasVideo: false } }),
+    );
+    expect(present?.kind).toBe('auto');
+    expect(present?.score).toBe(10);
+    expect(absent?.kind).toBe('auto');
+    expect(absent?.score).toBe(0);
+  });
+
+  it('falls back to the manual answer when hasVideo is null', () => {
+    const answered = previewExists(
+      withContext({
+        rawFacts: { ...emptyFacts, hasVideo: null },
+        answers: { previewVideoExists: true },
+      }),
+    );
+    const unanswered = previewExists(
+      withContext({ rawFacts: { ...emptyFacts, hasVideo: null } }),
+    );
+    expect(answered?.kind).toBe('manual');
+    expect(answered?.score).toBe(10);
+    expect(unanswered?.score).toBeNull();
   });
 });

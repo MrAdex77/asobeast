@@ -256,7 +256,7 @@ export const APP_1_CATEGORY_RANKS: CategoryRankSeries = {
   series: [
     {
       collection: "free",
-      genreId: 0,
+      genre: "overall",
       genreName: "Productivity",
       current: 42,
       points: Array.from({ length: 30 }, (_, index) => ({

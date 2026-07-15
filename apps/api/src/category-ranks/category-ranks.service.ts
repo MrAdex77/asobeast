@@ -3,14 +3,14 @@ import {
   CategoryCollection,
   CategoryRankSeries,
   CategoryRankSeriesItem,
-  OVERALL_GENRE_ID,
+  OVERALL_GENRE,
 } from '@asobeast/shared';
 import { Store } from '@prisma/client';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   isPaid,
-  primaryGenreId,
+  primaryGenreKey,
   primaryGenreName,
 } from '../store-providers/raw-facts';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
@@ -24,16 +24,18 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface CategoryBucket {
   collection: CategoryCollection;
-  genreId: number;
+  genre: string;
   country: string;
+  store: Store;
 }
 
 interface AppBucketRow {
   id: string;
   storeAppId: string;
   country: string;
+  store: Store;
   collection: CategoryCollection;
-  genreId: number;
+  genre: string;
 }
 
 function utcToday(): Date {
@@ -59,16 +61,17 @@ export class CategoryRanksService {
     const seen = new Set<string>();
     const buckets: CategoryBucket[] = [];
     for (const row of rows) {
-      for (const genreId of [row.genreId, OVERALL_GENRE_ID]) {
-        const key = `${row.collection}:${genreId}:${row.country}`;
+      for (const genre of [row.genre, OVERALL_GENRE]) {
+        const key = `${row.store}:${row.collection}:${genre}:${row.country}`;
         if (seen.has(key)) {
           continue;
         }
         seen.add(key);
         buckets.push({
           collection: row.collection,
-          genreId,
+          genre,
           country: row.country,
+          store: row.store,
         });
       }
     }
@@ -76,10 +79,10 @@ export class CategoryRanksService {
   }
 
   async checkCategory(payload: CheckCategoryPayload): Promise<void> {
-    const { collection, genreId, country } = payload;
+    const { collection, genre, country, store } = payload;
     const items = await this.registry
-      .get(Store.APP_STORE)
-      .topCharts(collection, genreId, CHART_DEPTH, country);
+      .get(store)
+      .topCharts(collection, genre, CHART_DEPTH, country);
 
     const positionByStoreAppId = new Map<string, number>();
     items.forEach((item, index) => {
@@ -90,32 +93,32 @@ export class CategoryRanksService {
 
     const rows = await this.loadAppBuckets({
       workspaceId: DEFAULT_WORKSPACE_ID,
-      store: Store.APP_STORE,
+      store,
       country,
     });
     const date = utcToday();
     for (const row of rows) {
       const matches =
         row.collection === collection &&
-        (genreId === OVERALL_GENRE_ID || row.genreId === genreId);
+        (genre === OVERALL_GENRE || row.genre === genre);
       if (!matches) {
         continue;
       }
       const position = positionByStoreAppId.get(row.storeAppId) ?? null;
       await this.prisma.categoryRank.upsert({
         where: {
-          appId_date_collection_genreId: {
+          appId_date_collection_genre: {
             appId: row.id,
             date,
             collection,
-            genreId,
+            genre,
           },
         },
         create: {
           appId: row.id,
           date,
           collection,
-          genreId,
+          genre,
           position,
           depth: CHART_DEPTH,
         },
@@ -132,6 +135,7 @@ export class CategoryRanksService {
       where: { id: appId, workspaceId: DEFAULT_WORKSPACE_ID },
       select: {
         id: true,
+        store: true,
         snapshots: {
           orderBy: { capturedAt: 'desc' },
           take: 1,
@@ -152,23 +156,21 @@ export class CategoryRanksService {
 
     const ranks = await this.prisma.categoryRank.findMany({
       where: { appId, date: { gte: from, lte: to } },
-      orderBy: [{ collection: 'asc' }, { genreId: 'asc' }, { date: 'asc' }],
-      select: { collection: true, genreId: true, date: true, position: true },
+      orderBy: [{ collection: 'asc' }, { genre: 'asc' }, { date: 'asc' }],
+      select: { collection: true, genre: true, date: true, position: true },
     });
 
-    const genreName = primaryGenreName(app.snapshots[0]?.raw);
+    const genreName = primaryGenreName(app.store, app.snapshots[0]?.raw);
     const groups = new Map<string, CategoryRankSeriesItem>();
     for (const rank of ranks) {
-      const key = `${rank.collection}:${rank.genreId}`;
+      const key = `${rank.collection}:${rank.genre}`;
       let item = groups.get(key);
       if (!item) {
         item = {
           collection: rank.collection as CategoryCollection,
-          genreId: rank.genreId,
+          genre: rank.genre,
           genreName:
-            rank.genreId === OVERALL_GENRE_ID
-              ? 'Overall'
-              : (genreName ?? 'Unknown'),
+            rank.genre === OVERALL_GENRE ? 'Overall' : (genreName ?? 'Unknown'),
           current: null,
           points: [],
         };
@@ -190,6 +192,7 @@ export class CategoryRanksService {
         id: true,
         storeAppId: true,
         country: true,
+        store: true,
         snapshots: {
           orderBy: { capturedAt: 'desc' },
           take: 1,
@@ -204,16 +207,17 @@ export class CategoryRanksService {
       if (!snapshot) {
         continue;
       }
-      const genreId = primaryGenreId(snapshot.raw);
-      if (genreId === null) {
+      const genre = primaryGenreKey(app.store, snapshot.raw);
+      if (genre === null) {
         continue;
       }
       rows.push({
         id: app.id,
         storeAppId: app.storeAppId,
         country: app.country,
+        store: app.store,
         collection: isPaid(snapshot.raw) ? 'paid' : 'free',
-        genreId,
+        genre,
       });
     }
     return rows;

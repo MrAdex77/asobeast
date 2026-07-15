@@ -10,7 +10,7 @@ import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { KeywordsService } from '../keywords/keywords.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreNotSupportedError } from '../store-providers/errors';
-import { extractAppStoreRawFacts } from '../store-providers/raw-facts';
+import { extractRawFacts } from '../store-providers/raw-facts';
 import { AuditContext, AuditKeyword } from './audit-checks';
 import { computeAudit } from './rubric';
 
@@ -101,7 +101,7 @@ export class AuditService {
       ratingCount: latest?.ratingCount ?? null,
       storeUpdatedAt: latest?.storeUpdatedAt ?? null,
       now: new Date(),
-      rawFacts: extractAppStoreRawFacts(latest?.raw),
+      rawFacts: extractRawFacts(app.store, latest?.raw),
       keywords: active.map(toAuditKeyword),
       rankings: this.rankingAggregates(active, comparison.rows),
       history: {

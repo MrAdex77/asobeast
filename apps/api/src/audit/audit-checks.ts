@@ -375,14 +375,25 @@ export const previewVideoChecks = (
   context: AuditContext,
 ): AuditCheckResult[] => {
   const answers = context.answers;
+  const hasVideo = context.rawFacts.hasVideo;
+  const previewVideoExists =
+    hasVideo === null
+      ? manualCheck(
+          'preview-video-exists',
+          'Preview video exists',
+          answers.previewVideoExists,
+          'Has a preview video.',
+          'Add a preview video.',
+        )
+      : check(
+          'preview-video-exists',
+          'Preview video exists',
+          'auto',
+          hasVideo ? 10 : 0,
+          hasVideo ? 'Has a preview video.' : 'Add a preview video.',
+        );
   return [
-    manualCheck(
-      'preview-video-exists',
-      'Preview video exists',
-      answers.previewVideoExists,
-      'Has a preview video.',
-      'Add a preview video.',
-    ),
+    previewVideoExists,
     manualCheck(
       'preview-video-hook',
       'Hook in first 3 seconds',

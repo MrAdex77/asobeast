@@ -146,12 +146,12 @@ model CategoryRank {
   app        App      @relation(fields: [appId], references: [id], onDelete: Cascade)
   date       DateTime @db.Date
   collection String
-  genreId    Int
+  genre      String
   position   Int?
   depth      Int      @default(200)
   createdAt  DateTime @default(now())
 
-  @@id([appId, date, collection, genreId])
+  @@id([appId, date, collection, genre])
   @@index([appId, date])
 }
 

@@ -1,9 +1,13 @@
+import { Store } from '@prisma/client';
 import {
   extractAppStoreRawFacts,
+  extractGooglePlayRawFacts,
+  extractRawFacts,
   isPaid,
   primaryGenreId,
+  primaryGenreKey,
   primaryGenreName,
-  releaseNotes,
+  releaseNotesFor,
   screenshotsCount,
 } from './raw-facts';
 
@@ -26,6 +30,22 @@ const realPayload = {
   appletvScreenshots: [],
 };
 
+const gplayPayload = {
+  appId: 'com.example.app',
+  title: 'Example',
+  genre: 'Tools',
+  genreId: 'TOOLS',
+  categories: [
+    { name: 'Tools', id: 'TOOLS' },
+    { name: 'Productivity', id: 'PRODUCTIVITY' },
+  ],
+  price: 0,
+  contentRating: 'Everyone',
+  recentChanges: 'New features',
+  screenshots: ['a', 'b', 'c'],
+  video: 'https://video',
+};
+
 describe('extractAppStoreRawFacts', () => {
   it('extracts facts from a real payload shape', () => {
     expect(extractAppStoreRawFacts(realPayload)).toEqual({
@@ -35,6 +55,9 @@ describe('extractAppStoreRawFacts', () => {
       releaseNotes: 'Bug fixes and performance improvements.',
       languages: ['EN', 'ES', 'FR'],
       contentRating: '4+',
+      genreKey: '6013',
+      genreName: 'Health & Fitness',
+      hasVideo: null,
     });
   });
 
@@ -49,6 +72,9 @@ describe('extractAppStoreRawFacts', () => {
       releaseNotes: null,
       languages: [],
       contentRating: null,
+      genreKey: null,
+      genreName: null,
+      hasVideo: null,
     });
   });
 
@@ -66,10 +92,62 @@ describe('extractAppStoreRawFacts', () => {
   });
 });
 
+describe('extractGooglePlayRawFacts', () => {
+  it('extracts facts from a Play payload shape', () => {
+    expect(extractGooglePlayRawFacts(gplayPayload)).toEqual({
+      screenshotCount: 3,
+      ipadScreenshotCount: null,
+      genres: ['Tools', 'Productivity'],
+      releaseNotes: 'New features',
+      languages: [],
+      contentRating: 'Everyone',
+      genreKey: 'TOOLS',
+      genreName: 'Tools',
+      hasVideo: true,
+    });
+  });
+
+  it('reports no video when the video field is absent', () => {
+    const facts = extractGooglePlayRawFacts({
+      ...gplayPayload,
+      video: undefined,
+    });
+    expect(facts.hasVideo).toBe(false);
+  });
+
+  it('returns empty facts for garbage without throwing', () => {
+    expect(extractGooglePlayRawFacts(null)).toEqual({
+      screenshotCount: null,
+      ipadScreenshotCount: null,
+      genres: [],
+      releaseNotes: null,
+      languages: [],
+      contentRating: null,
+      genreKey: null,
+      genreName: null,
+      hasVideo: null,
+    });
+  });
+});
+
+describe('extractRawFacts dispatcher', () => {
+  it('routes to the store-specific extractor', () => {
+    expect(extractRawFacts(Store.APP_STORE, realPayload).hasVideo).toBeNull();
+    expect(extractRawFacts(Store.GOOGLE_PLAY, gplayPayload).hasVideo).toBe(
+      true,
+    );
+  });
+});
+
 describe('genre and price facts', () => {
-  it('reads the primary genre id, name, and paid flag from a real payload', () => {
+  it('reads the primary genre id, key, name, and paid flag per store', () => {
     expect(primaryGenreId(realPayload)).toBe(6013);
-    expect(primaryGenreName(realPayload)).toBe('Health & Fitness');
+    expect(primaryGenreKey(Store.APP_STORE, realPayload)).toBe('6013');
+    expect(primaryGenreName(Store.APP_STORE, realPayload)).toBe(
+      'Health & Fitness',
+    );
+    expect(primaryGenreKey(Store.GOOGLE_PLAY, gplayPayload)).toBe('TOOLS');
+    expect(primaryGenreName(Store.GOOGLE_PLAY, gplayPayload)).toBe('Tools');
     expect(isPaid(realPayload)).toBe(false);
   });
 
@@ -88,18 +166,29 @@ describe('genre and price facts', () => {
       { primaryGenre: '  ' },
     ]) {
       expect(primaryGenreId(garbage)).toBeNull();
-      expect(primaryGenreName(garbage)).toBeNull();
+      expect(primaryGenreKey(Store.APP_STORE, garbage)).toBeNull();
+      expect(primaryGenreName(Store.APP_STORE, garbage)).toBeNull();
+      expect(primaryGenreKey(Store.GOOGLE_PLAY, garbage)).toBeNull();
+      expect(primaryGenreName(Store.GOOGLE_PLAY, garbage)).toBeNull();
       expect(isPaid(garbage)).toBe(false);
     }
   });
 });
 
-describe('releaseNotes', () => {
-  it('reads and trims the release notes from a real payload', () => {
-    expect(releaseNotes(realPayload)).toBe(
+describe('releaseNotesFor', () => {
+  it('reads release notes from the store-specific field', () => {
+    expect(releaseNotesFor(Store.APP_STORE, realPayload)).toBe(
       'Bug fixes and performance improvements.',
     );
-    expect(releaseNotes({ releaseNotes: '  Whats new  ' })).toBe('Whats new');
+    expect(
+      releaseNotesFor(Store.APP_STORE, { releaseNotes: '  Whats new  ' }),
+    ).toBe('Whats new');
+    expect(releaseNotesFor(Store.GOOGLE_PLAY, gplayPayload)).toBe(
+      'New features',
+    );
+    expect(
+      releaseNotesFor(Store.GOOGLE_PLAY, { recentChanges: '  Updated  ' }),
+    ).toBe('Updated');
   });
 
   it('returns null when absent, blank, or non-string', () => {
@@ -112,8 +201,11 @@ describe('releaseNotes', () => {
       { releaseNotes: '   ' },
       { releaseNotes: 123 },
     ]) {
-      expect(releaseNotes(garbage)).toBeNull();
+      expect(releaseNotesFor(Store.APP_STORE, garbage)).toBeNull();
     }
+    expect(
+      releaseNotesFor(Store.GOOGLE_PLAY, { recentChanges: '   ' }),
+    ).toBeNull();
   });
 });
 

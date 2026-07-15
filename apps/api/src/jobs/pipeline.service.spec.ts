@@ -96,10 +96,16 @@ describe('PipelineService competitor fan out', () => {
     const buckets: CategoryBucket[] = [
       {
         collection: 'free',
-        genreId: 6007,
+        genre: '6007',
         country: 'us',
+        store: 'APP_STORE',
       },
-      { collection: 'free', genreId: 0, country: 'us' },
+      {
+        collection: 'free',
+        genre: 'overall',
+        country: 'us',
+        store: 'APP_STORE',
+      },
     ];
     const categoryRanks = buildCategoryRanks(buckets);
     const service = new PipelineService(
@@ -139,8 +145,8 @@ describe('PipelineService competitor fan out', () => {
       },
     });
     const buckets: CategoryBucket[] = [
-      { collection: 'free', genreId: 6007, country: 'de' },
-      { collection: 'free', genreId: 6007, country: 'us' },
+      { collection: 'free', genre: '6007', country: 'de', store: 'APP_STORE' },
+      { collection: 'free', genre: '6007', country: 'us', store: 'APP_STORE' },
     ];
 
     const fanOut = new PipelineService(

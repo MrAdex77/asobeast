@@ -1,3 +1,5 @@
+import { Store } from '@prisma/client';
+
 export interface RawAppFacts {
   screenshotCount: number | null;
   ipadScreenshotCount: number | null;
@@ -5,6 +7,9 @@ export interface RawAppFacts {
   releaseNotes: string | null;
   languages: string[];
   contentRating: string | null;
+  genreKey: string | null;
+  genreName: string | null;
+  hasVideo: boolean | null;
 }
 
 const EMPTY_FACTS: RawAppFacts = {
@@ -14,6 +19,9 @@ const EMPTY_FACTS: RawAppFacts = {
   releaseNotes: null,
   languages: [],
   contentRating: null,
+  genreKey: null,
+  genreName: null,
+  hasVideo: null,
 };
 
 const asRecord = (value: unknown): Record<string, unknown> | null =>
@@ -32,6 +40,21 @@ const stringArray = (value: unknown): string[] =>
 const nonEmptyString = (value: unknown): string | null =>
   typeof value === 'string' && value.trim().length > 0 ? value : null;
 
+const trimmedString = (value: unknown): string | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const categoryNames = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value
+        .map((entry) => asRecord(entry)?.name)
+        .filter((name): name is string => typeof name === 'string')
+    : [];
+
 export function screenshotsCount(raw: unknown): number | null {
   return arrayLength(asRecord(raw)?.screenshots);
 }
@@ -41,7 +64,18 @@ export function primaryGenreId(raw: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
-export function primaryGenreName(raw: unknown): string | null {
+export function primaryGenreKey(store: Store, raw: unknown): string | null {
+  if (store === Store.GOOGLE_PLAY) {
+    return nonEmptyString(asRecord(raw)?.genreId);
+  }
+  const id = primaryGenreId(raw);
+  return id === null ? null : String(id);
+}
+
+export function primaryGenreName(store: Store, raw: unknown): string | null {
+  if (store === Store.GOOGLE_PLAY) {
+    return nonEmptyString(asRecord(raw)?.genre);
+  }
   return nonEmptyString(asRecord(raw)?.primaryGenre);
 }
 
@@ -50,13 +84,9 @@ export function isPaid(raw: unknown): boolean {
   return typeof value === 'number' && value > 0;
 }
 
-export function releaseNotes(raw: unknown): string | null {
-  const value = asRecord(raw)?.releaseNotes;
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
+export function releaseNotesFor(store: Store, raw: unknown): string | null {
+  const key = store === Store.GOOGLE_PLAY ? 'recentChanges' : 'releaseNotes';
+  return trimmedString(asRecord(raw)?.[key]);
 }
 
 export function extractAppStoreRawFacts(raw: unknown): RawAppFacts {
@@ -71,5 +101,32 @@ export function extractAppStoreRawFacts(raw: unknown): RawAppFacts {
     releaseNotes: nonEmptyString(record.releaseNotes),
     languages: stringArray(record.languages),
     contentRating: nonEmptyString(record.contentRating),
+    genreKey: primaryGenreKey(Store.APP_STORE, record),
+    genreName: nonEmptyString(record.primaryGenre),
+    hasVideo: null,
   };
+}
+
+export function extractGooglePlayRawFacts(raw: unknown): RawAppFacts {
+  const record = asRecord(raw);
+  if (!record) {
+    return { ...EMPTY_FACTS };
+  }
+  return {
+    screenshotCount: arrayLength(record.screenshots),
+    ipadScreenshotCount: null,
+    genres: categoryNames(record.categories),
+    releaseNotes: nonEmptyString(record.recentChanges),
+    languages: [],
+    contentRating: nonEmptyString(record.contentRating),
+    genreKey: nonEmptyString(record.genreId),
+    genreName: nonEmptyString(record.genre),
+    hasVideo: Boolean(record.video),
+  };
+}
+
+export function extractRawFacts(store: Store, raw: unknown): RawAppFacts {
+  return store === Store.GOOGLE_PLAY
+    ? extractGooglePlayRawFacts(raw)
+    : extractAppStoreRawFacts(raw);
 }

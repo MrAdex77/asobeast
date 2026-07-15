@@ -1,4 +1,4 @@
-import { AlertPayload, CategoryCollection } from '@asobeast/shared';
+import { AlertPayload, CategoryCollection, Store } from '@asobeast/shared';
 
 export const QUEUES = {
   PIPELINE: 'pipeline',
@@ -43,8 +43,9 @@ export interface CheckKeywordPayload {
 
 export interface CheckCategoryPayload {
   collection: CategoryCollection;
-  genreId: number;
+  genre: string;
   country: string;
+  store: Store;
 }
 
 export interface ScoreKeywordPayload {
@@ -104,9 +105,9 @@ export function reviewsBackfillJobId(appId: string): string {
 
 export function categoryJobId(
   collection: CategoryCollection,
-  genreId: number,
+  genre: string,
   country: string,
   date: string,
 ): string {
-  return `category:${collection}:${genreId}:${country}:${date}`;
+  return `category:${collection}:${genre}:${country}:${date}`;
 }
