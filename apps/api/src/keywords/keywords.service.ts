@@ -717,15 +717,17 @@ export class KeywordsService {
       return;
     }
 
+    const autoTrackSources: KeywordSource[] =
+      app.store === Store.GOOGLE_PLAY
+        ? ['TITLE', 'DESCRIPTION']
+        : ['TITLE', 'SUBTITLE'];
+
     const candidates = extractCandidates({
       title: snapshot.title,
       subtitle: snapshot.subtitle ?? undefined,
       summary: snapshot.summary ?? undefined,
     })
-      .filter(
-        (candidate) =>
-          candidate.source === 'TITLE' || candidate.source === 'SUBTITLE',
-      )
+      .filter((candidate) => autoTrackSources.includes(candidate.source))
       .slice(0, AUTO_TRACK_LIMIT);
 
     for (const candidate of candidates) {
