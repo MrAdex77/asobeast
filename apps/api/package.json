@@ -30,6 +30,7 @@
     "@bull-board/api": "^8.1.0",
     "@bull-board/express": "^8.1.0",
     "@bull-board/nestjs": "^8.1.0",
+    "@mradex77/google-play-scraper": "^0.4.0",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
