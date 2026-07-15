@@ -114,6 +114,56 @@ describe('MetadataController (e2e)', () => {
     return created.id;
   };
 
+  const seedPlay = async (): Promise<string> => {
+    const created = await prisma.app.create({
+      data: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        store: Store.GOOGLE_PLAY,
+        storeAppId: 'com.example.app',
+        country: 'us',
+        name: 'Habit Tracker',
+      },
+    });
+    await prisma.appSnapshot.create({
+      data: {
+        appId: created.id,
+        title: 'Habit Tracker',
+        summary: 'Build daily goals and log water every single day',
+        description: 'Build better habits with reminders and a sleep timer inside.',
+        raw: {},
+        capturedAt: D0,
+      },
+    });
+
+    const rows = [
+      { text: 'habit tracker', traffic: 8, difficulty: 3 },
+      { text: 'daily goals', traffic: 7, difficulty: 2 },
+      { text: 'sleep timer', traffic: 6, difficulty: 4 },
+    ];
+    for (const row of rows) {
+      const keyword = await prisma.keyword.create({
+        data: { text: row.text, store: Store.GOOGLE_PLAY, country: 'us' },
+      });
+      await prisma.trackedKeyword.create({
+        data: {
+          appId: created.id,
+          keywordId: keyword.id,
+          source: 'MANUAL',
+          active: true,
+        },
+      });
+      await prisma.keywordMetric.create({
+        data: {
+          keywordId: keyword.id,
+          date: D0,
+          traffic: row.traffic,
+          difficulty: row.difficulty,
+        },
+      });
+    }
+    return created.id;
+  };
+
   it('reports field limits, coverage and a rule-respecting suggestion', async () => {
     const id = await seed(false);
 
@@ -130,15 +180,23 @@ describe('MetadataController (e2e)', () => {
     );
 
     const covered = result.coverage.find((row) => row.text === 'habit tracker');
-    expect(covered?.inTitle).toBe(true);
+    expect(
+      covered?.fields.find((field) => field.field === 'title')?.covered,
+    ).toBe(true);
+    expect(covered?.fields.map((field) => field.field)).toEqual([
+      'title',
+      'subtitle',
+      'keywordField',
+    ]);
     expect(covered?.uncovered).toBe(false);
     const uncovered = result.coverage.find((row) => row.text === 'sleep timer');
     expect(uncovered?.uncovered).toBe(true);
 
     const suggestion = result.keywordFieldSuggestion;
-    expect(suggestion.charactersUsed).toBeLessThanOrEqual(100);
-    expect(suggestion.value).not.toContain(', ');
-    expect(suggestion.addedTerms).toContain('daily goal');
+    expect(suggestion).not.toBeNull();
+    expect(suggestion?.charactersUsed).toBeLessThanOrEqual(100);
+    expect(suggestion?.value).not.toContain(', ');
+    expect(suggestion?.addedTerms).toContain('daily goal');
   });
 
   it('includes the keyword field when it has been pasted', async () => {
@@ -155,5 +213,53 @@ describe('MetadataController (e2e)', () => {
     expect(keywordField).toBeDefined();
     expect(keywordField?.limit).toBe(100);
     expect(keywordField?.chars).toBe('water reminder'.length);
+  });
+
+  it('audits a google play app across title, short description and description', async () => {
+    const id = await seedPlay();
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${id}/metadata/audit`)
+      .expect(200);
+    const result = response.body as MetadataAuditResult;
+
+    expect(result.store).toBe(Store.GOOGLE_PLAY);
+    expect(result.fields.map((field) => field.field)).toEqual([
+      'title',
+      'shortDescription',
+      'description',
+    ]);
+
+    const shortDescription = result.fields.find(
+      (field) => field.field === 'shortDescription',
+    );
+    expect(shortDescription?.limit).toBe(80);
+    expect(shortDescription?.indexed).toBe(true);
+
+    const description = result.fields.find(
+      (field) => field.field === 'description',
+    );
+    expect(description?.limit).toBe(4000);
+    expect(description?.indexed).toBe(true);
+
+    const coverageFields = result.coverage[0]?.fields.map(
+      (field) => field.field,
+    );
+    expect(coverageFields).toEqual([
+      'title',
+      'shortDescription',
+      'description',
+    ]);
+
+    const inDescription = result.coverage.find(
+      (row) => row.text === 'sleep timer',
+    );
+    expect(
+      inDescription?.fields.find((field) => field.field === 'description')
+        ?.covered,
+    ).toBe(true);
+    expect(inDescription?.uncovered).toBe(false);
+
+    expect(result.keywordFieldSuggestion).toBeNull();
   });
 });
