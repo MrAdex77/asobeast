@@ -7,6 +7,7 @@ import { AppIcon } from "@/components/AppIcon";
 import { Badge } from "@/components/ui/badge";
 import { appDetailOptions } from "@/lib/queries";
 import {
+  formatCompact,
   formatCountry,
   formatNumber,
   formatPrice,
@@ -71,6 +72,9 @@ export function AppHeader({ id }: { id: string }) {
                 ? ` (${formatNumber(snapshot.ratingCount)})`
                 : ""}
             </span>
+          ) : null}
+          {snapshot.installs !== null ? (
+            <span>{formatCompact(snapshot.installs)} installs</span>
           ) : null}
           {snapshot.version ? <span>v{snapshot.version}</span> : null}
           {snapshot.price !== null ? (

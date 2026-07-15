@@ -24,7 +24,8 @@ export function AppsDashboard() {
           <div className="flex flex-col gap-1">
             <p className="font-medium">No apps yet</p>
             <p className="max-w-sm text-sm text-muted-foreground">
-              Import an app from an App Store URL to start tracking its keywords.
+              Import an app from an App Store or Google Play URL to start
+              tracking its keywords.
             </p>
           </div>
           <ImportAppDialog>
