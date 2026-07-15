@@ -109,4 +109,44 @@ describe('Pipeline store routing (e2e)', () => {
       [JOBS.CHECK_KEYWORD, JOBS.REFRESH_APP, JOBS.SYNC_REVIEWS].sort(),
     );
   });
+
+  it('reports a per-store budget that sums to the top-level totals', async () => {
+    await seedApp(Store.APP_STORE, 'apple-1');
+
+    const appStoreOnly = await pipeline.estimateDailyBudget();
+    const appStoreRow = appStoreOnly.stores.find(
+      (row) => row.store === 'APP_STORE',
+    );
+    const gplayRow = appStoreOnly.stores.find(
+      (row) => row.store === 'GOOGLE_PLAY',
+    );
+
+    expect(appStoreOnly.stores).toHaveLength(2);
+    expect(appStoreRow).toMatchObject({
+      apps: appStoreOnly.apps,
+      keywords: appStoreOnly.keywords,
+      categories: appStoreOnly.categories,
+      reviews: appStoreOnly.reviews,
+      total: appStoreOnly.total,
+    });
+    expect(gplayRow?.total).toBe(0);
+    expect(appStoreOnly.utilization).toBe(appStoreRow?.utilization);
+
+    await seedApp(Store.GOOGLE_PLAY, 'gplay-1');
+    const mixed = await pipeline.estimateDailyBudget();
+    const mixedAppStore = mixed.stores.find((row) => row.store === 'APP_STORE');
+    const mixedGplay = mixed.stores.find((row) => row.store === 'GOOGLE_PLAY');
+
+    expect(mixedAppStore?.total).toBe(appStoreRow?.total);
+    expect(mixedGplay?.total).toBe(appStoreRow?.total);
+    expect(mixed.total).toBe(
+      (mixedAppStore?.total ?? 0) + (mixedGplay?.total ?? 0),
+    );
+    expect(mixed.capacityPerDay).toBe(
+      (mixedAppStore?.capacityPerDay ?? 0) + (mixedGplay?.capacityPerDay ?? 0),
+    );
+    expect(mixed.utilization).toBe(
+      Math.max(mixedAppStore?.utilization ?? 0, mixedGplay?.utilization ?? 0),
+    );
+  });
 });

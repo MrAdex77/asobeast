@@ -1,7 +1,13 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DailyBudget, FanOutSummary, Store } from '@asobeast/shared';
+import {
+  DailyBudget,
+  FanOutSummary,
+  Store,
+  STORES,
+  StoreDailyBudget,
+} from '@asobeast/shared';
 import { Queue } from 'bullmq';
 import { CategoryRanksService } from '../category-ranks/category-ranks.service';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
@@ -52,26 +58,60 @@ export class PipelineService {
 
   async estimateDailyBudget(): Promise<DailyBudget> {
     const targets = await this.collectDailyTargets();
-    const categories = (
-      await this.categoryRanks.buckets(targets.apps.map((app) => app.id))
-    ).length;
-    const total =
-      targets.apps.length +
-      targets.keywords.length +
-      categories +
-      targets.reviewApps.length;
-    const capacityPerDay =
-      this.config.get('SCRAPE_ITUNES_RPM', { infer: true }) * 60 * 24;
+    const buckets = await this.categoryRanks.buckets(
+      targets.apps.map((app) => app.id),
+    );
+
+    const stores = STORES.map((store) =>
+      this.storeBudget(store, targets, buckets),
+    );
 
     return {
-      apps: targets.apps.length,
-      keywords: targets.keywords.length,
+      apps: sum(stores, (store) => store.apps),
+      keywords: sum(stores, (store) => store.keywords),
+      categories: sum(stores, (store) => store.categories),
+      reviews: sum(stores, (store) => store.reviews),
+      total: sum(stores, (store) => store.total),
+      capacityPerDay: sum(stores, (store) => store.capacityPerDay),
+      utilization: Math.max(...stores.map((store) => store.utilization)),
+      stores,
+    };
+  }
+
+  private storeBudget(
+    store: Store,
+    targets: DailyTargets,
+    buckets: { store: Store }[],
+  ): StoreDailyBudget {
+    const apps = targets.apps.filter((app) => app.store === store).length;
+    const keywords = targets.keywords.filter(
+      (keyword) => keyword.store === store,
+    ).length;
+    const categories = buckets.filter(
+      (bucket) => bucket.store === store,
+    ).length;
+    const reviews = targets.reviewApps.filter(
+      (app) => app.store === store,
+    ).length;
+    const total = apps + keywords + categories + reviews;
+    const capacityPerDay = this.rpmForStore(store) * 60 * 24;
+
+    return {
+      store,
+      apps,
+      keywords,
       categories,
-      reviews: targets.reviewApps.length,
+      reviews,
       total,
       capacityPerDay,
       utilization: Math.round((total / capacityPerDay) * 1000) / 1000,
     };
+  }
+
+  private rpmForStore(store: Store): number {
+    return store === 'GOOGLE_PLAY'
+      ? this.config.get('SCRAPE_GPLAY_RPM', { infer: true })
+      : this.config.get('SCRAPE_ITUNES_RPM', { infer: true });
   }
 
   private async collectDailyTargets(): Promise<DailyTargets> {
@@ -234,4 +274,8 @@ export class PipelineService {
       ? this.gplayQueue
       : this.appStoreQueue;
   }
+}
+
+function sum<T>(items: T[], select: (item: T) => number): number {
+  return items.reduce((acc, item) => acc + select(item), 0);
 }

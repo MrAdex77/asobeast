@@ -16,11 +16,12 @@ describe('PipelineService competitor fan out', () => {
     buckets: jest.fn().mockResolvedValue(buckets),
   });
 
-  const buildConfig = (rpm = 15) =>
-    ({ get: jest.fn().mockReturnValue(rpm) }) as unknown as ConfigService<
-      Env,
-      true
-    >;
+  const buildConfig = (itunesRpm = 15, gplayRpm = 10) =>
+    ({
+      get: jest.fn((key: string) =>
+        key === 'SCRAPE_GPLAY_RPM' ? gplayRpm : itunesRpm,
+      ),
+    }) as unknown as ConfigService<Env, true>;
 
   const buildService = (
     queue: ReturnType<typeof buildQueue>,
@@ -174,7 +175,7 @@ describe('PipelineService competitor fan out', () => {
       buildQueue(),
       buildPrisma(),
       buildCategoryRanks(buckets),
-      buildConfig(15),
+      buildConfig(15, 10),
     );
     const budget = await estimator.estimateDailyBudget();
 
@@ -185,9 +186,22 @@ describe('PipelineService competitor fan out', () => {
     expect(budget.total).toBe(
       summary.apps + summary.keywords + summary.categories + summary.reviews,
     );
-    expect(budget.capacityPerDay).toBe(15 * 60 * 24);
+    expect(budget.capacityPerDay).toBe((15 + 10) * 60 * 24);
+
+    const appStore = budget.stores.find((row) => row.store === 'APP_STORE');
+    const gplay = budget.stores.find((row) => row.store === 'GOOGLE_PLAY');
+    expect(appStore).toMatchObject({
+      apps: summary.apps,
+      keywords: summary.keywords,
+      categories: summary.categories,
+      reviews: summary.reviews,
+      total: budget.total,
+      capacityPerDay: 15 * 60 * 24,
+    });
+    expect(gplay).toMatchObject({ total: 0, capacityPerDay: 10 * 60 * 24 });
+    expect(budget.utilization).toBe(appStore?.utilization);
     expect(budget.utilization).toBe(
-      Math.round((budget.total / budget.capacityPerDay) * 1000) / 1000,
+      Math.round((budget.total / (15 * 60 * 24)) * 1000) / 1000,
     );
   });
 });
