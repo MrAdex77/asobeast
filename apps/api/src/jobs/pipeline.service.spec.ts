@@ -22,6 +22,21 @@ describe('PipelineService competitor fan out', () => {
       true
     >;
 
+  const buildService = (
+    queue: ReturnType<typeof buildQueue>,
+    prisma: unknown,
+    categoryRanks: unknown,
+    config: ConfigService<Env, true>,
+    gplayQueue: ReturnType<typeof buildQueue> = buildQueue(),
+  ) =>
+    new PipelineService(
+      queue as unknown as Queue,
+      gplayQueue as unknown as Queue,
+      prisma as PrismaService,
+      categoryRanks as CategoryRanksService,
+      config,
+    );
+
   const refreshedAppIds = (queue: { add: jest.Mock }): string[] =>
     queue.add.mock.calls
       .filter(([job]) => job === JOBS.REFRESH_APP)
@@ -37,16 +52,16 @@ describe('PipelineService competitor fan out', () => {
     const prisma = {
       app: {
         findMany: jest.fn().mockResolvedValue([
-          { id: 'primary', isCompetitor: false },
-          { id: 'competitor', isCompetitor: true },
+          { id: 'primary', isCompetitor: false, store: 'APP_STORE' },
+          { id: 'competitor', isCompetitor: true, store: 'APP_STORE' },
         ]),
       },
       trackedKeyword: { findMany: jest.fn().mockResolvedValue([]) },
     };
-    const service = new PipelineService(
-      queue as unknown as Queue,
-      prisma as unknown as PrismaService,
-      buildCategoryRanks() as unknown as CategoryRanksService,
+    const service = buildService(
+      queue,
+      prisma,
+      buildCategoryRanks(),
       buildConfig(),
     );
 
@@ -63,16 +78,17 @@ describe('PipelineService competitor fan out', () => {
       app: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'primary',
+          store: 'APP_STORE',
           isCompetitor: false,
-          competitors: [{ id: 'competitor' }],
-          tracked: [{ keywordId: 'kw1' }],
+          competitors: [{ id: 'competitor', store: 'APP_STORE' }],
+          tracked: [{ keywordId: 'kw1', keyword: { store: 'APP_STORE' } }],
         }),
       },
     };
-    const service = new PipelineService(
-      queue as unknown as Queue,
-      prisma as unknown as PrismaService,
-      buildCategoryRanks() as unknown as CategoryRanksService,
+    const service = buildService(
+      queue,
+      prisma,
+      buildCategoryRanks(),
       buildConfig(),
     );
 
@@ -88,6 +104,7 @@ describe('PipelineService competitor fan out', () => {
       app: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'primary',
+          store: 'APP_STORE',
           competitors: [],
           tracked: [],
         }),
@@ -108,12 +125,7 @@ describe('PipelineService competitor fan out', () => {
       },
     ];
     const categoryRanks = buildCategoryRanks(buckets);
-    const service = new PipelineService(
-      queue as unknown as Queue,
-      prisma as unknown as PrismaService,
-      categoryRanks as unknown as CategoryRanksService,
-      buildConfig(),
-    );
+    const service = buildService(queue, prisma, categoryRanks, buildConfig());
 
     const summary = await service.fanOutApp('primary');
 
@@ -133,15 +145,16 @@ describe('PipelineService competitor fan out', () => {
     const buildPrisma = () => ({
       app: {
         findMany: jest.fn().mockResolvedValue([
-          { id: 'primary-de', isCompetitor: false },
-          { id: 'primary-us', isCompetitor: false },
-          { id: 'competitor-de', isCompetitor: true },
+          { id: 'primary-de', isCompetitor: false, store: 'APP_STORE' },
+          { id: 'primary-us', isCompetitor: false, store: 'APP_STORE' },
+          { id: 'competitor-de', isCompetitor: true, store: 'APP_STORE' },
         ]),
       },
       trackedKeyword: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([{ keywordId: 'kw-de' }, { keywordId: 'kw-us' }]),
+        findMany: jest.fn().mockResolvedValue([
+          { keywordId: 'kw-de', keyword: { store: 'APP_STORE' } },
+          { keywordId: 'kw-us', keyword: { store: 'APP_STORE' } },
+        ]),
       },
     });
     const buckets: CategoryBucket[] = [
@@ -149,18 +162,18 @@ describe('PipelineService competitor fan out', () => {
       { collection: 'free', genre: '6007', country: 'us', store: 'APP_STORE' },
     ];
 
-    const fanOut = new PipelineService(
-      buildQueue() as unknown as Queue,
-      buildPrisma() as unknown as PrismaService,
-      buildCategoryRanks(buckets) as unknown as CategoryRanksService,
+    const fanOut = buildService(
+      buildQueue(),
+      buildPrisma(),
+      buildCategoryRanks(buckets),
       buildConfig(),
     );
     const summary = await fanOut.fanOutDaily();
 
-    const estimator = new PipelineService(
-      buildQueue() as unknown as Queue,
-      buildPrisma() as unknown as PrismaService,
-      buildCategoryRanks(buckets) as unknown as CategoryRanksService,
+    const estimator = buildService(
+      buildQueue(),
+      buildPrisma(),
+      buildCategoryRanks(buckets),
       buildConfig(15),
     );
     const budget = await estimator.estimateDailyBudget();

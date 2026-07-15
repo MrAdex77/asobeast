@@ -26,7 +26,12 @@ import {
 } from '../store-providers/raw-facts';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
 import { NormalizedApp } from '../store-providers/types';
-import { JOBS, QUEUES, reviewsBackfillJobId } from '../jobs/jobs.types';
+import {
+  JOBS,
+  QUEUES,
+  queueNameForStore,
+  reviewsBackfillJobId,
+} from '../jobs/jobs.types';
 import { toAppDetail, toAppListItem, toCompetitorItem } from './apps.mapper';
 import { diffSnapshots } from './snapshot-diff';
 
@@ -42,7 +47,14 @@ export class AppsService {
     private readonly keywords: KeywordsService,
     private readonly changes: ChangesService,
     @InjectQueue(QUEUES.APP_STORE) private readonly appStoreQueue: Queue,
+    @InjectQueue(QUEUES.GPLAY) private readonly gplayQueue: Queue,
   ) {}
+
+  private queueFor(store: Store): Queue {
+    return queueNameForStore(store) === QUEUES.GPLAY
+      ? this.gplayQueue
+      : this.appStoreQueue;
+  }
 
   async importFromUrl(url: string, country?: string): Promise<AppDetail> {
     const { store, storeAppId, country: parsedCountry } = parseStoreUrl(url);
@@ -59,7 +71,7 @@ export class AppsService {
 
     await this.keywords.syncFromSnapshot(app.id);
 
-    await this.appStoreQueue.add(
+    await this.queueFor(store).add(
       JOBS.SYNC_REVIEWS,
       { appId: app.id, pages: REVIEW_BACKFILL_PAGES, backfill: true },
       { jobId: reviewsBackfillJobId(app.id) },

@@ -9,6 +9,10 @@ export const QUEUES = {
 
 export const LAST_DAILY_RUN_KEY = 'asobeast:last-daily-run';
 
+export function queueNameForStore(store: Store): string {
+  return store === 'GOOGLE_PLAY' ? QUEUES.GPLAY : QUEUES.APP_STORE;
+}
+
 export const JOBS = {
   DAILY: 'daily-pipeline',
   SCORING: 'weekly-scoring',
