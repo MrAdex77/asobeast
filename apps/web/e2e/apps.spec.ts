@@ -13,7 +13,7 @@ test("importing an app posts to the api and shows the new app", async ({ page })
 
   await page.getByRole("button", { name: "Import app" }).click();
   await page
-    .getByLabel("App Store URL")
+    .getByLabel("Store URL")
     .fill("https://apps.apple.com/us/app/focus-timer/id123456789");
   await page.getByRole("button", { name: "Import", exact: true }).click();
 
