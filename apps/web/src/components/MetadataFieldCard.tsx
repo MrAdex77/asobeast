@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import {
-  STORE_FIELD_LIMITS,
   type LintIssue,
   type LintSeverity,
   type MetadataField,
@@ -31,13 +30,14 @@ const FIELD_LABELS: Record<MetadataField, string> = {
 export function MetadataFieldCard({
   field,
   value,
+  limit,
   issues,
 }: {
   field: MetadataField;
   value: string;
+  limit: number;
   issues: LintIssue[];
 }) {
-  const limit = STORE_FIELD_LIMITS.APP_STORE[field]?.limit ?? 0;
   const [draft, setDraft] = useState(value);
   const over = draft.length > limit;
 
