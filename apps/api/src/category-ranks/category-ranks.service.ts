@@ -135,6 +135,7 @@ export class CategoryRanksService {
       where: { id: appId, workspaceId: DEFAULT_WORKSPACE_ID },
       select: {
         id: true,
+        store: true,
         snapshots: {
           orderBy: { capturedAt: 'desc' },
           take: 1,
@@ -159,7 +160,7 @@ export class CategoryRanksService {
       select: { collection: true, genre: true, date: true, position: true },
     });
 
-    const genreName = primaryGenreName(app.snapshots[0]?.raw);
+    const genreName = primaryGenreName(app.store, app.snapshots[0]?.raw);
     const groups = new Map<string, CategoryRankSeriesItem>();
     for (const rank of ranks) {
       const key = `${rank.collection}:${rank.genre}`;
@@ -206,7 +207,7 @@ export class CategoryRanksService {
       if (!snapshot) {
         continue;
       }
-      const genre = primaryGenreKey(snapshot.raw);
+      const genre = primaryGenreKey(app.store, snapshot.raw);
       if (genre === null) {
         continue;
       }
