@@ -547,8 +547,30 @@ export const BUDGET: DailyBudget = {
   categories: 4,
   reviews: 2,
   total: 21,
-  capacityPerDay: 21600,
+  capacityPerDay: 36000,
   utilization: 0.001,
+  stores: [
+    {
+      store: "APP_STORE",
+      apps: 3,
+      keywords: 12,
+      categories: 4,
+      reviews: 2,
+      total: 21,
+      capacityPerDay: 21600,
+      utilization: 0.001,
+    },
+    {
+      store: "GOOGLE_PLAY",
+      apps: 0,
+      keywords: 0,
+      categories: 0,
+      reviews: 0,
+      total: 0,
+      capacityPerDay: 14400,
+      utilization: 0,
+    },
+  ],
 };
 
 export const RECENT_CHANGES: ChangeTimeline = {

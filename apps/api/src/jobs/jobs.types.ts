@@ -3,10 +3,15 @@ import { AlertPayload, CategoryCollection, Store } from '@asobeast/shared';
 export const QUEUES = {
   PIPELINE: 'pipeline',
   APP_STORE: 'appstore',
+  GPLAY: 'gplay',
   ALERTS: 'alerts',
 } as const;
 
 export const LAST_DAILY_RUN_KEY = 'asobeast:last-daily-run';
+
+export function queueNameForStore(store: Store): string {
+  return store === 'GOOGLE_PLAY' ? QUEUES.GPLAY : QUEUES.APP_STORE;
+}
 
 export const JOBS = {
   DAILY: 'daily-pipeline',

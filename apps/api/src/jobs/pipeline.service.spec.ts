@@ -16,11 +16,27 @@ describe('PipelineService competitor fan out', () => {
     buckets: jest.fn().mockResolvedValue(buckets),
   });
 
-  const buildConfig = (rpm = 15) =>
-    ({ get: jest.fn().mockReturnValue(rpm) }) as unknown as ConfigService<
-      Env,
-      true
-    >;
+  const buildConfig = (itunesRpm = 15, gplayRpm = 10) =>
+    ({
+      get: jest.fn((key: string) =>
+        key === 'SCRAPE_GPLAY_RPM' ? gplayRpm : itunesRpm,
+      ),
+    }) as unknown as ConfigService<Env, true>;
+
+  const buildService = (
+    queue: ReturnType<typeof buildQueue>,
+    prisma: unknown,
+    categoryRanks: unknown,
+    config: ConfigService<Env, true>,
+    gplayQueue: ReturnType<typeof buildQueue> = buildQueue(),
+  ) =>
+    new PipelineService(
+      queue as unknown as Queue,
+      gplayQueue as unknown as Queue,
+      prisma as PrismaService,
+      categoryRanks as CategoryRanksService,
+      config,
+    );
 
   const refreshedAppIds = (queue: { add: jest.Mock }): string[] =>
     queue.add.mock.calls
@@ -37,16 +53,16 @@ describe('PipelineService competitor fan out', () => {
     const prisma = {
       app: {
         findMany: jest.fn().mockResolvedValue([
-          { id: 'primary', isCompetitor: false },
-          { id: 'competitor', isCompetitor: true },
+          { id: 'primary', isCompetitor: false, store: 'APP_STORE' },
+          { id: 'competitor', isCompetitor: true, store: 'APP_STORE' },
         ]),
       },
       trackedKeyword: { findMany: jest.fn().mockResolvedValue([]) },
     };
-    const service = new PipelineService(
-      queue as unknown as Queue,
-      prisma as unknown as PrismaService,
-      buildCategoryRanks() as unknown as CategoryRanksService,
+    const service = buildService(
+      queue,
+      prisma,
+      buildCategoryRanks(),
       buildConfig(),
     );
 
@@ -63,16 +79,17 @@ describe('PipelineService competitor fan out', () => {
       app: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'primary',
+          store: 'APP_STORE',
           isCompetitor: false,
-          competitors: [{ id: 'competitor' }],
-          tracked: [{ keywordId: 'kw1' }],
+          competitors: [{ id: 'competitor', store: 'APP_STORE' }],
+          tracked: [{ keywordId: 'kw1', keyword: { store: 'APP_STORE' } }],
         }),
       },
     };
-    const service = new PipelineService(
-      queue as unknown as Queue,
-      prisma as unknown as PrismaService,
-      buildCategoryRanks() as unknown as CategoryRanksService,
+    const service = buildService(
+      queue,
+      prisma,
+      buildCategoryRanks(),
       buildConfig(),
     );
 
@@ -88,6 +105,7 @@ describe('PipelineService competitor fan out', () => {
       app: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'primary',
+          store: 'APP_STORE',
           competitors: [],
           tracked: [],
         }),
@@ -108,12 +126,7 @@ describe('PipelineService competitor fan out', () => {
       },
     ];
     const categoryRanks = buildCategoryRanks(buckets);
-    const service = new PipelineService(
-      queue as unknown as Queue,
-      prisma as unknown as PrismaService,
-      categoryRanks as unknown as CategoryRanksService,
-      buildConfig(),
-    );
+    const service = buildService(queue, prisma, categoryRanks, buildConfig());
 
     const summary = await service.fanOutApp('primary');
 
@@ -133,15 +146,16 @@ describe('PipelineService competitor fan out', () => {
     const buildPrisma = () => ({
       app: {
         findMany: jest.fn().mockResolvedValue([
-          { id: 'primary-de', isCompetitor: false },
-          { id: 'primary-us', isCompetitor: false },
-          { id: 'competitor-de', isCompetitor: true },
+          { id: 'primary-de', isCompetitor: false, store: 'APP_STORE' },
+          { id: 'primary-us', isCompetitor: false, store: 'APP_STORE' },
+          { id: 'competitor-de', isCompetitor: true, store: 'APP_STORE' },
         ]),
       },
       trackedKeyword: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([{ keywordId: 'kw-de' }, { keywordId: 'kw-us' }]),
+        findMany: jest.fn().mockResolvedValue([
+          { keywordId: 'kw-de', keyword: { store: 'APP_STORE' } },
+          { keywordId: 'kw-us', keyword: { store: 'APP_STORE' } },
+        ]),
       },
     });
     const buckets: CategoryBucket[] = [
@@ -149,19 +163,19 @@ describe('PipelineService competitor fan out', () => {
       { collection: 'free', genre: '6007', country: 'us', store: 'APP_STORE' },
     ];
 
-    const fanOut = new PipelineService(
-      buildQueue() as unknown as Queue,
-      buildPrisma() as unknown as PrismaService,
-      buildCategoryRanks(buckets) as unknown as CategoryRanksService,
+    const fanOut = buildService(
+      buildQueue(),
+      buildPrisma(),
+      buildCategoryRanks(buckets),
       buildConfig(),
     );
     const summary = await fanOut.fanOutDaily();
 
-    const estimator = new PipelineService(
-      buildQueue() as unknown as Queue,
-      buildPrisma() as unknown as PrismaService,
-      buildCategoryRanks(buckets) as unknown as CategoryRanksService,
-      buildConfig(15),
+    const estimator = buildService(
+      buildQueue(),
+      buildPrisma(),
+      buildCategoryRanks(buckets),
+      buildConfig(15, 10),
     );
     const budget = await estimator.estimateDailyBudget();
 
@@ -172,9 +186,22 @@ describe('PipelineService competitor fan out', () => {
     expect(budget.total).toBe(
       summary.apps + summary.keywords + summary.categories + summary.reviews,
     );
-    expect(budget.capacityPerDay).toBe(15 * 60 * 24);
+    expect(budget.capacityPerDay).toBe((15 + 10) * 60 * 24);
+
+    const appStore = budget.stores.find((row) => row.store === 'APP_STORE');
+    const gplay = budget.stores.find((row) => row.store === 'GOOGLE_PLAY');
+    expect(appStore).toMatchObject({
+      apps: summary.apps,
+      keywords: summary.keywords,
+      categories: summary.categories,
+      reviews: summary.reviews,
+      total: budget.total,
+      capacityPerDay: 15 * 60 * 24,
+    });
+    expect(gplay).toMatchObject({ total: 0, capacityPerDay: 10 * 60 * 24 });
+    expect(budget.utilization).toBe(appStore?.utilization);
     expect(budget.utilization).toBe(
-      Math.round((budget.total / budget.capacityPerDay) * 1000) / 1000,
+      Math.round((budget.total / (15 * 60 * 24)) * 1000) / 1000,
     );
   });
 });

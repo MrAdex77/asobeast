@@ -16,12 +16,14 @@ import { ScoringModule } from '../scoring/scoring.module';
 import { AppStoreWorker } from './app-store.worker';
 import { bullBoardAuthMiddleware } from './bull-board-auth';
 import { DigestService } from './digest.service';
+import { GplayWorker } from './gplay.worker';
 import { BudgetController, JobsController } from './jobs.controller';
 import { QUEUES } from './jobs.types';
 import { PipelineService } from './pipeline.service';
 import { PipelineWorker } from './pipeline.worker';
 import { RetentionService } from './retention.service';
 import { ScoringController } from './scoring.controller';
+import { StoreJobsHandler } from './store-jobs.handler';
 
 const bullBoardModules: DynamicModule[] =
   (process.env.BULL_BOARD_ENABLED ?? 'true') === 'false'
@@ -35,6 +37,7 @@ const bullBoardModules: DynamicModule[] =
         BullBoardModule.forFeature(
           { name: QUEUES.PIPELINE, adapter: BullMQAdapter },
           { name: QUEUES.APP_STORE, adapter: BullMQAdapter },
+          { name: QUEUES.GPLAY, adapter: BullMQAdapter },
           { name: QUEUES.ALERTS, adapter: BullMQAdapter },
         ),
       ];
@@ -60,6 +63,7 @@ const bullBoardModules: DynamicModule[] =
     BullModule.registerQueue(
       { name: QUEUES.PIPELINE },
       { name: QUEUES.APP_STORE },
+      { name: QUEUES.GPLAY },
     ),
     AppsModule,
     RankingsModule,
@@ -73,7 +77,9 @@ const bullBoardModules: DynamicModule[] =
   ],
   controllers: [JobsController, BudgetController, ScoringController],
   providers: [
+    StoreJobsHandler,
     AppStoreWorker,
+    GplayWorker,
     PipelineWorker,
     PipelineService,
     RetentionService,

@@ -12,7 +12,10 @@ import { AppsService } from './apps.service';
     StoreProvidersModule,
     KeywordsModule,
     ChangesModule,
-    BullModule.registerQueue({ name: QUEUES.APP_STORE }),
+    BullModule.registerQueue(
+      { name: QUEUES.APP_STORE },
+      { name: QUEUES.GPLAY },
+    ),
   ],
   controllers: [AppsController],
   providers: [AppsService],

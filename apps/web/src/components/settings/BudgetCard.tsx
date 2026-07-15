@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, storeLabel } from "@/lib/format";
 import { budgetOptions } from "@/lib/queries";
 
 const WARN = 0.6;
@@ -18,15 +18,10 @@ const DANGER = 0.85;
 const WARNING_COPY =
   "Daily jobs may not finish within store rate limits; remove keywords or countries, or raise SCRAPE_ITUNES_RPM at your own risk.";
 
-export function BudgetCard() {
-  const { data: budget } = useSuspenseQuery(budgetOptions);
-  const pct = Math.round(budget.utilization * 100);
+function meterFor(utilization: number) {
+  const pct = Math.round(utilization * 100);
   const level =
-    budget.utilization > DANGER
-      ? "danger"
-      : budget.utilization > WARN
-        ? "warn"
-        : "ok";
+    utilization > DANGER ? "danger" : utilization > WARN ? "warn" : "ok";
   const barColor =
     level === "danger"
       ? "bg-destructive"
@@ -35,6 +30,12 @@ export function BudgetCard() {
         : "bg-primary";
   const status =
     level === "danger" ? "Over capacity" : level === "warn" ? "High" : "Healthy";
+  return { pct, level, barColor, status };
+}
+
+export function BudgetCard() {
+  const { data: budget } = useSuspenseQuery(budgetOptions);
+  const { pct, level, barColor, status } = meterFor(budget.utilization);
 
   const rows = [
     { label: "Apps", value: budget.apps },
@@ -64,10 +65,41 @@ export function BudgetCard() {
           ))}
         </dl>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-4">
+          {budget.stores.map((store) => {
+            const meter = meterFor(store.utilization);
+            return (
+              <div key={store.store} className="flex flex-col gap-2">
+                <div className="flex items-baseline justify-between text-sm">
+                  <span className="font-medium">{storeLabel(store.store)}</span>
+                  <span className="text-muted-foreground tabular-nums">
+                    {formatNumber(store.total)} of{" "}
+                    {formatNumber(store.capacityPerDay)} requests/day ·{" "}
+                    {meter.pct}%
+                  </span>
+                </div>
+                <div
+                  role="meter"
+                  aria-valuenow={meter.pct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`${storeLabel(store.store)} daily request utilization`}
+                  className="h-2 w-full overflow-hidden rounded-full bg-muted"
+                >
+                  <div
+                    className={`h-full ${meter.barColor}`}
+                    style={{ width: `${Math.min(100, meter.pct)}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-col gap-2 border-t pt-4">
           <div className="flex items-baseline justify-between text-sm">
             <span className="text-muted-foreground">
-              {formatNumber(budget.total)} of{" "}
+              Peak store utilization · {formatNumber(budget.total)} of{" "}
               {formatNumber(budget.capacityPerDay)} requests/day
             </span>
             <span className="font-medium tabular-nums">
@@ -79,7 +111,7 @@ export function BudgetCard() {
             aria-valuenow={pct}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label="Daily request utilization"
+            aria-label="Peak store utilization"
             className="h-2 w-full overflow-hidden rounded-full bg-muted"
           >
             <div

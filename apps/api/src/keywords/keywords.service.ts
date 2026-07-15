@@ -25,6 +25,7 @@ import {
   isoWeekKey,
   JOBS,
   QUEUES,
+  queueNameForStore,
   scoreJobId,
   SpiderProbePayload,
   spiderJobId,
@@ -64,9 +65,19 @@ export class KeywordsService {
     private readonly prisma: PrismaService,
     private readonly registry: StoreProviderRegistry,
     @InjectQueue(QUEUES.APP_STORE) private readonly appStoreQueue: Queue,
+    @InjectQueue(QUEUES.GPLAY) private readonly gplayQueue: Queue,
   ) {}
 
-  private async enqueueFirstScore(keywordId: string): Promise<void> {
+  private queueFor(store: Store): Queue {
+    return queueNameForStore(store) === QUEUES.GPLAY
+      ? this.gplayQueue
+      : this.appStoreQueue;
+  }
+
+  private async enqueueFirstScore(
+    keywordId: string,
+    store: Store,
+  ): Promise<void> {
     const existing = await this.prisma.keywordMetric.findFirst({
       where: { keywordId },
       select: { keywordId: true },
@@ -74,7 +85,7 @@ export class KeywordsService {
     if (existing) {
       return;
     }
-    await this.appStoreQueue.add(
+    await this.queueFor(store).add(
       JOBS.SCORE_KEYWORD,
       { keywordId },
       { jobId: scoreJobId(keywordId, isoWeekKey()) },
@@ -299,7 +310,7 @@ export class KeywordsService {
         },
         update: { active: true },
       });
-      await this.enqueueFirstScore(keyword.id);
+      await this.enqueueFirstScore(keyword.id, app.store);
     }
 
     return this.listTracked(appId, undefined, market);
@@ -376,7 +387,7 @@ export class KeywordsService {
         },
         update: { source: 'KEYWORD_FIELD', active: true },
       });
-      await this.enqueueFirstScore(keyword.id);
+      await this.enqueueFirstScore(keyword.id, app.store);
     }
 
     const uniqueSet = new Set(unique);
@@ -443,7 +454,7 @@ export class KeywordsService {
   }
 
   async startSpider(appId: string, term: string): Promise<SpiderEnqueueResult> {
-    await this.ensureApp(appId);
+    const app = await this.ensureApp(appId);
     const date = utcDateKey();
     const day = spiderDay(date);
 
@@ -458,7 +469,7 @@ export class KeywordsService {
       if (done.has(probe)) {
         continue;
       }
-      await this.appStoreQueue.add(
+      await this.queueFor(app.store).add(
         JOBS.SPIDER_PROBE,
         { appId, term, probe } satisfies SpiderProbePayload,
         { jobId: spiderJobId(appId, term, probe, date) },
@@ -745,7 +756,7 @@ export class KeywordsService {
         },
         update: {},
       });
-      await this.enqueueFirstScore(keyword.id);
+      await this.enqueueFirstScore(keyword.id, app.store);
     }
   }
 

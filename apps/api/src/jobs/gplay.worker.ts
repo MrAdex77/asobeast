@@ -4,14 +4,14 @@ import { Job } from 'bullmq';
 import { QUEUES } from './jobs.types';
 import { StoreJobsHandler } from './store-jobs.handler';
 
-const ITUNES_RPM = Number(process.env.SCRAPE_ITUNES_RPM) || 15;
+const GPLAY_RPM = Number(process.env.SCRAPE_GPLAY_RPM) || 10;
 
-@Processor(QUEUES.APP_STORE, {
+@Processor(QUEUES.GPLAY, {
   concurrency: 1,
-  limiter: { max: ITUNES_RPM, duration: 60_000 },
+  limiter: { max: GPLAY_RPM, duration: 60_000 },
 })
-export class AppStoreWorker extends WorkerHost {
-  private readonly logger = new Logger(AppStoreWorker.name);
+export class GplayWorker extends WorkerHost {
+  private readonly logger = new Logger(GplayWorker.name);
 
   constructor(private readonly handler: StoreJobsHandler) {
     super();
