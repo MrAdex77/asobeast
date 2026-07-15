@@ -2,7 +2,7 @@
 
 ## What this project is
 
-**asobeast** is an open source, self hosted ASO (App Store Optimization) toolkit for indie developers and small teams. It imports an app from a store URL, stores metadata snapshots, extracts and tracks keywords, checks keyword rankings daily, scores keywords (traffic, difficulty, opportunity) and shows everything through a Next.js frontend talking to a NestJS API. All store requests run on the machine that hosts the app. Multi-country: an app is a **single tracking entity** with a home storefront (`app.country`, from the URL or `DEFAULT_COUNTRY`); keyword tracking carries its own country, so one app tracks keywords across many storefronts, filtered per market on the keyword monitor. **Store v1: Apple App Store only** (Google Play is architecturally prepared but stubbed).
+**asobeast** is an open source, self hosted ASO (App Store Optimization) toolkit for indie developers and small teams. It imports an app from a store URL, stores metadata snapshots, extracts and tracks keywords, checks keyword rankings daily, scores keywords (traffic, difficulty, opportunity) and shows everything through a Next.js frontend talking to a NestJS API. All store requests run on the machine that hosts the app. Multi-country: an app is a **single tracking entity** with a home storefront (`app.country`, from the URL or `DEFAULT_COUNTRY`); keyword tracking carries its own country, so one app tracks keywords across many storefronts, filtered per market on the keyword monitor. **Both stores are live: Apple App Store and Google Play.** All scraping stays behind the `StoreProvider` interface (provider isolation unchanged), so a parser breakage is contained to one module.
 
 The implementation plan lives in `docs/plan/`. Work phase by phase, step by step; each step maps to exactly one git commit whose message is given in the plan. The frontend upgrade plan lives in `docs/frontend-plan/` and follows the same rules, one branch and one PR per phase.
 
@@ -13,7 +13,7 @@ The implementation plan lives in `docs/plan/`. Work phase by phase, step by step
 - **apps/web:** Next.js (latest stable, App Router, Tailwind), consumes the API over HTTP
 - **packages/shared:** `@asobeast/shared`, compiled with tsup (cjs + esm + dts), tested with Vitest
 - **packages/typescript-config:** `@asobeast/typescript-config`, base tsconfigs
-- Scraping: `@perttu/app-store-scraper` (App Store). No Google Play scraper is installed in v1.
+- Scraping: `@perttu/app-store-scraper` (App Store) and `@mradex77/google-play-scraper` (Google Play), both isolated behind the `StoreProvider` interface.
 - Docker + docker compose for dev services and self hosting
 
 ## Repository layout
@@ -25,7 +25,7 @@ apps/
       config/             typed env configuration
       prisma/             PrismaService + module
       health/
-      store-providers/    provider contract impls + registry (App Store live, Google Play stub)
+      store-providers/    provider contract impls + registry (App Store + Google Play, both live)
       apps/               import, snapshots, refresh, competitors
       keywords/           extraction, tracked keywords, suggestions
       rankings/           rank capture + history
@@ -33,7 +33,7 @@ apps/
       analytics/          visibility, summary
       audit/              aso audit rubric engine + endpoints
       metadata/           metadata audit + keyword coverage
-      jobs/               BullMQ queues, workers, schedulers
+      jobs/               BullMQ queues, workers (appstore + gplay), schedulers
     prisma/               schema.prisma, migrations, seed.ts
   web/                    Next.js frontend
     src/
@@ -107,9 +107,9 @@ docker compose -f docker-compose.dev.yml up -d
 
 ## Domain rules that are easy to get wrong
 
-1. **App Store only, by design, for now.** The Prisma enum, shared `Store` union and URL parser know both stores. The Google Play provider is a stub throwing `StoreNotSupportedError`, surfaced by the API as HTTP 501 with a friendly message. Adding Google Play later = implement the provider + register a `gplay` worker + add its rate limit env. Do not remove Google Play from types or schema, and do not implement its scraping in v1.
+1. **Both stores are live.** The Prisma enum, shared `Store` union and URL parser cover App Store and Google Play, and `SUPPORTED_STORES` lists both. Play search indexes **title (30), short description (80) and long description (4000)** — there is no subtitle and no keyword field, so those two stay Apple-only concepts everywhere (types, lints, audit weight 0, hidden in the web). Play's indexed 80-char short description (`summary`) is its equivalent surface: it is auto-tracked (`DESCRIPTION` source), linted (`lintShortDescription`) and coverage-checked. The 501 `StoreNotSupportedError` path stays wired for any *future* store, not for Play.
 2. **The iOS keyword field (100 chars) is private.** It never appears on the store page and cannot be scraped; the owner pastes it manually (source `KEYWORD_FIELD`).
-3. **Rate limits.** The iTunes endpoints informally tolerate roughly 20 requests per minute per IP; the `appstore` worker runs concurrency 1 with a limiter from `SCRAPE_ITUNES_RPM` (default 15). Never call store endpoints in bulk outside the queue (the only exception: small, user initiated suggestion lookups).
+3. **Rate limits.** The iTunes endpoints informally tolerate roughly 20 requests per minute per IP; the `appstore` worker runs concurrency 1 with a limiter from `SCRAPE_ITUNES_RPM` (default 15). Google Play is more sensitive: the `gplay` worker runs concurrency 1 with a limiter from `SCRAPE_GPLAY_RPM` (default 10) that spaces **job starts**, because a single Play score job fans out to ≈15–18 sequential requests (1 search + ≤7 prefix-probe suggests + 10 detail `getApp` enrichments) versus ≈2 for Apple. Never call store endpoints in bulk outside the queue (the only exception: small, user initiated suggestion lookups).
 4. **One app, per-market keyword tracking; one search serves everyone.** An app is a single row; countries live on keyword tracking (`Keyword` is scoped by `text, store, country`), so a single app owns keywords across storefronts, added and filtered per market on the keyword monitor. `checkKeyword` searches `keyword.country` (not `app.country`) and records positions for the primary app and all its competitors in that storefront from one search — never one search per app. The same phrase tracked in two markets is two keyword rows checked by two searches; rankings differ per storefront. Each added market multiplies daily search volume against the same `SCRAPE_ITUNES_RPM` budget; `GET /jobs/budget` estimates the fan-out and the settings budget card surfaces it. The iOS keyword field, category ranks, reviews, snapshots and auto-tracked keywords stay on the home market in v1 (a full per-market app-detail switcher is backlog).
 5. **Opportunity is per app, not per keyword.** Traffic and difficulty persist in `KeywordMetric`; opportunity depends on the app's keyword relevance and is computed in the read layer only (aso-skills formula).
 6. **Position semantics.** 1 based; `null` means "checked, not found within `depth`" (default 100). Store the row even when null.
@@ -130,6 +130,7 @@ DEFAULT_COUNTRY=us
 CRON_DAILY=0 3 * * *        # daily pipeline, UTC
 CRON_SCORING=0 4 * * 0      # weekly scoring, UTC (Sunday)
 SCRAPE_ITUNES_RPM=15
+SCRAPE_GPLAY_RPM=10         # google play job-starts/minute; each Play score job fans out to ~15-18 requests
 ALERT_RANK_DROP_THRESHOLD=5  # positions a primary app must move to fire a rank alert
 CRON_RETENTION=0 5 * * *            # data retention pruning, UTC
 RETENTION_RANKINGS_DAYS=365         # keyword rankings; 0 keeps forever
@@ -153,5 +154,5 @@ API_INTERNAL_URL=http://localhost:4000
 - No alternative ORMs, queue systems, HTTP clients, package managers or task runners; the stack is fixed.
 - No store calls in tests; providers are mocked in unit and e2e tests.
 - No manual SQL migrations; always `prisma migrate dev`.
-- No Google Play scraping code in v1.
+- No scraper imports outside the `StoreProvider` interface; all scraping goes through the provider layer.
 - No comments inside code. DRY, KISS, CLEAN CODE.
