@@ -188,6 +188,8 @@ export class AnalyticsService {
         country: true,
         name: true,
         iconUrl: true,
+        groupId: true,
+        group: { select: { name: true } },
         _count: { select: { competitors: true } },
         snapshots: {
           orderBy: { capturedAt: 'desc' },
@@ -228,6 +230,8 @@ export class AnalyticsService {
     country: string;
     name: string | null;
     iconUrl: string | null;
+    groupId: string | null;
+    group: { name: string } | null;
     _count: { competitors: number };
     snapshots: { capturedAt: Date }[];
   }): Promise<PortfolioApp> {
@@ -244,6 +248,8 @@ export class AnalyticsService {
       country: app.country,
       name: app.name,
       iconUrl: app.iconUrl,
+      groupId: app.groupId,
+      groupName: app.group?.name ?? null,
       visibility: {
         current,
         delta7d: referenceDate
