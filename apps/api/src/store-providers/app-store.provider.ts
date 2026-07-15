@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { CategoryCollection, OVERALL_GENRE_ID } from '@asobeast/shared';
+import { CategoryCollection, OVERALL_GENRE } from '@asobeast/shared';
 import { Store } from '@prisma/client';
 import * as cheerio from 'cheerio';
 import {
@@ -71,14 +71,14 @@ export class AppStoreProvider implements StoreProvider {
 
   async topCharts(
     collection: CategoryCollection,
-    genreId: number,
+    genre: string,
     num: number,
     country: string,
   ): Promise<ChartItem[]> {
     const results = await this.withRetry('topCharts', () =>
       this.lib.list({
         collection: COLLECTION_CONSTANTS[collection],
-        ...(genreId === OVERALL_GENRE_ID ? {} : { category: genreId }),
+        ...(genre === OVERALL_GENRE ? {} : { category: Number(genre) }),
         num: Math.min(num, CHART_MAX),
         country,
       }),

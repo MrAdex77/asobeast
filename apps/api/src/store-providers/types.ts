@@ -56,7 +56,7 @@ export interface StoreProvider {
   similar(storeAppId: string, country: string): Promise<SearchItem[]>;
   topCharts(
     collection: CategoryCollection,
-    genreId: number,
+    genre: string,
     num: number,
     country: string,
   ): Promise<ChartItem[]>;

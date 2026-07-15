@@ -8,6 +8,7 @@ interface AppRow {
   id: string;
   storeAppId: string;
   country: string;
+  store: Store;
   snapshots: { raw: unknown }[];
 }
 
@@ -16,7 +17,8 @@ const app = (
   storeAppId: string,
   raw: unknown,
   country = 'us',
-): AppRow => ({ id, storeAppId, country, snapshots: [{ raw }] });
+  store: Store = Store.APP_STORE,
+): AppRow => ({ id, storeAppId, country, store, snapshots: [{ raw }] });
 
 const makeService = (
   apps: AppRow[],
@@ -46,8 +48,13 @@ describe('CategoryRanksService buckets', () => {
     const buckets = await service.buckets(['a1', 'a2']);
 
     expect(buckets).toEqual([
-      { collection: 'free', genreId: 6007, country: 'us' },
-      { collection: 'free', genreId: 0, country: 'us' },
+      { collection: 'free', genre: '6007', country: 'us', store: 'APP_STORE' },
+      {
+        collection: 'free',
+        genre: 'overall',
+        country: 'us',
+        store: 'APP_STORE',
+      },
     ]);
   });
 
@@ -60,16 +67,32 @@ describe('CategoryRanksService buckets', () => {
     const buckets = await service.buckets(['a1', 'a2']);
 
     expect(buckets).toEqual([
-      { collection: 'free', genreId: 6007, country: 'us' },
-      { collection: 'free', genreId: 0, country: 'us' },
-      { collection: 'paid', genreId: 6014, country: 'us' },
-      { collection: 'paid', genreId: 0, country: 'us' },
+      { collection: 'free', genre: '6007', country: 'us', store: 'APP_STORE' },
+      {
+        collection: 'free',
+        genre: 'overall',
+        country: 'us',
+        store: 'APP_STORE',
+      },
+      { collection: 'paid', genre: '6014', country: 'us', store: 'APP_STORE' },
+      {
+        collection: 'paid',
+        genre: 'overall',
+        country: 'us',
+        store: 'APP_STORE',
+      },
     ]);
   });
 
   it('skips apps without a snapshot or genre', async () => {
     const { service } = makeService([
-      { id: 'a1', storeAppId: '111', country: 'us', snapshots: [] },
+      {
+        id: 'a1',
+        storeAppId: '111',
+        country: 'us',
+        store: Store.APP_STORE,
+        snapshots: [],
+      },
       app('a2', '222', { price: 0 }),
     ]);
 
@@ -90,8 +113,9 @@ describe('CategoryRanksService checkCategory', () => {
 
     await service.checkCategory({
       collection: 'free',
-      genreId: 6007,
+      genre: '6007',
       country: 'us',
+      store: 'APP_STORE',
     });
 
     expect(registry.get).toHaveBeenCalledWith(Store.APP_STORE);
@@ -118,8 +142,9 @@ describe('CategoryRanksService checkCategory', () => {
 
     await service.checkCategory({
       collection: 'free',
-      genreId: 0,
+      genre: 'overall',
       country: 'us',
+      store: 'APP_STORE',
     });
 
     const appIds = upsert.mock.calls.map(
@@ -136,25 +161,27 @@ describe('CategoryRanksService checkCategory', () => {
 
     await service.checkCategory({
       collection: 'free',
-      genreId: 6007,
+      genre: '6007',
       country: 'us',
+      store: 'APP_STORE',
     });
     await service.checkCategory({
       collection: 'free',
-      genreId: 6007,
+      genre: '6007',
       country: 'us',
+      store: 'APP_STORE',
     });
 
     for (const [arg] of upsert.mock.calls) {
       const where = (
         arg as {
-          where: { appId_date_collection_genreId: Record<string, unknown> };
+          where: { appId_date_collection_genre: Record<string, unknown> };
         }
-      ).where.appId_date_collection_genreId;
+      ).where.appId_date_collection_genre;
       expect(where).toMatchObject({
         appId: 'a1',
         collection: 'free',
-        genreId: 6007,
+        genre: '6007',
       });
     }
     expect(upsert).toHaveBeenCalledTimes(2);
@@ -166,7 +193,7 @@ describe('CategoryRanksService history', () => {
     appRow: unknown,
     ranks: {
       collection: string;
-      genreId: number;
+      genre: string;
       date: Date;
       position: number | null;
     }[],
@@ -198,19 +225,19 @@ describe('CategoryRanksService history', () => {
     const ranks = [
       {
         collection: 'free',
-        genreId: 6007,
+        genre: '6007',
         date: new Date('2026-07-09'),
         position: 12,
       },
       {
         collection: 'free',
-        genreId: 6007,
+        genre: '6007',
         date: new Date('2026-07-10'),
         position: 8,
       },
       {
         collection: 'free',
-        genreId: 0,
+        genre: 'overall',
         date: new Date('2026-07-10'),
         position: 140,
       },
@@ -222,7 +249,7 @@ describe('CategoryRanksService history', () => {
     expect(result.series).toEqual([
       {
         collection: 'free',
-        genreId: 6007,
+        genre: '6007',
         genreName: 'Productivity',
         current: 8,
         points: [
@@ -232,7 +259,7 @@ describe('CategoryRanksService history', () => {
       },
       {
         collection: 'free',
-        genreId: 0,
+        genre: 'overall',
         genreName: 'Overall',
         current: 140,
         points: [{ date: '2026-07-10', position: 140 }],

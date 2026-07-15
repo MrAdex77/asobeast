@@ -166,7 +166,7 @@ export class PipelineService {
       await this.appStoreQueue.add(JOBS.CHECK_CATEGORY, bucket, {
         jobId: categoryJobId(
           bucket.collection,
-          bucket.genreId,
+          bucket.genre,
           bucket.country,
           date,
         ),

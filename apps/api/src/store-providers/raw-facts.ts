@@ -41,6 +41,11 @@ export function primaryGenreId(raw: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+export function primaryGenreKey(raw: unknown): string | null {
+  const id = primaryGenreId(raw);
+  return id === null ? null : String(id);
+}
+
 export function primaryGenreName(raw: unknown): string | null {
   return nonEmptyString(asRecord(raw)?.primaryGenre);
 }

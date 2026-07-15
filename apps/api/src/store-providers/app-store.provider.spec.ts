@@ -178,7 +178,7 @@ describe('AppStoreProvider', () => {
     ]);
     const provider = new AppStoreProvider(makeLib({ list }));
 
-    const items = await provider.topCharts('paid', 6007, 200, 'us');
+    const items = await provider.topCharts('paid', '6007', 200, 'us');
 
     expect(items).toEqual([
       { storeAppId: '111', title: 'First' },
@@ -196,7 +196,7 @@ describe('AppStoreProvider', () => {
     const list = jest.fn().mockResolvedValue([]);
     const provider = new AppStoreProvider(makeLib({ list }));
 
-    await provider.topCharts('free', 0, 500, 'us');
+    await provider.topCharts('free', 'overall', 500, 'us');
 
     expect(list).toHaveBeenCalledWith({
       collection: 'topfreeapplications',
@@ -270,7 +270,7 @@ describe('AppStoreProvider', () => {
     const list = jest.fn().mockRejectedValue(new Error('boom'));
     const provider = new AppStoreProvider(makeLib({ list }));
 
-    const promise = provider.topCharts('grossing', 0, 200, 'us');
+    const promise = provider.topCharts('grossing', 'overall', 200, 'us');
     const assertion = expect(promise).rejects.toBeInstanceOf(StoreRequestError);
     await jest.runAllTimersAsync();
     await assertion;

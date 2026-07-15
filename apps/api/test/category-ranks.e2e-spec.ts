@@ -86,21 +86,21 @@ describe('CategoryRanksController (e2e)', () => {
           appId: you.id,
           date: new Date('2026-07-09T00:00:00.000Z'),
           collection: 'free',
-          genreId: 6007,
+          genre: '6007',
           position: 12,
         },
         {
           appId: you.id,
           date: new Date('2026-07-10T00:00:00.000Z'),
           collection: 'free',
-          genreId: 6007,
+          genre: '6007',
           position: 8,
         },
         {
           appId: you.id,
           date: new Date('2026-07-10T00:00:00.000Z'),
           collection: 'free',
-          genreId: 0,
+          genre: 'overall',
           position: null,
         },
       ],
@@ -112,14 +112,14 @@ describe('CategoryRanksController (e2e)', () => {
 
     const body = response.body as CategoryRankSeries;
     expect(body.series).toHaveLength(2);
-    const category = body.series.find((item) => item.genreId === 6007);
+    const category = body.series.find((item) => item.genre === '6007');
     expect(category).toMatchObject({
       collection: 'free',
       genreName: 'Productivity',
       current: 8,
     });
     expect(category?.points).toHaveLength(2);
-    const overall = body.series.find((item) => item.genreId === 0);
+    const overall = body.series.find((item) => item.genre === 'overall');
     expect(overall).toMatchObject({ genreName: 'Overall', current: null });
   });
 });
