@@ -4,6 +4,7 @@ import { ScoringService } from './scoring.service';
 import { StatsCollectorService } from './stats-collector.service';
 
 const stats: KeywordStats = {
+  store: 'APP_STORE',
   keywordText: 'games',
   top10: Array.from({ length: 10 }, () => ({
     title: 'Best Games',

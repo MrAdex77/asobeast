@@ -41,6 +41,7 @@ export class StatsCollectorService {
     );
 
     return {
+      store: keyword.store,
       keywordText: keyword.text,
       top10: results
         .slice(0, TOP_STRENGTH)
