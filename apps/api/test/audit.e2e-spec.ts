@@ -187,9 +187,11 @@ describe('AuditController (e2e)', () => {
       .expect(400);
   });
 
-  it('returns 404 for an unknown app and 501 for Google Play', async () => {
+  it('returns 404 for an unknown app', async () => {
     await request(app.getHttpServer()).get('/apps/missing/audit').expect(404);
+  });
 
+  it('audits a Google Play app without subtitle or keyword-field factors', async () => {
     const gplay = await prisma.app.create({
       data: {
         workspaceId: DEFAULT_WORKSPACE_ID,
@@ -199,8 +201,30 @@ describe('AuditController (e2e)', () => {
         name: 'Play App',
       },
     });
-    await request(app.getHttpServer())
+    await prisma.appSnapshot.create({
+      data: {
+        appId: gplay.id,
+        title: 'Play App',
+        summary: 'Track daily habits and reach your goals',
+        description:
+          'Build better habits every single day.\n- Loved by 1 million users. Download now to start today.',
+        ratingAvg: 4.4,
+        ratingCount: 3000,
+        installs: 500000n,
+        raw: { genreId: 'TOOLS' },
+        capturedAt: D0,
+      },
+    });
+
+    const response = await request(app.getHttpServer())
       .get(`/apps/${gplay.id}/audit`)
-      .expect(501);
+      .expect(200);
+    const result = response.body as AppAuditResult;
+
+    expect(result.store).toBe('GOOGLE_PLAY');
+    expect(factor(result, 'subtitle')).toBeUndefined();
+    expect(factor(result, 'keywordField')).toBeUndefined();
+    expect(factor(result, 'description')?.weight).toBe(15);
+    expect(result.totalWeight).toBe(90);
   });
 });

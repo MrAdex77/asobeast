@@ -11,7 +11,7 @@ export const STORES = ['APP_STORE', 'GOOGLE_PLAY'] as const;
 export type Store = (typeof STORES)[number];
 
 /** Stores actively scraped in this version. */
-export const SUPPORTED_STORES: readonly Store[] = ['APP_STORE'];
+export const SUPPORTED_STORES: readonly Store[] = ['APP_STORE', 'GOOGLE_PLAY'];
 
 export const KEYWORD_SUGGESTION_STRATEGIES = [
   'metadata',
