@@ -3,7 +3,7 @@ import { join } from 'path';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Store } from '@prisma/client';
-import { ApiErrorEnvelope, AppDetail } from '@asobeast/shared';
+import { ApiErrorEnvelope, AppDetail, AppGroupSummary } from '@asobeast/shared';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
@@ -123,7 +123,7 @@ describe('AppsController (e2e)', () => {
     registry.failWith = null;
     registry.getAppCalls = [];
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE "App", "Keyword" RESTART IDENTITY CASCADE',
+      'TRUNCATE TABLE "App", "Keyword", "AppGroup" RESTART IDENTITY CASCADE',
     );
   });
 
@@ -306,6 +306,123 @@ describe('AppsController (e2e)', () => {
 
     expectEnvelope(body, 502, '/apps');
     expect(body.message).toContain('boom');
+  });
+
+  const importApp = async (url: string): Promise<AppDetail> => {
+    const response = await request(app.getHttpServer())
+      .post('/apps')
+      .send({ url })
+      .expect(201);
+    return response.body as AppDetail;
+  };
+
+  it('links an app store and google play app into one group', async () => {
+    const apple = await importApp(APP_STORE_URL);
+    const play = await importApp(GOOGLE_PLAY_URL);
+
+    const link = await request(app.getHttpServer())
+      .post(`/apps/${apple.id}/link`)
+      .send({ appId: play.id })
+      .expect(201);
+    const group = link.body as AppGroupSummary;
+
+    expect(group.members).toHaveLength(2);
+    expect(group.members[0].store).toBe('APP_STORE');
+    expect(group.members[1].store).toBe('GOOGLE_PLAY');
+
+    const appleDetail = await request(app.getHttpServer())
+      .get(`/apps/${apple.id}`)
+      .expect(200);
+    const playDetail = await request(app.getHttpServer())
+      .get(`/apps/${play.id}`)
+      .expect(200);
+    expect((appleDetail.body as AppDetail).group?.id).toBe(group.id);
+    expect((playDetail.body as AppDetail).group?.id).toBe(group.id);
+  });
+
+  it('rejects linking two apps on the same store', async () => {
+    const apple = await importApp(APP_STORE_URL);
+    const otherApple = await importApp(
+      'https://apps.apple.com/us/app/rival/id9876543210',
+    );
+
+    const response = await request(app.getHttpServer())
+      .post(`/apps/${apple.id}/link`)
+      .send({ appId: otherApple.id })
+      .expect(400);
+
+    expectEnvelope(
+      response.body as ApiErrorEnvelope,
+      400,
+      `/apps/${apple.id}/link`,
+    );
+  });
+
+  it('rejects linking apps that are already grouped', async () => {
+    const apple = await importApp(APP_STORE_URL);
+    const play = await importApp(GOOGLE_PLAY_URL);
+    const otherApple = await importApp(
+      'https://apps.apple.com/us/app/rival/id9876543210',
+    );
+    const otherPlay = await importApp(
+      'https://play.google.com/store/apps/details?id=com.example.other',
+    );
+
+    await request(app.getHttpServer())
+      .post(`/apps/${apple.id}/link`)
+      .send({ appId: play.id })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post(`/apps/${otherApple.id}/link`)
+      .send({ appId: otherPlay.id })
+      .expect(201);
+
+    const response = await request(app.getHttpServer())
+      .post(`/apps/${apple.id}/link`)
+      .send({ appId: otherPlay.id })
+      .expect(400);
+
+    expectEnvelope(
+      response.body as ApiErrorEnvelope,
+      400,
+      `/apps/${apple.id}/link`,
+    );
+  });
+
+  it('unlinks and removes the group for the counterpart', async () => {
+    const apple = await importApp(APP_STORE_URL);
+    const play = await importApp(GOOGLE_PLAY_URL);
+    await request(app.getHttpServer())
+      .post(`/apps/${apple.id}/link`)
+      .send({ appId: play.id })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .delete(`/apps/${apple.id}/link`)
+      .expect(204);
+
+    const playDetail = await request(app.getHttpServer())
+      .get(`/apps/${play.id}`)
+      .expect(200);
+    expect((playDetail.body as AppDetail).group).toBeNull();
+    expect(await prisma.appGroup.count()).toBe(0);
+  });
+
+  it('leaves the counterpart ungrouped when a linked app is deleted', async () => {
+    const apple = await importApp(APP_STORE_URL);
+    const play = await importApp(GOOGLE_PLAY_URL);
+    await request(app.getHttpServer())
+      .post(`/apps/${apple.id}/link`)
+      .send({ appId: play.id })
+      .expect(201);
+
+    await request(app.getHttpServer()).delete(`/apps/${apple.id}`).expect(204);
+
+    const playDetail = await request(app.getHttpServer())
+      .get(`/apps/${play.id}`)
+      .expect(200);
+    expect((playDetail.body as AppDetail).group).toBeNull();
+    expect(await prisma.appGroup.count()).toBe(0);
   });
 
   it('deletes an app and cascades its snapshots', async () => {

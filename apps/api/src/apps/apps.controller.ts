@@ -10,6 +10,7 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   AppDetail,
+  AppGroupSummary,
   AppListItem,
   CompetitorItem,
   SnapshotDiffResult,
@@ -17,6 +18,7 @@ import {
 import { AppsService } from './apps.service';
 import { AddCompetitorDto } from './dto/add-competitor.dto';
 import { ImportAppDto } from './dto/import-app.dto';
+import { LinkAppDto } from './dto/link-app.dto';
 
 @ApiTags('apps')
 @Controller('apps')
@@ -55,6 +57,24 @@ export class AppsController {
   @ApiOperation({ summary: 'Delete an app' })
   remove(@Param('id') id: string): Promise<void> {
     return this.apps.remove(id);
+  }
+
+  @Post(':id/link')
+  @ApiOperation({
+    summary: 'Link an app to its counterpart on the other store',
+  })
+  link(
+    @Param('id') id: string,
+    @Body() dto: LinkAppDto,
+  ): Promise<AppGroupSummary> {
+    return this.apps.linkApp(id, dto.appId);
+  }
+
+  @Delete(':id/link')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Unlink an app from its group' })
+  unlink(@Param('id') id: string): Promise<void> {
+    return this.apps.unlinkApp(id);
   }
 
   @Post(':id/competitors')
