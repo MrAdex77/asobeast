@@ -1,10 +1,16 @@
 import { App, AppSnapshot } from '@prisma/client';
 import {
   AppDetail,
+  AppGroupSummary,
   AppListItem,
   AppSnapshotSummary,
   CompetitorItem,
 } from '@asobeast/shared';
+
+const STORE_ORDER: Record<App['store'], number> = {
+  APP_STORE: 0,
+  GOOGLE_PLAY: 1,
+};
 
 export function toSnapshotSummary(snapshot: AppSnapshot): AppSnapshotSummary {
   return {
@@ -51,6 +57,25 @@ export function toAppListItem(
     capturedAt: snapshot ? snapshot.capturedAt.toISOString() : null,
     trackedKeywordCount,
     competitorCount,
+    groupId: app.groupId,
+  };
+}
+
+export type GroupWithApps = { id: string; name: string; apps: App[] };
+
+export function toAppGroupSummary(group: GroupWithApps): AppGroupSummary {
+  return {
+    id: group.id,
+    name: group.name,
+    members: [...group.apps]
+      .sort((a, b) => STORE_ORDER[a.store] - STORE_ORDER[b.store])
+      .map((member) => ({
+        id: member.id,
+        store: member.store,
+        country: member.country,
+        name: member.name,
+        iconUrl: member.iconUrl,
+      })),
   };
 }
 
@@ -60,6 +85,7 @@ export function toAppDetail(
   app: App,
   snapshot: AppSnapshot | null,
   competitors: CompetitorWithSnapshot[],
+  group: GroupWithApps | null,
 ): AppDetail {
   return {
     id: app.id,
@@ -73,5 +99,6 @@ export function toAppDetail(
     competitors: competitors.map((competitor) =>
       toCompetitorItem(competitor, competitor.snapshots[0] ?? null),
     ),
+    group: group ? toAppGroupSummary(group) : null,
   };
 }

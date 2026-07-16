@@ -21,6 +21,20 @@ export interface CompetitorItem {
   latestSnapshot: AppSnapshotSummary | null;
 }
 
+export interface AppGroupMember {
+  id: string;
+  store: Store;
+  country: string;
+  name: string | null;
+  iconUrl: string | null;
+}
+
+export interface AppGroupSummary {
+  id: string;
+  name: string;
+  members: AppGroupMember[];
+}
+
 export interface AppDetail {
   id: string;
   store: Store;
@@ -31,6 +45,7 @@ export interface AppDetail {
   createdAt: string;
   latestSnapshot: AppSnapshotSummary | null;
   competitors: CompetitorItem[];
+  group: AppGroupSummary | null;
 }
 
 export interface AppListItem {
@@ -44,6 +59,7 @@ export interface AppListItem {
   capturedAt: string | null;
   trackedKeywordCount: number;
   competitorCount: number;
+  groupId: string | null;
 }
 
 export interface SnapshotChange {

@@ -7,6 +7,8 @@ export interface PortfolioApp {
   country: string;
   name: string | null;
   iconUrl: string | null;
+  groupId: string | null;
+  groupName: string | null;
   visibility: { current: number; delta7d: number | null };
   sparkline: VisibilityPoint[];
   trackedKeywords: number;

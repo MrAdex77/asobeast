@@ -7,6 +7,7 @@ import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
   getAlertsConfig,
   getApp,
+  getApps,
   getBudget,
   getCategoryRanks,
   getChanges,
@@ -109,6 +110,11 @@ export const budgetKey = ["budget"] as const;
 export const portfolioOptions = queryOptions({
   queryKey: portfolioKey,
   queryFn: getPortfolio,
+});
+
+export const appsOptions = queryOptions({
+  queryKey: appKeys.all,
+  queryFn: getApps,
 });
 
 export const recentChangesOptions = (limit?: number) =>
@@ -284,6 +290,17 @@ export function invalidateCompetitorMutation(
   void client.invalidateQueries({ queryKey: appKeys.detail(id) });
   void client.invalidateQueries({ queryKey: appKeys.discoveryRoot(id) });
   void client.invalidateQueries({ queryKey: appKeys.serpMoversRoot(id) });
+}
+
+export function invalidateLinkMutation(
+  client: QueryClient,
+  id: string,
+  counterpartId: string,
+): void {
+  void client.invalidateQueries({ queryKey: appKeys.detail(id) });
+  void client.invalidateQueries({ queryKey: appKeys.detail(counterpartId) });
+  void client.invalidateQueries({ queryKey: appKeys.all });
+  void client.invalidateQueries({ queryKey: portfolioKey });
 }
 
 export function invalidateWebhookMutation(client: QueryClient): void {

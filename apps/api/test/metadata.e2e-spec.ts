@@ -129,7 +129,8 @@ describe('MetadataController (e2e)', () => {
         appId: created.id,
         title: 'Habit Tracker',
         summary: 'Build daily goals and log water every single day',
-        description: 'Build better habits with reminders and a sleep timer inside.',
+        description:
+          'Build better habits with reminders and a sleep timer inside.',
         raw: {},
         capturedAt: D0,
       },

@@ -25,9 +25,21 @@ model Workspace {
   id          String       @id @default(cuid())
   name        String       @default("Default")
   apps        App[]
+  appGroups   AppGroup[]
   webhooks    Webhook[]
   emailAlerts EmailAlert[]
   createdAt   DateTime     @default(now())
+}
+
+model AppGroup {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  apps        App[]
+  createdAt   DateTime  @default(now())
+
+  @@index([workspaceId])
 }
 
 model App {
@@ -43,6 +55,8 @@ model App {
   primaryAppId String?
   primaryApp   App?             @relation("AppCompetitors", fields: [primaryAppId], references: [id], onDelete: Cascade)
   competitors  App[]            @relation("AppCompetitors")
+  groupId      String?
+  group        AppGroup?        @relation(fields: [groupId], references: [id], onDelete: SetNull)
   snapshots    AppSnapshot[]
   tracked      TrackedKeyword[]
   rankings     KeywordRanking[]
@@ -54,8 +68,10 @@ model App {
   createdAt    DateTime         @default(now())
 
   @@unique([workspaceId, store, storeAppId, country])
+  @@unique([groupId, store])
   @@index([workspaceId])
   @@index([primaryAppId])
+  @@index([groupId])
 }
 
 model AppSnapshot {

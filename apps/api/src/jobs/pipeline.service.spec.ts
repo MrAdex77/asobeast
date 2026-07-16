@@ -138,7 +138,7 @@ describe('PipelineService competitor fan out', () => {
     expect(categoryCalls).toHaveLength(2);
     expect(categoryCalls[0][1]).toEqual(buckets[0]);
     expect(categoryCalls[0][2].jobId).toMatch(
-      /^category:free:6007:us:\d{4}-\d{2}-\d{2}$/,
+      /^category~free~6007~us~\d{4}-\d{2}-\d{2}$/,
     );
   });
 

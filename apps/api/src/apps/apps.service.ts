@@ -8,6 +8,7 @@ import { App, AppSnapshot, Prisma, Store } from '@prisma/client';
 import { Queue } from 'bullmq';
 import {
   AppDetail,
+  AppGroupSummary,
   AppListItem,
   CompetitorItem,
   parseStoreUrl,
@@ -32,7 +33,12 @@ import {
   queueNameForStore,
   reviewsBackfillJobId,
 } from '../jobs/jobs.types';
-import { toAppDetail, toAppListItem, toCompetitorItem } from './apps.mapper';
+import {
+  toAppDetail,
+  toAppGroupSummary,
+  toAppListItem,
+  toCompetitorItem,
+} from './apps.mapper';
 import { diffSnapshots } from './snapshot-diff';
 
 const REVIEW_BACKFILL_PAGES = 3;
@@ -77,7 +83,7 @@ export class AppsService {
       { jobId: reviewsBackfillJobId(app.id) },
     );
 
-    return toAppDetail(app, snapshot, []);
+    return toAppDetail(app, snapshot, [], null);
   }
 
   async addCompetitor(primaryId: string, url: string): Promise<CompetitorItem> {
@@ -220,6 +226,7 @@ export class AppsService {
           include: { snapshots: { orderBy: { capturedAt: 'desc' }, take: 1 } },
           orderBy: { createdAt: 'asc' },
         },
+        group: { include: { apps: true } },
       },
     });
 
@@ -227,7 +234,112 @@ export class AppsService {
       throw new NotFoundException(`App ${id} not found`);
     }
 
-    return toAppDetail(app, app.snapshots[0] ?? null, app.competitors);
+    return toAppDetail(
+      app,
+      app.snapshots[0] ?? null,
+      app.competitors,
+      app.group,
+    );
+  }
+
+  async linkApp(id: string, appId: string): Promise<AppGroupSummary> {
+    if (id === appId) {
+      throw new BadRequestException('An app cannot be linked to itself');
+    }
+
+    const [primary, counterpart] = await Promise.all([
+      this.findPrimary(id),
+      this.findPrimary(appId),
+    ]);
+
+    if (primary.store === counterpart.store) {
+      throw new BadRequestException('Linked apps must be on different stores');
+    }
+
+    if (primary.groupId && counterpart.groupId) {
+      throw new BadRequestException(
+        'Both apps are already linked; unlink one first',
+      );
+    }
+
+    const existingGroupId = primary.groupId ?? counterpart.groupId;
+
+    const groupId = await this.prisma.$transaction(async (tx) => {
+      if (existingGroupId) {
+        const ungrouped = primary.groupId ? counterpart : primary;
+        const conflict = await tx.app.findFirst({
+          where: { groupId: existingGroupId, store: ungrouped.store },
+          select: { id: true },
+        });
+        if (conflict) {
+          throw new BadRequestException(
+            'The group already has an app on that store',
+          );
+        }
+        await tx.app.update({
+          where: { id: ungrouped.id },
+          data: { groupId: existingGroupId },
+        });
+        return existingGroupId;
+      }
+
+      const group = await tx.appGroup.create({
+        data: {
+          workspaceId: DEFAULT_WORKSPACE_ID,
+          name: primary.name ?? counterpart.name ?? 'App group',
+        },
+      });
+      await tx.app.updateMany({
+        where: { id: { in: [primary.id, counterpart.id] } },
+        data: { groupId: group.id },
+      });
+      return group.id;
+    });
+
+    return this.groupSummary(groupId);
+  }
+
+  async unlinkApp(id: string): Promise<void> {
+    const app = await this.prisma.app.findFirst({
+      where: { id, workspaceId: DEFAULT_WORKSPACE_ID },
+      select: { id: true, groupId: true },
+    });
+    if (!app) {
+      throw new NotFoundException(`App ${id} not found`);
+    }
+    if (!app.groupId) {
+      throw new NotFoundException(`App ${id} is not linked`);
+    }
+    await this.detachFromGroup(app.id, app.groupId);
+  }
+
+  private async findPrimary(id: string) {
+    const app = await this.prisma.app.findFirst({
+      where: { id, workspaceId: DEFAULT_WORKSPACE_ID, isCompetitor: false },
+      select: { id: true, store: true, name: true, groupId: true },
+    });
+    if (!app) {
+      throw new NotFoundException(`App ${id} not found`);
+    }
+    return app;
+  }
+
+  private async groupSummary(groupId: string): Promise<AppGroupSummary> {
+    const group = await this.prisma.appGroup.findUniqueOrThrow({
+      where: { id: groupId },
+      include: { apps: true },
+    });
+    return toAppGroupSummary(group);
+  }
+
+  private async detachFromGroup(appId: string, groupId: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.app.update({ where: { id: appId }, data: { groupId: null } });
+      const remaining = await tx.app.count({ where: { groupId } });
+      if (remaining < 2) {
+        await tx.appGroup.delete({ where: { id: groupId } });
+      }
+    });
   }
 
   private async ensureApp(id: string): Promise<void> {
@@ -243,14 +355,24 @@ export class AppsService {
   async remove(id: string): Promise<void> {
     const app = await this.prisma.app.findFirst({
       where: { id, workspaceId: DEFAULT_WORKSPACE_ID },
-      select: { id: true },
+      select: { id: true, groupId: true },
     });
 
     if (!app) {
       throw new NotFoundException(`App ${id} not found`);
     }
 
-    await this.prisma.app.delete({ where: { id } });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.app.delete({ where: { id: app.id } });
+      if (app.groupId) {
+        const remaining = await tx.app.count({
+          where: { groupId: app.groupId },
+        });
+        if (remaining < 2) {
+          await tx.appGroup.delete({ where: { id: app.groupId } });
+        }
+      }
+    });
   }
 
   async refreshApp(id: string): Promise<SnapshotDiffResult> {

@@ -87,7 +87,7 @@ export function isoWeekKey(date = new Date()): string {
 }
 
 export function scoreJobId(keywordId: string, bucket: string): string {
-  return `score:${keywordId}:${bucket}`;
+  return `score~${keywordId}~${bucket}`;
 }
 
 export function spiderJobId(
@@ -97,15 +97,15 @@ export function spiderJobId(
   date: string,
 ): string {
   const slug = `${term}~${probe || '_'}~${date}`.replace(/:/g, '-');
-  return `spider:${appId}:${slug}`;
+  return `spider~${appId}~${slug}`;
 }
 
 export function reviewsJobId(appId: string, date: string): string {
-  return `reviews:${appId}:${date}`;
+  return `reviews~${appId}~${date}`;
 }
 
 export function reviewsBackfillJobId(appId: string): string {
-  return `reviews:${appId}:backfill`;
+  return `reviews~${appId}~backfill`;
 }
 
 export function categoryJobId(
@@ -114,5 +114,5 @@ export function categoryJobId(
   country: string,
   date: string,
 ): string {
-  return `category:${collection}:${genre}:${country}:${date}`;
+  return `category~${collection}~${genre}~${country}~${date}`;
 }

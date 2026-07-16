@@ -354,6 +354,7 @@ export const APP_1_DETAIL: AppDetail = {
     capturedAt: utcTimestampDaysAgo(0),
   },
   competitors: APP_1_COMPETITORS,
+  group: null,
 };
 
 export const APP_1: AppListItem = {
@@ -367,6 +368,7 @@ export const APP_1: AppListItem = {
   capturedAt: utcTimestampDaysAgo(0),
   trackedKeywordCount: 5,
   competitorCount: 1,
+  groupId: null,
 };
 
 export const APP_2_SUMMARY: AppSummary = {
@@ -400,6 +402,7 @@ export const APP_2_DETAIL: AppDetail = {
     capturedAt: utcTimestampDaysAgo(1),
   },
   competitors: [],
+  group: null,
 };
 
 export const APP_2: AppListItem = {
@@ -413,6 +416,7 @@ export const APP_2: AppListItem = {
   capturedAt: utcTimestampDaysAgo(1),
   trackedKeywordCount: 0,
   competitorCount: 0,
+  groupId: null,
 };
 
 export const IMPORTED_APP_DETAIL: AppDetail = {
@@ -425,6 +429,7 @@ export const IMPORTED_APP_DETAIL: AppDetail = {
   createdAt: utcTimestampDaysAgo(0),
   latestSnapshot: null,
   competitors: [],
+  group: null,
 };
 
 export const IMPORTED_APP: AppListItem = {
@@ -438,6 +443,7 @@ export const IMPORTED_APP: AppListItem = {
   capturedAt: utcTimestampDaysAgo(0),
   trackedKeywordCount: 0,
   competitorCount: 0,
+  groupId: null,
 };
 
 const EMPTY_RANKINGS: RankingSeries = { series: [] };
@@ -514,6 +520,8 @@ export const PORTFOLIO: PortfolioSummary = {
       country: "us",
       name: "Focus Timer",
       iconUrl: null,
+      groupId: null,
+      groupName: null,
       visibility: { current: 62.4, delta7d: 5 },
       sparkline: APP_1_VISIBILITY.points,
       trackedKeywords: 5,
@@ -526,6 +534,8 @@ export const PORTFOLIO: PortfolioSummary = {
       country: "us",
       name: "Habit Tracker",
       iconUrl: null,
+      groupId: null,
+      groupName: null,
       visibility: { current: 10, delta7d: null },
       sparkline: [],
       trackedKeywords: 0,
@@ -635,6 +645,8 @@ export const IMPORTED_PORTFOLIO_APP: PortfolioSummary["apps"][number] = {
   country: "us",
   name: "Imported App",
   iconUrl: null,
+  groupId: null,
+  groupName: null,
   visibility: { current: 0, delta7d: null },
   sparkline: [],
   trackedKeywords: 0,
