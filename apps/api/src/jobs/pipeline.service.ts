@@ -217,14 +217,14 @@ export class PipelineService {
       await this.queueFor(app.store).add(
         JOBS.REFRESH_APP,
         { appId: app.id },
-        { jobId: `refresh:${app.id}:${date}` },
+        { jobId: `refresh~${app.id}~${date}` },
       );
     }
     for (const keyword of targets.keywords) {
       await this.queueFor(keyword.store).add(
         JOBS.CHECK_KEYWORD,
         { keywordId: keyword.keywordId },
-        { jobId: `check:${keyword.keywordId}:${date}` },
+        { jobId: `check~${keyword.keywordId}~${date}` },
       );
     }
     for (const app of targets.reviewApps) {
