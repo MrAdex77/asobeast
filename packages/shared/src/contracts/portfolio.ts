@@ -16,6 +16,14 @@ export interface PortfolioApp {
   lastCapturedAt: string | null;
 }
 
+export interface PortfolioGroup {
+  id: string;
+  name: string;
+  memberAppIds: string[];
+  visibility: { current: number; delta7d: number | null };
+  sparkline: VisibilityPoint[];
+}
+
 export interface PortfolioTotals {
   apps: number;
   competitors: number;
@@ -25,6 +33,7 @@ export interface PortfolioTotals {
 
 export interface PortfolioSummary {
   apps: PortfolioApp[];
+  groups: PortfolioGroup[];
   totals: PortfolioTotals;
 }
 
@@ -38,9 +47,16 @@ export interface DigestAppSummary {
   negativeReviews: number | null;
 }
 
+export interface DigestGroupSummary {
+  id: string;
+  name: string;
+  visibility: { current: number; delta7d: number | null };
+}
+
 export interface DigestWeeklyPayload {
   event: 'digest.weekly';
   occurredAt: string;
   window: { from: string; to: string };
   apps: DigestAppSummary[];
+  groups: DigestGroupSummary[];
 }
