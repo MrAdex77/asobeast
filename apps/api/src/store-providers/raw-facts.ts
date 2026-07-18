@@ -49,12 +49,23 @@ const trimmedString = (value: unknown): string | null => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
-const countOf = (value: unknown): number | null => {
-  if (typeof value !== 'number' && typeof value !== 'string') {
+const numeric = (value: unknown): number | null => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  const text = trimmedString(value);
+  if (text === null) {
     return null;
   }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const countOf = (value: unknown): number | null => {
+  const parsed = numeric(value);
+  return parsed !== null && parsed >= 0 && Number.isInteger(parsed)
+    ? parsed
+    : null;
 };
 
 const categoryNames = (value: unknown): string[] =>
@@ -96,10 +107,8 @@ export function developerId(store: Store, raw: unknown): string | null {
   if (store === Store.GOOGLE_PLAY) {
     return nonEmptyString(record.developerId);
   }
-  const id = record.artistId ?? record.developerId;
-  return typeof id === 'number' && Number.isFinite(id)
-    ? String(id)
-    : trimmedString(id);
+  const id = numeric(record.artistId ?? record.developerId);
+  return id === null ? null : String(id);
 }
 
 export function ratingHistogram(

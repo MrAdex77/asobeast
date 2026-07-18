@@ -1,7 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { RATING_STARS, type RatingCounts } from "@asobeast/shared";
 import {
   Card,
@@ -56,10 +55,10 @@ function HistogramBars({
   );
 }
 
-function RatingsHistogramBody({ id }: { id: string }) {
-  const { data } = useSuspenseQuery(ratingsHistogramOptions(id));
+export function RatingsHistogramCard({ id }: { id: string }) {
+  const { data } = useQuery(ratingsHistogramOptions(id));
 
-  if (!data.available || data.counts === null || data.total === null) {
+  if (!data?.available || data.counts === null || data.total === null) {
     return null;
   }
 
@@ -76,13 +75,5 @@ function RatingsHistogramBody({ id }: { id: string }) {
         <HistogramBars counts={data.counts} total={data.total} />
       </CardContent>
     </Card>
-  );
-}
-
-export function RatingsHistogramCard({ id }: { id: string }) {
-  return (
-    <Suspense fallback={null}>
-      <RatingsHistogramBody id={id} />
-    </Suspense>
   );
 }

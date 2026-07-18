@@ -236,6 +236,19 @@ describe('developerId', () => {
       '284882218',
     );
     expect(developerId(Store.APP_STORE, { developerId: 42 })).toBe('42');
+    expect(developerId(Store.APP_STORE, { artistId: '284882218' })).toBe(
+      '284882218',
+    );
+  });
+
+  it('rejects non-numeric Apple ids that would become NaN downstream', () => {
+    for (const garbage of [
+      { artistId: 'Acme' },
+      { developerId: 'Acme Inc' },
+      { artistId: Number.NaN },
+    ]) {
+      expect(developerId(Store.APP_STORE, garbage)).toBeNull();
+    }
   });
 
   it('reads the Play developer id', () => {
@@ -252,6 +265,7 @@ describe('developerId', () => {
         'nope',
         {},
         { developerId: '' },
+        { developerId: '   ' },
       ]) {
         expect(developerId(store, garbage)).toBeNull();
       }
@@ -285,6 +299,11 @@ describe('ratingHistogram', () => {
       { histogram: null },
       { histogram: { '1': 1, '2': 2, '3': 3, '4': 4 } },
       { histogram: { '1': 1, '2': 2, '3': 3, '4': 4, '5': 'many' } },
+      { histogram: { '1': 1, '2': 2, '3': 3, '4': 4, '5': '' } },
+      { histogram: { '1': 1, '2': 2, '3': 3, '4': 4, '5': '   ' } },
+      { histogram: { '1': 1, '2': 2, '3': 3, '4': 4, '5': 3.7 } },
+      { histogram: { '1': 1, '2': 2, '3': 3, '4': 4, '5': -1 } },
+      { histogram: { '1': 1, '2': 2, '3': 3, '4': 4, '5': true } },
     ]) {
       expect(ratingHistogram(Store.GOOGLE_PLAY, garbage)).toBeNull();
     }

@@ -42,12 +42,14 @@ export function MarketAvailabilityNotice({
   country: string;
 }) {
   const valid = COUNTRY_CODE.test(country);
-  const { data } = useQuery({
+  const { data, isError } = useQuery({
     ...marketAvailabilityOptions(appId, country),
     enabled: valid,
   });
 
-  const status = valid ? data?.status : undefined;
+  const status: MarketAvailability | undefined = valid
+    ? (data?.status ?? (isError ? "unknown" : undefined))
+    : undefined;
   const style = status ? STATUS_STYLE[status] : null;
   const Icon = style?.icon;
 

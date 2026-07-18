@@ -255,7 +255,8 @@ export const marketAvailabilityOptions = (id: string, country: string) =>
   queryOptions({
     queryKey: appKeys.marketAvailability(id, country),
     queryFn: () => getMarketAvailability(id, country),
-    staleTime: ONE_DAY_MS,
+    staleTime: (query) =>
+      query.state.data?.status === "unknown" ? 0 : ONE_DAY_MS,
   });
 
 export const serpOptions = (keywordId: string) =>
