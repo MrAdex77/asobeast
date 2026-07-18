@@ -1,10 +1,16 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { CategoryCollection, OVERALL_GENRE } from '@asobeast/shared';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  CategoryCollection,
+  MarketAvailability,
+  MarketAvailabilityResult,
+  OVERALL_GENRE,
+} from '@asobeast/shared';
 import { Store } from '@prisma/client';
 import { StoreRequestError } from './errors';
 import {
   GOOGLE_PLAY_LIB,
   GPLAY_COLLECTIONS,
+  GooglePlayCountryAvailability,
   GooglePlayLib,
   GooglePlayReviewsPage,
 } from './google-play.lib';
@@ -20,6 +26,12 @@ import {
 const SEARCH_MAX = 250;
 const CHART_MAX = 500;
 const REVIEWS_PER_PAGE = 50;
+const DEVELOPER_APPS_MAX = 30;
+
+const toMarketAvailability = (
+  status: GooglePlayCountryAvailability['status'] | undefined,
+): MarketAvailability =>
+  status === 'available' || status === 'unavailable' ? status : 'unknown';
 
 const COLLECTION_CONSTANTS: Record<CategoryCollection, string> = {
   free: GPLAY_COLLECTIONS.TOP_FREE,
@@ -84,6 +96,7 @@ export const googlePlayLanguage = (country: string): string =>
 @Injectable()
 export class GooglePlayProvider implements StoreProvider {
   readonly store = Store.GOOGLE_PLAY;
+  private readonly logger = new Logger(GooglePlayProvider.name);
 
   constructor(@Inject(GOOGLE_PLAY_LIB) private readonly lib: GooglePlayLib) {}
 
@@ -202,6 +215,40 @@ export class GooglePlayProvider implements StoreProvider {
       version: review.version ?? undefined,
       updatedAt: new Date(review.date),
     }));
+  }
+
+  async availability(
+    storeAppId: string,
+    countries: string[],
+  ): Promise<MarketAvailabilityResult[]> {
+    const lang = googlePlayLanguage(countries[0] ?? 'us');
+    try {
+      const result = await this.lib.availability({
+        appId: storeAppId,
+        countries,
+        lang,
+      });
+      return countries.map((country) => ({
+        country,
+        status: toMarketAvailability(result.countries[country]?.status),
+      }));
+    } catch (error) {
+      this.logger.warn(
+        `availability probe failed for ${storeAppId}: ${messageOf(error)}`,
+      );
+      return countries.map((country) => ({
+        country,
+        status: 'unknown' as const,
+      }));
+    }
+  }
+
+  async developerApps(devId: string, country: string): Promise<SearchItem[]> {
+    const lang = googlePlayLanguage(country);
+    const results = await this.call('developerApps', () =>
+      this.lib.developer({ devId, country, lang, num: DEVELOPER_APPS_MAX }),
+    );
+    return results.map((item) => this.toSearchItem(item));
   }
 
   private toSearchItem(item: {

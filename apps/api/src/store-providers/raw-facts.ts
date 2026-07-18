@@ -1,3 +1,4 @@
+import { RatingCounts, RATING_STARS } from '@asobeast/shared';
 import { Store } from '@prisma/client';
 
 export interface RawAppFacts {
@@ -48,6 +49,25 @@ const trimmedString = (value: unknown): string | null => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
+const numeric = (value: unknown): number | null => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  const text = trimmedString(value);
+  if (text === null) {
+    return null;
+  }
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const countOf = (value: unknown): number | null => {
+  const parsed = numeric(value);
+  return parsed !== null && parsed >= 0 && Number.isInteger(parsed)
+    ? parsed
+    : null;
+};
+
 const categoryNames = (value: unknown): string[] =>
   Array.isArray(value)
     ? value
@@ -77,6 +97,40 @@ export function primaryGenreName(store: Store, raw: unknown): string | null {
     return nonEmptyString(asRecord(raw)?.genre);
   }
   return nonEmptyString(asRecord(raw)?.primaryGenre);
+}
+
+export function developerId(store: Store, raw: unknown): string | null {
+  const record = asRecord(raw);
+  if (!record) {
+    return null;
+  }
+  if (store === Store.GOOGLE_PLAY) {
+    return nonEmptyString(record.developerId);
+  }
+  const id = numeric(record.artistId ?? record.developerId);
+  return id === null ? null : String(id);
+}
+
+export function ratingHistogram(
+  store: Store,
+  raw: unknown,
+): RatingCounts | null {
+  if (store !== Store.GOOGLE_PLAY) {
+    return null;
+  }
+  const histogram = asRecord(asRecord(raw)?.histogram);
+  if (!histogram) {
+    return null;
+  }
+  const counts = {} as RatingCounts;
+  for (const star of RATING_STARS) {
+    const value = countOf(histogram[star]);
+    if (value === null) {
+      return null;
+    }
+    counts[star] = value;
+  }
+  return counts;
 }
 
 export function isPaid(raw: unknown): boolean {

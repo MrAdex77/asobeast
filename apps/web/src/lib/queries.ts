@@ -18,9 +18,11 @@ import {
   getHealth,
   getKeywordCountries,
   getKeywords,
+  getMarketAvailability,
   getPortfolio,
   getRankDistributionHistory,
   getRankings,
+  getRatingsHistogram,
   getRatingsHistory,
   getRecentChanges,
   getReviews,
@@ -35,6 +37,8 @@ import {
   type RankingParams,
   type ReviewFilters,
 } from "./api";
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 export const appKeys = {
   all: ["apps"] as const,
@@ -79,6 +83,10 @@ export const appKeys = {
     [...appKeys.detail(id), "reviews", filters] as const,
   ratingsHistory: (id: string, params: RangeParams) =>
     [...appKeys.detail(id), "ratings-history", params] as const,
+  ratingsHistogram: (id: string) =>
+    [...appKeys.detail(id), "ratings-histogram"] as const,
+  marketAvailability: (id: string, country: string) =>
+    [...appKeys.detail(id), "market-availability", { country }] as const,
   serp: (keywordId: string) => ["serp", keywordId] as const,
 };
 
@@ -235,6 +243,20 @@ export const ratingsHistoryOptions = (id: string, params: RangeParams) =>
   queryOptions({
     queryKey: appKeys.ratingsHistory(id, params),
     queryFn: () => getRatingsHistory(id, params),
+  });
+
+export const ratingsHistogramOptions = (id: string) =>
+  queryOptions({
+    queryKey: appKeys.ratingsHistogram(id),
+    queryFn: () => getRatingsHistogram(id),
+  });
+
+export const marketAvailabilityOptions = (id: string, country: string) =>
+  queryOptions({
+    queryKey: appKeys.marketAvailability(id, country),
+    queryFn: () => getMarketAvailability(id, country),
+    staleTime: (query) =>
+      query.state.data?.status === "unknown" ? 0 : ONE_DAY_MS,
   });
 
 export const serpOptions = (keywordId: string) =>

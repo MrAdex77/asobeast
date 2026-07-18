@@ -33,8 +33,9 @@ import {
 } from '../jobs/jobs.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { serpVolatility } from '../rankings/serp-volatility';
+import { developerId } from '../store-providers/raw-facts';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
-import { SuggestItem } from '../store-providers/types';
+import { SearchItem, SuggestItem } from '../store-providers/types';
 import { classifyBuckets } from './buckets';
 import { extractCandidates } from './extraction';
 import { toTrackedKeywordItem } from './keywords.mapper';
@@ -441,6 +442,9 @@ export class KeywordsService {
     if (strategy === 'similar') {
       return this.suggestFromSimilar(market, trackedTexts, limit);
     }
+    if (strategy === 'developer') {
+      return this.suggestFromDeveloper(appId, market, trackedTexts, limit);
+    }
     if (strategy === 'competitors') {
       return this.suggestFromCompetitors(appId, trackedTexts, limit);
     }
@@ -638,30 +642,33 @@ export class KeywordsService {
   ): Promise<KeywordSuggestion[]> {
     const provider = this.registry.get(app.store);
     const similar = await provider.similar(app.storeAppId, app.country);
-    const counts = new Map<string, number>();
+    return countTitleCandidates(similar, trackedTexts, limit, 'similar');
+  }
 
-    for (const item of similar) {
-      const texts = new Set(
-        extractCandidates({ title: item.title }).map(
-          (candidate) => candidate.text,
-        ),
-      );
-      for (const text of texts) {
-        if (trackedTexts.has(text)) {
-          continue;
-        }
-        counts.set(text, (counts.get(text) ?? 0) + 1);
-      }
+  private async suggestFromDeveloper(
+    appId: string,
+    app: { store: Store; country: string },
+    trackedTexts: Set<string>,
+    limit: number,
+  ): Promise<KeywordSuggestion[]> {
+    const snapshot = await this.prisma.appSnapshot.findFirst({
+      where: { appId },
+      orderBy: { capturedAt: 'desc' },
+      select: { raw: true, title: true },
+    });
+    const devId = snapshot && developerId(app.store, snapshot.raw);
+    if (!devId) {
+      return [];
     }
 
-    return [...counts.entries()]
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, limit)
-      .map(([text, usedByCount]) => ({
-        text,
-        strategy: 'similar' as const,
-        usedByCount,
-      }));
+    const excluded = new Set(trackedTexts);
+    for (const candidate of extractCandidates({ title: snapshot.title })) {
+      excluded.add(candidate.text);
+    }
+
+    const provider = this.registry.get(app.store);
+    const apps = await provider.developerApps(devId, app.country);
+    return countTitleCandidates(apps, excluded, limit, 'developer');
   }
 
   private async searchSeeds(appId: string): Promise<string[]> {
@@ -910,4 +917,32 @@ function sortTracked(
     }
     return ascending ? av - bv : bv - av;
   });
+}
+
+function countTitleCandidates(
+  items: SearchItem[],
+  excluded: Set<string>,
+  limit: number,
+  strategy: 'similar' | 'developer',
+): KeywordSuggestion[] {
+  const counts = new Map<string, number>();
+
+  for (const item of items) {
+    const texts = new Set(
+      extractCandidates({ title: item.title }).map(
+        (candidate) => candidate.text,
+      ),
+    );
+    for (const text of texts) {
+      if (excluded.has(text)) {
+        continue;
+      }
+      counts.set(text, (counts.get(text) ?? 0) + 1);
+    }
+  }
+
+  return [...counts.entries()]
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, limit)
+    .map(([text, usedByCount]) => ({ text, strategy, usedByCount }));
 }

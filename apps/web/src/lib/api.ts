@@ -19,10 +19,12 @@ import type {
   KeywordSort,
   KeywordSuggestion,
   KeywordSuggestionStrategy,
+  MarketAvailabilityResult,
   MetadataAuditResult,
   PortfolioSummary,
   RankDistributionHistory,
   RankingSeries,
+  RatingsHistogram,
   RatingsHistory,
   ReviewList,
   RunDailyResult,
@@ -262,6 +264,20 @@ export function getReviews(
   if (version) params.set("version", version);
   if (limit !== undefined) params.set("limit", String(limit));
   return apiFetch<ReviewList>(withQuery(`/apps/${appId}/reviews`, params));
+}
+
+export function getRatingsHistogram(appId: string): Promise<RatingsHistogram> {
+  return apiFetch<RatingsHistogram>(`/apps/${appId}/reviews/histogram`);
+}
+
+export function getMarketAvailability(
+  appId: string,
+  country: string,
+): Promise<MarketAvailabilityResult> {
+  const params = new URLSearchParams({ country });
+  return apiFetch<MarketAvailabilityResult>(
+    withQuery(`/apps/${appId}/market-availability`, params),
+  );
 }
 
 export function getRatingsHistory(

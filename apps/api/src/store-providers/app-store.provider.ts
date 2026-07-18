@@ -1,5 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { CategoryCollection, OVERALL_GENRE } from '@asobeast/shared';
+import {
+  CategoryCollection,
+  MarketAvailability,
+  MarketAvailabilityResult,
+  OVERALL_GENRE,
+} from '@asobeast/shared';
 import { Store } from '@prisma/client';
 import * as cheerio from 'cheerio';
 import {
@@ -21,6 +26,7 @@ import {
 
 const RETRY_DELAYS_MS = [2000, 5000];
 const CHART_MAX = 200;
+const NOT_FOUND_PATTERN = /not found/i;
 
 const COLLECTION_CONSTANTS: Record<CategoryCollection, string> = {
   free: 'topfreeapplications',
@@ -99,6 +105,46 @@ export class AppStoreProvider implements StoreProvider {
       this.lib.reviews({ id: Number(storeAppId), country, page: clampedPage }),
     );
     return results.map((item) => this.toReviewResult(item));
+  }
+
+  async availability(
+    storeAppId: string,
+    countries: string[],
+  ): Promise<MarketAvailabilityResult[]> {
+    const results: MarketAvailabilityResult[] = [];
+    for (const country of countries) {
+      results.push({
+        country,
+        status: await this.probe(storeAppId, country),
+      });
+    }
+    return results;
+  }
+
+  async developerApps(devId: string, country: string): Promise<SearchItem[]> {
+    const results = await this.withRetry('developerApps', () =>
+      this.lib.developer({ devId: Number(devId), country }),
+    );
+    return results.map((item) => this.toSearchItem(item));
+  }
+
+  private async probe(
+    storeAppId: string,
+    country: string,
+  ): Promise<MarketAvailability> {
+    try {
+      await this.lib.app({ id: Number(storeAppId), country, ratings: false });
+      return 'available';
+    } catch (error) {
+      const message = messageOf(error);
+      if (NOT_FOUND_PATTERN.test(message)) {
+        return 'unavailable';
+      }
+      this.logger.warn(
+        `availability probe failed for ${storeAppId} in ${country}: ${message}`,
+      );
+      return 'unknown';
+    }
   }
 
   private toReviewResult(item: AppStoreReviewResult): ReviewResult {

@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ReviewList } from '@asobeast/shared';
+import { RatingsHistogram, ReviewList } from '@asobeast/shared';
 import { ReviewsQueryDto } from './dto/reviews-query.dto';
 import { ReviewsService } from './reviews.service';
 
@@ -22,5 +22,13 @@ export class ReviewsController {
       version: query.version,
       limit: query.limit,
     });
+  }
+
+  @Get('histogram')
+  @ApiOperation({
+    summary: 'Ratings distribution from the latest snapshot (Google Play only)',
+  })
+  histogram(@Param('id') id: string): Promise<RatingsHistogram> {
+    return this.reviews.histogram(id);
   }
 }

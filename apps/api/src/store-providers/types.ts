@@ -1,4 +1,4 @@
-import { CategoryCollection } from '@asobeast/shared';
+import { CategoryCollection, MarketAvailabilityResult } from '@asobeast/shared';
 import { Store } from '@prisma/client';
 
 export interface NormalizedApp {
@@ -65,4 +65,9 @@ export interface StoreProvider {
     country: string,
     page: number,
   ): Promise<ReviewResult[]>;
+  availability(
+    storeAppId: string,
+    countries: string[],
+  ): Promise<MarketAvailabilityResult[]>;
+  developerApps(devId: string, country: string): Promise<SearchItem[]>;
 }

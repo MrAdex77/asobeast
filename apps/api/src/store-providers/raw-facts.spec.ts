@@ -1,5 +1,6 @@
 import { Store } from '@prisma/client';
 import {
+  developerId,
   extractAppStoreRawFacts,
   extractGooglePlayRawFacts,
   extractRawFacts,
@@ -7,6 +8,7 @@ import {
   primaryGenreId,
   primaryGenreKey,
   primaryGenreName,
+  ratingHistogram,
   releaseNotesFor,
   screenshotsCount,
 } from './raw-facts';
@@ -224,6 +226,86 @@ describe('screenshotsCount', () => {
       { screenshots: 3 },
     ]) {
       expect(screenshotsCount(garbage)).toBeNull();
+    }
+  });
+});
+
+describe('developerId', () => {
+  it('stringifies the Apple artist id and falls back to developerId', () => {
+    expect(developerId(Store.APP_STORE, { artistId: 284882218 })).toBe(
+      '284882218',
+    );
+    expect(developerId(Store.APP_STORE, { developerId: 42 })).toBe('42');
+    expect(developerId(Store.APP_STORE, { artistId: '284882218' })).toBe(
+      '284882218',
+    );
+  });
+
+  it('rejects non-numeric Apple ids that would become NaN downstream', () => {
+    for (const garbage of [
+      { artistId: 'Acme' },
+      { developerId: 'Acme Inc' },
+      { artistId: Number.NaN },
+    ]) {
+      expect(developerId(Store.APP_STORE, garbage)).toBeNull();
+    }
+  });
+
+  it('reads the Play developer id', () => {
+    expect(developerId(Store.GOOGLE_PLAY, { developerId: 'Acme Inc' })).toBe(
+      'Acme Inc',
+    );
+  });
+
+  it('returns null for missing or invalid payloads', () => {
+    for (const store of [Store.APP_STORE, Store.GOOGLE_PLAY]) {
+      for (const garbage of [
+        null,
+        undefined,
+        'nope',
+        {},
+        { developerId: '' },
+        { developerId: '   ' },
+      ]) {
+        expect(developerId(store, garbage)).toBeNull();
+      }
+    }
+  });
+});
+
+describe('ratingHistogram', () => {
+  it('parses the Play histogram with number coercion', () => {
+    expect(
+      ratingHistogram(Store.GOOGLE_PLAY, {
+        histogram: { '1': 10, '2': '20', '3': 30, '4': 40, '5': 50 },
+      }),
+    ).toEqual({ '1': 10, '2': 20, '3': 30, '4': 40, '5': 50 });
+  });
+
+  it('returns null for Apple payloads', () => {
+    expect(
+      ratingHistogram(Store.APP_STORE, {
+        histogram: { '1': 1, '2': 2, '3': 3, '4': 4, '5': 5 },
+      }),
+    ).toBeNull();
+  });
+
+  it('returns null for missing or incomplete histograms', () => {
+    for (const garbage of [
+      null,
+      undefined,
+      'nope',
+      {},
+      { histogram: null },
+      { histogram: { '1': 1, '2': 2, '3': 3, '4': 4 } },
+      { histogram: { '1': 1, '2': 2, '3': 3, '4': 4, '5': 'many' } },
+      { histogram: { '1': 1, '2': 2, '3': 3, '4': 4, '5': '' } },
+      { histogram: { '1': 1, '2': 2, '3': 3, '4': 4, '5': '   ' } },
+      { histogram: { '1': 1, '2': 2, '3': 3, '4': 4, '5': 3.7 } },
+      { histogram: { '1': 1, '2': 2, '3': 3, '4': 4, '5': -1 } },
+      { histogram: { '1': 1, '2': 2, '3': 3, '4': 4, '5': true } },
+    ]) {
+      expect(ratingHistogram(Store.GOOGLE_PLAY, garbage)).toBeNull();
     }
   });
 });

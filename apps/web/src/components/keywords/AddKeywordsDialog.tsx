@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { addKeywords, ApiError } from "@/lib/api";
 import { COUNTRY_CODE } from "@/lib/countries";
 import { appKeys, invalidateKeywordMutation } from "@/lib/queries";
+import { MarketAvailabilityNotice } from "./MarketAvailabilityNotice";
 
 function parseKeywords(input: string): string[] {
   const seen = new Set<string>();
@@ -120,6 +121,7 @@ export function AddKeywordsDialog({
               onChange={setMarket}
               ariaLabel="Keyword market"
             />
+            <MarketAvailabilityNotice appId={appId} country={market} />
           </div>
           <Textarea
             value={raw}

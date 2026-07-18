@@ -81,6 +81,10 @@ export interface AppStoreLib {
     country: string;
     page: number;
   }): Promise<AppStoreReviewResult[]>;
+  developer(options: {
+    devId: number;
+    country: string;
+  }): Promise<AppStoreSearchResult[]>;
 }
 
 export const APP_STORE_LIB = Symbol('APP_STORE_LIB');
@@ -113,4 +117,5 @@ export const appStoreLib: AppStoreLib = {
       page,
       sort: appStore.sort.RECENT,
     }),
+  developer: (options) => appStore.developer(options),
 };

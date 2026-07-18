@@ -3,7 +3,13 @@ import { join } from 'path';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Store } from '@prisma/client';
-import { ApiErrorEnvelope, AppDetail, AppGroupSummary } from '@asobeast/shared';
+import {
+  ApiErrorEnvelope,
+  AppDetail,
+  AppGroupSummary,
+  MarketAvailability,
+  MarketAvailabilityResult,
+} from '@asobeast/shared';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
@@ -56,6 +62,8 @@ const GOOGLE_PLAY_URL =
 class FakeStoreProviderRegistry {
   failWith: Error | null = null;
   getAppCalls: Array<{ storeAppId: string; country: string }> = [];
+  availabilityCalls: Array<{ storeAppId: string; countries: string[] }> = [];
+  availabilityStatus: MarketAvailability = 'available';
 
   get(store: Store): StoreProvider {
     if (store === Store.GOOGLE_PLAY) {
@@ -84,6 +92,15 @@ class FakeStoreProviderRegistry {
       search: () => Promise.resolve([]),
       suggest: () => Promise.resolve([]),
       similar: () => Promise.resolve([]),
+      availability: (storeAppId: string, countries: string[]) => {
+        this.availabilityCalls.push({ storeAppId, countries });
+        return Promise.resolve(
+          countries.map((country) => ({
+            country,
+            status: this.availabilityStatus,
+          })),
+        );
+      },
     };
   }
 }
@@ -122,6 +139,8 @@ describe('AppsController (e2e)', () => {
   beforeEach(async () => {
     registry.failWith = null;
     registry.getAppCalls = [];
+    registry.availabilityCalls = [];
+    registry.availabilityStatus = 'available';
     await prisma.$executeRawUnsafe(
       'TRUNCATE TABLE "App", "Keyword", "AppGroup" RESTART IDENTITY CASCADE',
     );
@@ -437,5 +456,55 @@ describe('AppsController (e2e)', () => {
 
     expect(await prisma.app.count()).toBe(0);
     expect(await prisma.appSnapshot.count()).toBe(0);
+  });
+
+  it('probes availability for a non-home storefront', async () => {
+    const imported = await importApp(GOOGLE_PLAY_URL);
+
+    for (const status of [
+      'available',
+      'unavailable',
+      'unknown',
+    ] as MarketAvailability[]) {
+      registry.availabilityStatus = status;
+      const response = await request(app.getHttpServer())
+        .get(`/apps/${imported.id}/market-availability`)
+        .query({ country: 'de' })
+        .expect(200);
+      expect(response.body as MarketAvailabilityResult).toEqual({
+        country: 'de',
+        status,
+      });
+    }
+
+    expect(registry.availabilityCalls).toHaveLength(3);
+    expect(registry.availabilityCalls[0]).toEqual({
+      storeAppId: 'com.example.app',
+      countries: ['de'],
+    });
+  });
+
+  it('short-circuits the home market without a store request', async () => {
+    const imported = await importApp(APP_STORE_URL);
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${imported.id}/market-availability`)
+      .query({ country: 'us' })
+      .expect(200);
+
+    expect(response.body as MarketAvailabilityResult).toEqual({
+      country: 'us',
+      status: 'available',
+    });
+    expect(registry.availabilityCalls).toHaveLength(0);
+  });
+
+  it('rejects a malformed country', async () => {
+    const imported = await importApp(APP_STORE_URL);
+
+    await request(app.getHttpServer())
+      .get(`/apps/${imported.id}/market-availability`)
+      .query({ country: 'GERMANY' })
+      .expect(400);
   });
 });

@@ -1,5 +1,7 @@
 import {
   app,
+  availability,
+  developer,
   reviews,
   search,
   similar,
@@ -52,6 +54,16 @@ export interface GooglePlayReviewsPage {
   nextPaginationToken: string | null;
 }
 
+export type GooglePlayCountryAvailability =
+  | { status: 'available' }
+  | { status: 'unavailable' }
+  | { status: 'error'; message: string };
+
+export interface GooglePlayAvailabilityResult {
+  appId: string;
+  countries: Record<string, GooglePlayCountryAvailability>;
+}
+
 export interface GooglePlayLib {
   app(options: {
     appId: string;
@@ -89,6 +101,17 @@ export interface GooglePlayLib {
     paginate: true;
     nextPaginationToken?: string;
   }): Promise<GooglePlayReviewsPage>;
+  availability(options: {
+    appId: string;
+    countries: string[];
+    lang: string;
+  }): Promise<GooglePlayAvailabilityResult>;
+  developer(options: {
+    devId: string;
+    country: string;
+    lang: string;
+    num: number;
+  }): Promise<GooglePlaySearchResult[]>;
 }
 
 export const GOOGLE_PLAY_LIB = Symbol('GOOGLE_PLAY_LIB');
@@ -102,4 +125,6 @@ export const googlePlayLib: GooglePlayLib = {
   similar: (options) => similar(options),
   list: (options) => list(options as Parameters<typeof list>[0]),
   reviews: (options) => reviews(options) as Promise<GooglePlayReviewsPage>,
+  availability: (options) => availability(options),
+  developer: (options) => developer(options),
 };

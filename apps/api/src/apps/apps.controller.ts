@@ -6,6 +6,7 @@ import {
   HttpCode,
   Param,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
@@ -13,12 +14,14 @@ import {
   AppGroupSummary,
   AppListItem,
   CompetitorItem,
+  MarketAvailabilityResult,
   SnapshotDiffResult,
 } from '@asobeast/shared';
 import { AppsService } from './apps.service';
 import { AddCompetitorDto } from './dto/add-competitor.dto';
 import { ImportAppDto } from './dto/import-app.dto';
 import { LinkAppDto } from './dto/link-app.dto';
+import { MarketAvailabilityQueryDto } from './dto/market-availability-query.dto';
 
 @ApiTags('apps')
 @Controller('apps')
@@ -43,6 +46,17 @@ export class AppsController {
   })
   detail(@Param('id') id: string): Promise<AppDetail> {
     return this.apps.detail(id);
+  }
+
+  @Get(':id/market-availability')
+  @ApiOperation({
+    summary: 'Probe whether an app is published in a storefront',
+  })
+  marketAvailability(
+    @Param('id') id: string,
+    @Query() query: MarketAvailabilityQueryDto,
+  ): Promise<MarketAvailabilityResult> {
+    return this.apps.marketAvailability(id, query.country);
   }
 
   @Post(':id/refresh')

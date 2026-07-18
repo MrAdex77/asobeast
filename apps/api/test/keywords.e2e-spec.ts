@@ -29,7 +29,7 @@ const FIXTURE: NormalizedApp = {
   subtitle: 'Daily streak counter',
   summary: 'A markdown journal',
   description: 'Fixture description',
-  raw: { source: 'fixture' },
+  raw: { source: 'fixture', artistId: 284882218 },
 };
 
 const APP_STORE_URL = 'https://apps.apple.com/us/app/fixture/id1234567890';
@@ -62,6 +62,15 @@ class FakeRegistry {
           { storeAppId: '1', title: 'Streak Master Planner' },
           { storeAppId: '2', title: 'Daily Planner Pro' },
         ]),
+      developerApps: (devId: string) =>
+        Promise.resolve(
+          devId === '284882218'
+            ? [
+                { storeAppId: '7', title: 'Focus Timer Studio' },
+                { storeAppId: '8', title: 'Sleep Timer Studio' },
+              ]
+            : [],
+        ),
     };
   }
 }
@@ -335,6 +344,20 @@ describe('KeywordsController (e2e)', () => {
     const planner = suggestions.find((item) => item.text === 'planner');
     expect(planner?.strategy).toBe('similar');
     expect(planner?.usedByCount).toBe(2);
+  });
+
+  it('suggests common terms from the developer catalogue', async () => {
+    const id = await importApp();
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${id}/keywords/suggestions`)
+      .query({ strategy: 'developer' })
+      .expect(200);
+    const suggestions = response.body as KeywordSuggestion[];
+
+    const timer = suggestions.find((item) => item.text === 'timer');
+    expect(timer?.strategy).toBe('developer');
+    expect(timer?.usedByCount).toBe(2);
   });
 
   it('mines ranked untracked phrases from stored reviews', async () => {
