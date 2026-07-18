@@ -62,12 +62,10 @@ function detailRows(payload: AlertPayload): Row[] {
     return [
       ['Keyword', payload.keyword.text],
       ['Date', payload.date],
-      ...payload.entrants.map(
-        (entrant): Row => [
-          `#${entrant.position}`,
-          entrant.isCompetitor ? `${entrant.title} (competitor)` : entrant.title,
-        ],
-      ),
+      ...payload.entrants.map((entrant): Row => [
+        `#${entrant.position}`,
+        entrant.isCompetitor ? `${entrant.title} (competitor)` : entrant.title,
+      ]),
     ];
   }
 

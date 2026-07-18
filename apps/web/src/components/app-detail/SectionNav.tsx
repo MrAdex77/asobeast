@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const SECTIONS = [
+export const SECTIONS = [
   { segment: "", label: "Overview" },
   { segment: "keywords", label: "Keywords" },
   { segment: "rankings", label: "Rankings" },

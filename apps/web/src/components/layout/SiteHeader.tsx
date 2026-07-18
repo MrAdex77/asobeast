@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CommandPalette } from "./CommandPalette";
 import { HealthBadge } from "./HealthBadge";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -19,6 +20,7 @@ export function SiteHeader() {
           >
             Settings
           </Link>
+          <CommandPalette />
           <HealthBadge />
           <ThemeToggle />
         </div>
