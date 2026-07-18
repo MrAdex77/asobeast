@@ -1,5 +1,6 @@
 import type { ReviewNegativePayload } from './reviews';
 import type { DigestWeeklyPayload } from './portfolio';
+import type { SerpEntrantPayload } from './serp';
 
 export const CHANGE_FIELDS = [
   'title',
@@ -35,6 +36,7 @@ export const WEBHOOK_EVENTS = [
   'rank.improved',
   'review.negative',
   'digest.weekly',
+  'serp.entrant',
 ] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
 
@@ -113,4 +115,5 @@ export type AlertPayload =
   | RankDroppedPayload
   | RankImprovedPayload
   | ReviewNegativePayload
-  | DigestWeeklyPayload;
+  | DigestWeeklyPayload
+  | SerpEntrantPayload;

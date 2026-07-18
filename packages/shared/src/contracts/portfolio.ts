@@ -4,6 +4,7 @@ import type { Store } from '../index';
 export interface PortfolioApp {
   id: string;
   store: Store;
+  storeAppId: string;
   country: string;
   name: string | null;
   iconUrl: string | null;
