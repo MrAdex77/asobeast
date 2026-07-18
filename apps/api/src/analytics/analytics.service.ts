@@ -7,11 +7,13 @@ import {
   AppSummary,
   CoverageSummary,
   DigestAppSummary,
+  DigestGroupSummary,
   DigestWeeklyPayload,
   KeywordMover,
   KeywordMovers,
   normalizeText,
   PortfolioApp,
+  PortfolioGroup,
   PortfolioSummary,
   RankDistribution,
   RankDistributionHistory,
@@ -70,6 +72,24 @@ interface TrackedRow {
     metrics: Metric[];
     rankings: Ranking[];
   };
+}
+
+interface AppGroupRef {
+  id: string;
+  name: string;
+}
+
+interface GroupMember {
+  appId: string;
+  group: AppGroupRef | null;
+  rows: TrackedRow[];
+  referenceDate: Date | null;
+}
+
+interface GroupAggregate extends AppGroupRef {
+  memberAppIds: string[];
+  rows: TrackedRow[];
+  referenceDate: Date | null;
 }
 
 const addDays = (date: Date, days: number): Date =>
@@ -199,11 +219,12 @@ export class AnalyticsService {
       },
     });
 
-    const [portfolioApps, changes7d] = await Promise.all([
-      Promise.all(apps.map((app) => this.portfolioApp(app))),
+    const [members, changes7d] = await Promise.all([
+      Promise.all(apps.map((app) => this.portfolioMember(app))),
       this.workspaceChanges(CHANGES_WINDOW_DAYS),
     ]);
 
+    const portfolioApps = members.map((member) => member.app);
     portfolioApps.sort(
       (a, b) =>
         b.visibility.current - a.visibility.current ||
@@ -212,6 +233,13 @@ export class AnalyticsService {
 
     return {
       apps: portfolioApps,
+      groups: this.groupAggregates(members).map((group): PortfolioGroup => ({
+        id: group.id,
+        name: group.name,
+        memberAppIds: group.memberAppIds,
+        visibility: this.windowVisibility(group.rows, group.referenceDate),
+        sparkline: this.visibilityPoints(group.rows),
+      })),
       totals: {
         apps: portfolioApps.length,
         competitors: portfolioApps.reduce((sum, a) => sum + a.competitors, 0),
@@ -224,7 +252,7 @@ export class AnalyticsService {
     };
   }
 
-  private async portfolioApp(app: {
+  private async portfolioMember(app: {
     id: string;
     store: PortfolioApp['store'];
     country: string;
@@ -234,33 +262,88 @@ export class AnalyticsService {
     group: { name: string } | null;
     _count: { competitors: number };
     snapshots: { capturedAt: Date }[];
-  }): Promise<PortfolioApp> {
-    const referenceDate = await this.referenceDate(app.id);
+  }): Promise<GroupMember & { app: PortfolioApp }> {
+    const { rows, referenceDate } = await this.sparklineRows(app.id);
+
+    return {
+      appId: app.id,
+      group:
+        app.groupId && app.group
+          ? { id: app.groupId, name: app.group.name }
+          : null,
+      rows,
+      referenceDate,
+      app: {
+        id: app.id,
+        store: app.store,
+        country: app.country,
+        name: app.name,
+        iconUrl: app.iconUrl,
+        groupId: app.groupId,
+        groupName: app.group?.name ?? null,
+        visibility: this.windowVisibility(rows, referenceDate),
+        sparkline: this.visibilityPoints(rows),
+        trackedKeywords: rows.length,
+        competitors: app._count.competitors,
+        lastCapturedAt: app.snapshots[0]?.capturedAt.toISOString() ?? null,
+      },
+    };
+  }
+
+  private async sparklineRows(
+    appId: string,
+  ): Promise<{ rows: TrackedRow[]; referenceDate: Date | null }> {
+    const referenceDate = await this.referenceDate(appId);
     const windowStart = referenceDate
       ? addDays(referenceDate, -SPARKLINE_WINDOW_DAYS)
       : null;
-    const rows = await this.trackedRows(app.id, windowStart, referenceDate);
-    const current = referenceDate ? visibilityAt(rows, referenceDate) : 0;
-
     return {
-      id: app.id,
-      store: app.store,
-      country: app.country,
-      name: app.name,
-      iconUrl: app.iconUrl,
-      groupId: app.groupId,
-      groupName: app.group?.name ?? null,
-      visibility: {
-        current,
-        delta7d: referenceDate
-          ? this.delta(rows, referenceDate, current, 7)
-          : null,
-      },
-      sparkline: this.visibilityPoints(rows),
-      trackedKeywords: rows.length,
-      competitors: app._count.competitors,
-      lastCapturedAt: app.snapshots[0]?.capturedAt.toISOString() ?? null,
+      rows: await this.trackedRows(appId, windowStart, referenceDate),
+      referenceDate,
     };
+  }
+
+  private windowVisibility(
+    rows: TrackedRow[],
+    referenceDate: Date | null,
+  ): { current: number; delta7d: number | null } {
+    if (!referenceDate) {
+      return { current: 0, delta7d: null };
+    }
+    const current = visibilityAt(rows, referenceDate);
+    return { current, delta7d: this.delta(rows, referenceDate, current, 7) };
+  }
+
+  private groupAggregates(members: GroupMember[]): GroupAggregate[] {
+    const byGroup = new Map<string, GroupAggregate>();
+
+    for (const member of members) {
+      if (!member.group) {
+        continue;
+      }
+      const aggregate = byGroup.get(member.group.id);
+      if (!aggregate) {
+        byGroup.set(member.group.id, {
+          id: member.group.id,
+          name: member.group.name,
+          memberAppIds: [member.appId],
+          rows: [...member.rows],
+          referenceDate: member.referenceDate,
+        });
+        continue;
+      }
+      aggregate.memberAppIds.push(member.appId);
+      aggregate.rows.push(...member.rows);
+      if (
+        member.referenceDate &&
+        (!aggregate.referenceDate ||
+          member.referenceDate > aggregate.referenceDate)
+      ) {
+        aggregate.referenceDate = member.referenceDate;
+      }
+    }
+
+    return [...byGroup.values()].sort((a, b) => a.name.localeCompare(b.name));
   }
 
   private async workspaceChanges(days: number): Promise<number> {
@@ -286,11 +369,13 @@ export class AnalyticsService {
       select: {
         id: true,
         name: true,
+        groupId: true,
+        group: { select: { name: true } },
         competitors: { select: { id: true } },
       },
     });
 
-    const summaries = await Promise.all(
+    const members = await Promise.all(
       apps.map((app) => this.digestApp(app, from, to, reviewScoreMax)),
     );
 
@@ -298,22 +383,30 @@ export class AnalyticsService {
       event: 'digest.weekly',
       occurredAt: now.toISOString(),
       window: { from: toDateKey(from), to: toDateKey(to) },
-      apps: summaries,
+      apps: members.map((member) => member.summary),
+      groups: this.groupAggregates(members).map(
+        (group): DigestGroupSummary => ({
+          id: group.id,
+          name: group.name,
+          visibility: this.windowVisibility(group.rows, group.referenceDate),
+        }),
+      ),
     };
   }
 
   private async digestApp(
-    app: { id: string; name: string | null; competitors: { id: string }[] },
+    app: {
+      id: string;
+      name: string | null;
+      groupId: string | null;
+      group: { name: string } | null;
+      competitors: { id: string }[];
+    },
     from: Date,
     to: Date,
     reviewScoreMax: number,
-  ): Promise<DigestAppSummary> {
-    const referenceDate = await this.referenceDate(app.id);
-    const windowStart = referenceDate
-      ? addDays(referenceDate, -SPARKLINE_WINDOW_DAYS)
-      : null;
-    const rows = await this.trackedRows(app.id, windowStart, referenceDate);
-    const current = referenceDate ? visibilityAt(rows, referenceDate) : 0;
+  ): Promise<GroupMember & { summary: DigestAppSummary }> {
+    const { rows, referenceDate } = await this.sparklineRows(app.id);
     const movers = referenceDate
       ? this.movers(rows, referenceDate)
       : { up: [], down: [] };
@@ -337,18 +430,22 @@ export class AnalyticsService {
     ]);
 
     return {
-      id: app.id,
-      name: app.name,
-      visibility: {
-        current,
-        delta7d: referenceDate
-          ? this.delta(rows, referenceDate, current, 7)
+      appId: app.id,
+      group:
+        app.groupId && app.group
+          ? { id: app.groupId, name: app.group.name }
           : null,
+      rows,
+      referenceDate,
+      summary: {
+        id: app.id,
+        name: app.name,
+        visibility: this.windowVisibility(rows, referenceDate),
+        moversUp: movers.up.slice(0, DIGEST_MOVER_LIMIT),
+        moversDown: movers.down.slice(0, DIGEST_MOVER_LIMIT),
+        changes,
+        negativeReviews,
       },
-      moversUp: movers.up.slice(0, DIGEST_MOVER_LIMIT),
-      moversDown: movers.down.slice(0, DIGEST_MOVER_LIMIT),
-      changes,
-      negativeReviews,
     };
   }
 

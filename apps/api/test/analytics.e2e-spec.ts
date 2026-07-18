@@ -14,6 +14,7 @@ import {
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import { AnalyticsService } from '../src/analytics/analytics.service';
 import { obliterateQueues } from './obliterate-queues';
 import { DEFAULT_WORKSPACE_ID } from '../src/common/workspace';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -164,6 +165,54 @@ describe('AnalyticsController (e2e)', () => {
     return app.id;
   };
 
+  const seedLinkedPair = async (): Promise<{
+    id: string;
+    group: string;
+    play: string;
+  }> => {
+    const id = await seed();
+    const group = await prisma.appGroup.create({
+      data: { workspaceId: DEFAULT_WORKSPACE_ID, name: 'Habit' },
+    });
+    const play = await prisma.app.create({
+      data: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        store: Store.GOOGLE_PLAY,
+        storeAppId: 'com.habit.tracker',
+        country: 'us',
+        name: 'Habit Tracker',
+        groupId: group.id,
+      },
+    });
+    await prisma.app.update({ where: { id }, data: { groupId: group.id } });
+
+    const keyword = await prisma.keyword.create({
+      data: { text: 'habit tracker', store: Store.GOOGLE_PLAY, country: 'us' },
+    });
+    await prisma.trackedKeyword.create({
+      data: {
+        appId: play.id,
+        keywordId: keyword.id,
+        source: 'MANUAL',
+        active: true,
+      },
+    });
+    await prisma.keywordMetric.create({
+      data: { keywordId: keyword.id, date: D7, traffic: 8, difficulty: 3 },
+    });
+    await prisma.keywordRanking.create({
+      data: {
+        appId: play.id,
+        keywordId: keyword.id,
+        date: D0,
+        position: 1,
+        depth: 100,
+      },
+    });
+
+    return { id, group: group.id, play: play.id };
+  };
+
   it('computes every summary block from seeded rows', async () => {
     const id = await seed();
 
@@ -236,12 +285,52 @@ describe('AnalyticsController (e2e)', () => {
     ]);
     expect(entry.lastCapturedAt).toBe(D0.toISOString());
 
+    expect(portfolio.groups).toEqual([]);
     expect(portfolio.totals).toEqual({
       apps: 1,
       competitors: 0,
       trackedKeywords: summary.trackedKeywords,
       changes7d: 0,
     });
+  });
+
+  it('blends visibility across a linked pair', async () => {
+    const { id, group, play } = await seedLinkedPair();
+
+    const response = await request(app.getHttpServer())
+      .get('/portfolio')
+      .expect(200);
+    const portfolio = response.body as PortfolioSummary;
+
+    expect(portfolio.groups).toHaveLength(1);
+    const [entry] = portfolio.groups;
+    expect(entry).toMatchObject({ id: group, name: 'Habit' });
+    expect(entry.memberAppIds.sort()).toEqual([id, play].sort());
+
+    const ios = portfolio.apps.find((row) => row.id === id)!;
+    const android = portfolio.apps.find((row) => row.id === play)!;
+    expect(entry.visibility.current).toBeGreaterThan(ios.visibility.current);
+    expect(entry.visibility.current).toBeLessThan(android.visibility.current);
+    expect(entry.sparkline.map((point) => point.date)).toEqual([
+      '2026-06-23',
+      '2026-06-30',
+    ]);
+  });
+
+  it('summarizes the linked pair as one digest group', async () => {
+    const { group } = await seedLinkedPair();
+
+    const portfolio = (
+      await request(app.getHttpServer()).get('/portfolio').expect(200)
+    ).body as PortfolioSummary;
+    const digest = await app.get(AnalyticsService).buildDigest(2);
+
+    expect(digest.groups).toHaveLength(1);
+    expect(digest.groups[0]).toMatchObject({ id: group, name: 'Habit' });
+    expect(digest.groups[0].visibility.current).toBeCloseTo(
+      portfolio.groups[0].visibility.current,
+      5,
+    );
   });
 
   it('returns a history whose last point matches current visibility', async () => {

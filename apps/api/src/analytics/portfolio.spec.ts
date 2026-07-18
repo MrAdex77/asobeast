@@ -73,6 +73,7 @@ describe('AnalyticsService.portfolio', () => {
         lastCapturedAt: null,
       },
     ]);
+    expect(result.groups).toEqual([]);
     expect(result.totals).toEqual({
       apps: 1,
       competitors: 0,
@@ -139,6 +140,7 @@ describe('AnalyticsService.portfolio', () => {
     expect(result.apps[0].sparkline).toEqual([
       { date: '2026-07-13', visibility: result.apps[0].visibility.current },
     ]);
+    expect(result.groups).toEqual([]);
     expect(result.totals).toEqual({
       apps: 2,
       competitors: 3,
@@ -146,4 +148,88 @@ describe('AnalyticsService.portfolio', () => {
       changes7d: 4,
     });
   });
+
+  it('blends group visibility over the union of member keywords', async () => {
+    const reference = new Date('2026-07-13T00:00:00Z');
+    appFindMany.mockImplementation(
+      (args: { where: { isCompetitor?: boolean } }) =>
+        args.where.isCompetitor === false
+          ? [
+              linkedApp('ios', 'Habit iOS'),
+              linkedApp('android', 'Habit Android'),
+            ]
+          : [{ id: 'ios' }, { id: 'android' }],
+    );
+    rankingFindFirst.mockResolvedValue({ date: reference });
+    trackedFindMany.mockImplementation((args: { where: { appId: string } }) =>
+      args.where.appId === 'ios'
+        ? [row('k_ios', 10, 1, reference)]
+        : [row('k_android', 5, 3, reference)],
+    );
+    changeEventCount.mockResolvedValue(0);
+
+    const result = await service.portfolio();
+
+    expect(result.groups).toHaveLength(1);
+    const [group] = result.groups;
+    expect(group.id).toBe('grp_1');
+    expect(group.name).toBe('Habit');
+    expect(group.memberAppIds).toEqual(['ios', 'android']);
+    expect(group.visibility.current).toBeCloseTo(83.3, 1);
+    expect(group.visibility.delta7d).toBeNull();
+    expect(group.sparkline).toEqual([
+      { date: '2026-07-13', visibility: group.visibility.current },
+    ]);
+  });
+
+  it('degrades a group to its only scored member', async () => {
+    const reference = new Date('2026-07-13T00:00:00Z');
+    appFindMany.mockImplementation(
+      (args: { where: { isCompetitor?: boolean } }) =>
+        args.where.isCompetitor === false
+          ? [linkedApp('ios', 'Habit iOS'), linkedApp('android', 'Habit Play')]
+          : [{ id: 'ios' }, { id: 'android' }],
+    );
+    rankingFindFirst.mockImplementation((args: { where: { appId: string } }) =>
+      args.where.appId === 'ios' ? { date: reference } : null,
+    );
+    trackedFindMany.mockImplementation((args: { where: { appId: string } }) =>
+      args.where.appId === 'ios' ? [row('k_ios', 10, 1, reference)] : [],
+    );
+    changeEventCount.mockResolvedValue(0);
+
+    const result = await service.portfolio();
+
+    const ios = result.apps.find((app) => app.id === 'ios')!;
+    expect(result.groups[0].visibility.current).toBe(ios.visibility.current);
+    expect(result.groups[0].memberAppIds).toEqual(['ios', 'android']);
+  });
+});
+
+const linkedApp = (id: string, name: string) => ({
+  id,
+  store: 'APP_STORE',
+  country: 'us',
+  name,
+  iconUrl: null,
+  groupId: 'grp_1',
+  group: { name: 'Habit' },
+  _count: { competitors: 0 },
+  snapshots: [],
+});
+
+const row = (
+  keywordId: string,
+  traffic: number,
+  position: number,
+  date: Date,
+) => ({
+  keywordId,
+  source: 'MANUAL',
+  relevance: null,
+  keyword: {
+    text: keywordId,
+    metrics: [{ traffic, difficulty: 10, date }],
+    rankings: [{ position, date }],
+  },
 });

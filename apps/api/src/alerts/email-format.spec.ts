@@ -65,6 +65,18 @@ const digest: DigestWeeklyPayload = {
     changes: i,
     negativeReviews: null,
   })),
+  groups: [],
+};
+
+const digestWithGroups: DigestWeeklyPayload = {
+  ...digest,
+  groups: [
+    {
+      id: 'grp_1',
+      name: 'Habit',
+      visibility: { current: 61.4, delta7d: -2.5 },
+    },
+  ],
 };
 
 describe('formatEmail', () => {
@@ -110,5 +122,16 @@ describe('formatEmail', () => {
     expect(email.subject).toBe('[asobeast] Weekly digest: 12 apps');
     expect(email.text).toContain('+2 more');
     expect(email.text).toContain('Window: 2026-07-06 → 2026-07-13');
+  });
+
+  it('omits the linked apps section when the digest has no groups', () => {
+    expect(formatEmail(digest).text).not.toContain('Linked apps');
+  });
+
+  it('renders linked apps before the per-app lines', () => {
+    const { text } = formatEmail(digestWithGroups);
+    expect(text).toContain('Linked apps');
+    expect(text).toContain('Habit: vis 61 (-2.5)');
+    expect(text.indexOf('Linked apps')).toBeLessThan(text.indexOf('App 0:'));
   });
 });
