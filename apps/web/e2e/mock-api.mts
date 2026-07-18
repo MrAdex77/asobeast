@@ -14,7 +14,11 @@ import {
   RECENT_CHANGES,
   errorEnvelope,
 } from "./fixtures.mts";
-import type { KeywordSort, TrackedKeywordItem } from "@asobeast/shared";
+import type {
+  KeywordSort,
+  PortfolioSummary,
+  TrackedKeywordItem,
+} from "@asobeast/shared";
 
 const PORT = Number(process.env.MOCK_API_PORT ?? 4100);
 const ERROR_ID = "err-app";
@@ -79,9 +83,10 @@ const routes: Route[] = [
     pattern: /^\/portfolio$/,
     handler: (_p, _q, res) =>
       json(res, 200, {
+        ...PORTFOLIO,
         apps: portfolioApps,
         totals: { ...PORTFOLIO.totals, apps: portfolioApps.length },
-      }),
+      } satisfies PortfolioSummary),
   },
   {
     method: "GET",
