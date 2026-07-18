@@ -1,5 +1,6 @@
 import { Store } from '@prisma/client';
 import {
+  developerId,
   extractAppStoreRawFacts,
   extractGooglePlayRawFacts,
   extractRawFacts,
@@ -224,6 +225,35 @@ describe('screenshotsCount', () => {
       { screenshots: 3 },
     ]) {
       expect(screenshotsCount(garbage)).toBeNull();
+    }
+  });
+});
+
+describe('developerId', () => {
+  it('stringifies the Apple artist id and falls back to developerId', () => {
+    expect(developerId(Store.APP_STORE, { artistId: 284882218 })).toBe(
+      '284882218',
+    );
+    expect(developerId(Store.APP_STORE, { developerId: 42 })).toBe('42');
+  });
+
+  it('reads the Play developer id', () => {
+    expect(developerId(Store.GOOGLE_PLAY, { developerId: 'Acme Inc' })).toBe(
+      'Acme Inc',
+    );
+  });
+
+  it('returns null for missing or invalid payloads', () => {
+    for (const store of [Store.APP_STORE, Store.GOOGLE_PLAY]) {
+      for (const garbage of [
+        null,
+        undefined,
+        'nope',
+        {},
+        { developerId: '' },
+      ]) {
+        expect(developerId(store, garbage)).toBeNull();
+      }
     }
   });
 });

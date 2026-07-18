@@ -11,6 +11,7 @@ const makeLib = (overrides: Partial<AppStoreLib> = {}): AppStoreLib => ({
   similar: jest.fn(),
   list: jest.fn(),
   reviews: jest.fn(),
+  developer: jest.fn(),
   ...overrides,
 });
 
@@ -308,5 +309,51 @@ describe('AppStoreProvider', () => {
 
     expect(app).toHaveBeenCalledTimes(3);
     jest.useRealTimers();
+  });
+
+  it('probes availability with one lookup per country', async () => {
+    const app = jest
+      .fn()
+      .mockResolvedValueOnce({ id: 1, title: 'App', description: 'desc' })
+      .mockRejectedValueOnce(new Error('App not found (404)'))
+      .mockRejectedValueOnce(new Error('socket hang up'));
+    const provider = new AppStoreProvider(makeLib({ app }));
+
+    const result = await provider.availability('1', ['us', 'de', 'jp']);
+
+    expect(result).toEqual([
+      { country: 'us', status: 'available' },
+      { country: 'de', status: 'unavailable' },
+      { country: 'jp', status: 'unknown' },
+    ]);
+    expect(app).toHaveBeenCalledTimes(3);
+    expect(app).toHaveBeenNthCalledWith(1, {
+      id: 1,
+      country: 'us',
+      ratings: false,
+    });
+  });
+
+  it('maps developer apps to search items', async () => {
+    const developer = jest
+      .fn()
+      .mockResolvedValue([
+        { trackId: 42, title: 'Sibling App', developer: 'Acme', score: 4.1 },
+      ]);
+    const provider = new AppStoreProvider(makeLib({ developer }));
+
+    const result = await provider.developerApps('284882218', 'us');
+
+    expect(developer).toHaveBeenCalledWith({ devId: 284882218, country: 'us' });
+    expect(result).toEqual([
+      {
+        storeAppId: '42',
+        title: 'Sibling App',
+        developer: 'Acme',
+        ratingAvg: 4.1,
+        ratingCount: undefined,
+        updatedAt: undefined,
+      },
+    ]);
   });
 });

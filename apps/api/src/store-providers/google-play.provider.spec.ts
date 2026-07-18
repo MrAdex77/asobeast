@@ -10,6 +10,8 @@ const makeLib = (overrides: Partial<GooglePlayLib> = {}): GooglePlayLib => ({
   similar: jest.fn(),
   list: jest.fn(),
   reviews: jest.fn(),
+  availability: jest.fn(),
+  developer: jest.fn(),
   ...overrides,
 });
 
@@ -250,5 +252,74 @@ describe('GooglePlayProvider', () => {
     }
     expect(caught).toBeInstanceOf(StoreRequestError);
     expect((caught as StoreRequestError).message).toContain('NotFoundError');
+  });
+
+  it('maps scraper availability statuses and treats error as unknown', async () => {
+    const availability = jest.fn().mockResolvedValue({
+      appId: 'com.example.app',
+      countries: {
+        us: { status: 'available' },
+        de: { status: 'unavailable' },
+        jp: { status: 'error', message: 'blocked' },
+      },
+    });
+    const provider = new GooglePlayProvider(makeLib({ availability }));
+
+    const result = await provider.availability('com.example.app', [
+      'us',
+      'de',
+      'jp',
+      'br',
+    ]);
+
+    expect(availability).toHaveBeenCalledWith({
+      appId: 'com.example.app',
+      countries: ['us', 'de', 'jp', 'br'],
+      lang: 'en',
+    });
+    expect(result).toEqual([
+      { country: 'us', status: 'available' },
+      { country: 'de', status: 'unavailable' },
+      { country: 'jp', status: 'unknown' },
+      { country: 'br', status: 'unknown' },
+    ]);
+  });
+
+  it('reports unknown for every country when the probe call fails', async () => {
+    const availability = jest.fn().mockRejectedValue(new Error('boom'));
+    const provider = new GooglePlayProvider(makeLib({ availability }));
+
+    await expect(
+      provider.availability('com.example.app', ['de']),
+    ).resolves.toEqual([{ country: 'de', status: 'unknown' }]);
+  });
+
+  it('maps developer apps to search items', async () => {
+    const developer = jest.fn().mockResolvedValue([
+      {
+        appId: 'com.example.other',
+        title: 'Other App',
+        developer: 'Acme',
+        score: 4.4,
+      },
+    ]);
+    const provider = new GooglePlayProvider(makeLib({ developer }));
+
+    const result = await provider.developerApps('Acme', 'de');
+
+    expect(developer).toHaveBeenCalledWith({
+      devId: 'Acme',
+      country: 'de',
+      lang: 'de',
+      num: 30,
+    });
+    expect(result).toEqual([
+      {
+        storeAppId: 'com.example.other',
+        title: 'Other App',
+        developer: 'Acme',
+        ratingAvg: 4.4,
+      },
+    ]);
   });
 });

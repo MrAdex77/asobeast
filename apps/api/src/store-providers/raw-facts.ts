@@ -79,6 +79,20 @@ export function primaryGenreName(store: Store, raw: unknown): string | null {
   return nonEmptyString(asRecord(raw)?.primaryGenre);
 }
 
+export function developerId(store: Store, raw: unknown): string | null {
+  const record = asRecord(raw);
+  if (!record) {
+    return null;
+  }
+  if (store === Store.GOOGLE_PLAY) {
+    return nonEmptyString(record.developerId);
+  }
+  const id = record.artistId ?? record.developerId;
+  return typeof id === 'number' && Number.isFinite(id)
+    ? String(id)
+    : trimmedString(id);
+}
+
 export function isPaid(raw: unknown): boolean {
   const value = asRecord(raw)?.price;
   return typeof value === 'number' && value > 0;

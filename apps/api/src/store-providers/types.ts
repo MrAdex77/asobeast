@@ -19,6 +19,18 @@ export interface NormalizedApp {
   raw: unknown;
 }
 
+export const MARKET_AVAILABILITY = [
+  'available',
+  'unavailable',
+  'unknown',
+] as const;
+export type MarketAvailability = (typeof MARKET_AVAILABILITY)[number];
+
+export interface MarketAvailabilityResult {
+  country: string;
+  status: MarketAvailability;
+}
+
 export interface SearchItem {
   storeAppId: string;
   title: string;
@@ -65,4 +77,9 @@ export interface StoreProvider {
     country: string,
     page: number,
   ): Promise<ReviewResult[]>;
+  availability(
+    storeAppId: string,
+    countries: string[],
+  ): Promise<MarketAvailabilityResult[]>;
+  developerApps(devId: string, country: string): Promise<SearchItem[]>;
 }
