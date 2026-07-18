@@ -517,6 +517,7 @@ export const PORTFOLIO: PortfolioSummary = {
     {
       id: "app-1",
       store: "APP_STORE",
+      storeAppId: "123456789",
       country: "us",
       name: "Focus Timer",
       iconUrl: null,
@@ -531,6 +532,7 @@ export const PORTFOLIO: PortfolioSummary = {
     {
       id: "app-2",
       store: "APP_STORE",
+      storeAppId: "987654321",
       country: "us",
       name: "Habit Tracker",
       iconUrl: null,
@@ -542,9 +544,24 @@ export const PORTFOLIO: PortfolioSummary = {
       competitors: 0,
       lastCapturedAt: utcTimestampDaysAgo(1),
     },
+    {
+      id: "app-1-de",
+      store: "APP_STORE",
+      storeAppId: "123456789",
+      country: "de",
+      name: "Focus Timer",
+      iconUrl: null,
+      groupId: null,
+      groupName: null,
+      visibility: { current: 31.5, delta7d: -2 },
+      sparkline: [],
+      trackedKeywords: 3,
+      competitors: 0,
+      lastCapturedAt: utcTimestampDaysAgo(0),
+    },
   ],
   groups: [],
-  totals: { apps: 2, competitors: 1, trackedKeywords: 5, changes7d: 3 },
+  totals: { apps: 3, competitors: 1, trackedKeywords: 8, changes7d: 3 },
 };
 
 export const APP_1_KEYWORD_COUNTRIES: KeywordCountrySummary[] = [
@@ -643,6 +660,7 @@ export const EMAIL_DELIVERIES: AlertDeliveryItem[] = [
 export const IMPORTED_PORTFOLIO_APP: PortfolioSummary["apps"][number] = {
   id: "app-new",
   store: "APP_STORE",
+  storeAppId: "999999",
   country: "us",
   name: "Imported App",
   iconUrl: null,

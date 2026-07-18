@@ -205,6 +205,7 @@ export class AnalyticsService {
       select: {
         id: true,
         store: true,
+        storeAppId: true,
         country: true,
         name: true,
         iconUrl: true,
@@ -255,6 +256,7 @@ export class AnalyticsService {
   private async portfolioMember(app: {
     id: string;
     store: PortfolioApp['store'];
+    storeAppId: string;
     country: string;
     name: string | null;
     iconUrl: string | null;
@@ -276,6 +278,7 @@ export class AnalyticsService {
       app: {
         id: app.id,
         store: app.store,
+        storeAppId: app.storeAppId,
         country: app.country,
         name: app.name,
         iconUrl: app.iconUrl,
