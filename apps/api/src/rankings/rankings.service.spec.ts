@@ -8,6 +8,20 @@ import { StoreProviderRegistry } from '../store-providers/store-provider.registr
 import { SearchItem } from '../store-providers/types';
 import { RankingsService } from './rankings.service';
 
+interface SerpFixture {
+  storeAppId: string;
+  title: string;
+}
+
+interface SerpRow extends SerpFixture {
+  position: number;
+}
+
+const PREVIOUS_DAY = new Date('2026-07-17');
+
+const serpRows = (fixtures: SerpFixture[] | null | undefined): SerpRow[] =>
+  (fixtures ?? []).map((entry, index) => ({ ...entry, position: index + 1 }));
+
 describe('RankingsService.checkKeyword', () => {
   const buildSearchResults = (): SearchItem[] => {
     const items: SearchItem[] = [];
@@ -25,7 +39,8 @@ describe('RankingsService.checkKeyword', () => {
     existingToday?: { position: number | null } | null;
     threshold?: number;
     country?: string;
-    previousSerp?: { storeAppId: string; title: string }[] | null;
+    previousSerp?: SerpFixture[] | null;
+    sameDaySerp?: SerpFixture[] | null;
     knownApps?: { id: string; storeAppId: string; isCompetitor: boolean }[];
   }) => {
     const search = jest.fn().mockResolvedValue(buildSearchResults());
@@ -96,15 +111,19 @@ describe('RankingsService.checkKeyword', () => {
         findFirst: jest
           .fn()
           .mockResolvedValue(
-            options?.previousSerp ? { date: new Date('2026-07-17') } : null,
+            options?.previousSerp ? { date: PREVIOUS_DAY } : null,
           ),
-        findMany: jest.fn().mockResolvedValue(
-          (options?.previousSerp ?? []).map((entry, index) => ({
-            position: index + 1,
-            storeAppId: entry.storeAppId,
-            title: entry.title,
-          })),
-        ),
+        findMany: jest
+          .fn<Promise<SerpRow[]>, [{ where: { date: Date } }]>()
+          .mockImplementation(({ where }) =>
+            Promise.resolve(
+              serpRows(
+                where.date.getTime() === PREVIOUS_DAY.getTime()
+                  ? options?.previousSerp
+                  : options?.sameDaySerp,
+              ),
+            ),
+          ),
       },
       app: {
         findMany: jest.fn().mockResolvedValue(options?.knownApps ?? []),
@@ -365,6 +384,36 @@ describe('RankingsService.checkKeyword', () => {
           isCompetitor: false,
         },
       ],
+    });
+  });
+
+  it('does not re-fire serp.entrant when re-run on the same day', async () => {
+    const { service, dispatch } = setup({
+      tracked: primaryOnly,
+      previous: null,
+      previousSerp: previousTopTen('stale-a', 'stale-b'),
+      sameDaySerp: previousTopTen('other-9', 'other-10'),
+    });
+
+    await service.checkKeyword('kw1');
+
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it('fires only the arrivals since the same-day snapshot on a re-run', async () => {
+    const { service, dispatch } = setup({
+      tracked: primaryOnly,
+      previous: null,
+      previousSerp: previousTopTen('stale-a', 'stale-b'),
+      sameDaySerp: previousTopTen('other-9', 'gone-today'),
+    });
+
+    await service.checkKeyword('kw1');
+
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch.mock.calls[0][0]).toMatchObject({
+      event: 'serp.entrant',
+      entrants: [{ position: 10, storeAppId: 'other-10' }],
     });
   });
 

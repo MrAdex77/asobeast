@@ -128,20 +128,20 @@ export class RankingsService {
       ratingCount: item.ratingCount ?? null,
     }));
 
-    const previousDay = await this.previousSerpDay(keywordId, date);
+    const baseline = await this.entrantBaseline(keywordId, date);
 
     await this.prisma.$transaction([
       this.prisma.serpEntry.deleteMany({ where: { keywordId, date } }),
       this.prisma.serpEntry.createMany({ data: entries }),
     ]);
 
-    if (previousDay) {
+    if (baseline) {
       await this.dispatchEntrantAlert(
         { id: keyword.id, text: keyword.text },
         keyword.store,
         keyword.country,
         [
-          previousDay,
+          baseline,
           {
             date: toDateKey(date),
             entries: entries.map(({ position, storeAppId, title }) => ({
@@ -155,24 +155,32 @@ export class RankingsService {
     }
   }
 
-  private async previousSerpDay(
+  private async entrantBaseline(
     keywordId: string,
     date: Date,
   ): Promise<SerpSnapshotDay | null> {
+    const sameDay = await this.serpDay(keywordId, date);
+    if (sameDay) {
+      return sameDay;
+    }
     const latest = await this.prisma.serpEntry.findFirst({
       where: { keywordId, date: { lt: date } },
       orderBy: { date: 'desc' },
       select: { date: true },
     });
-    if (!latest) {
-      return null;
-    }
+    return latest ? this.serpDay(keywordId, latest.date) : null;
+  }
+
+  private async serpDay(
+    keywordId: string,
+    date: Date,
+  ): Promise<SerpSnapshotDay | null> {
     const rows = await this.prisma.serpEntry.findMany({
-      where: { keywordId, date: latest.date },
+      where: { keywordId, date },
       orderBy: { position: 'asc' },
       select: { position: true, storeAppId: true, title: true },
     });
-    return { date: toDateKey(latest.date), entries: rows };
+    return rows.length > 0 ? { date: toDateKey(date), entries: rows } : null;
   }
 
   private async dispatchEntrantAlert(
