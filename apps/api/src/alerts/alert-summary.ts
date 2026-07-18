@@ -1,4 +1,4 @@
-import { AlertPayload } from '@asobeast/shared';
+import { AlertPayload, SERP_DEPTH } from '@asobeast/shared';
 
 export function position(value: number | null): string {
   return value === null ? 'outside top 100' : `#${value}`;
@@ -36,6 +36,11 @@ export function summarize(payload: AlertPayload): string {
       ? ` (v${payload.review.version})`
       : '';
     return `${stars(payload.review.score)} review${version} for ${appLabel(payload.app.name)}`;
+  }
+
+  if (payload.event === 'serp.entrant') {
+    const count = payload.entrants.length;
+    return `${count} new entrant${count === 1 ? '' : 's'} in the top ${SERP_DEPTH} for "${payload.keyword.text}"`;
   }
 
   return `Weekly digest: ${payload.apps.length} app${payload.apps.length === 1 ? '' : 's'}`;

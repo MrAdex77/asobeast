@@ -1,4 +1,8 @@
-import { AlertPayload, DigestWeeklyPayload } from '@asobeast/shared';
+import {
+  AlertPayload,
+  DigestWeeklyPayload,
+  SERP_DEPTH,
+} from '@asobeast/shared';
 import { position, stars } from './alert-summary';
 
 const DIGEST_APP_CAP = 10;
@@ -38,6 +42,13 @@ export function renderMessage(payload: AlertPayload): string {
 
   if (payload.event === 'digest.weekly') {
     return `🗓️ Weekly digest: ${payload.apps.length} app${payload.apps.length === 1 ? '' : 's'}`;
+  }
+
+  if (payload.event === 'serp.entrant') {
+    const names = payload.entrants
+      .map((entrant) => `${position(entrant.position)} ${entrant.title}`)
+      .join(', ');
+    return `🆕 New in the top ${SERP_DEPTH} for "${payload.keyword.text}": ${names}`;
   }
 
   const who = payload.app.name ?? 'An app';

@@ -10,6 +10,7 @@ export const EVENT_LABELS: Record<WebhookEvent, string> = {
   "rank.improved": "Rank improved",
   "review.negative": "Negative review",
   "digest.weekly": "Weekly digest",
+  "serp.entrant": "SERP entrant",
 };
 
 export function EventToggles({
