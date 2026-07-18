@@ -1,5 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { CategoryCollection, OVERALL_GENRE } from '@asobeast/shared';
+import {
+  CategoryCollection,
+  MarketAvailability,
+  MarketAvailabilityResult,
+  OVERALL_GENRE,
+} from '@asobeast/shared';
 import { Store } from '@prisma/client';
 import { StoreRequestError } from './errors';
 import {
@@ -11,8 +16,6 @@ import {
 } from './google-play.lib';
 import {
   ChartItem,
-  MarketAvailability,
-  MarketAvailabilityResult,
   NormalizedApp,
   ReviewResult,
   SearchItem,

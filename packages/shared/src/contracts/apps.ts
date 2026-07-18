@@ -62,6 +62,18 @@ export interface AppListItem {
   groupId: string | null;
 }
 
+export const MARKET_AVAILABILITY = [
+  'available',
+  'unavailable',
+  'unknown',
+] as const;
+export type MarketAvailability = (typeof MARKET_AVAILABILITY)[number];
+
+export interface MarketAvailabilityResult {
+  country: string;
+  status: MarketAvailability;
+}
+
 export interface SnapshotChange {
   field: string;
   before: string | number | null;

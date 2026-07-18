@@ -1,5 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { CategoryCollection, OVERALL_GENRE } from '@asobeast/shared';
+import {
+  CategoryCollection,
+  MarketAvailability,
+  MarketAvailabilityResult,
+  OVERALL_GENRE,
+} from '@asobeast/shared';
 import { Store } from '@prisma/client';
 import * as cheerio from 'cheerio';
 import {
@@ -12,8 +17,6 @@ import {
 import { StoreRequestError } from './errors';
 import {
   ChartItem,
-  MarketAvailability,
-  MarketAvailabilityResult,
   NormalizedApp,
   ReviewResult,
   SearchItem,

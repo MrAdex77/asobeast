@@ -11,6 +11,7 @@ import {
   AppGroupSummary,
   AppListItem,
   CompetitorItem,
+  MarketAvailabilityResult,
   parseStoreUrl,
   SnapshotDiffResult,
   SUPPORTED_STORES,
@@ -340,6 +341,30 @@ export class AppsService {
         await tx.appGroup.delete({ where: { id: groupId } });
       }
     });
+  }
+
+  async marketAvailability(
+    id: string,
+    country: string,
+  ): Promise<MarketAvailabilityResult> {
+    const app = await this.prisma.app.findFirst({
+      where: { id, workspaceId: DEFAULT_WORKSPACE_ID },
+      select: { store: true, storeAppId: true, country: true },
+    });
+
+    if (!app) {
+      throw new NotFoundException(`App ${id} not found`);
+    }
+
+    if (app.country === country) {
+      return { country, status: 'available' };
+    }
+
+    const [result] = await this.registry
+      .get(app.store)
+      .availability(app.storeAppId, [country]);
+
+    return result ?? { country, status: 'unknown' };
   }
 
   private async ensureApp(id: string): Promise<void> {

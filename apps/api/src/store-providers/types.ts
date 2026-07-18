@@ -1,4 +1,4 @@
-import { CategoryCollection } from '@asobeast/shared';
+import { CategoryCollection, MarketAvailabilityResult } from '@asobeast/shared';
 import { Store } from '@prisma/client';
 
 export interface NormalizedApp {
@@ -17,18 +17,6 @@ export interface NormalizedApp {
   releasedAt?: Date;
   storeUpdatedAt?: Date;
   raw: unknown;
-}
-
-export const MARKET_AVAILABILITY = [
-  'available',
-  'unavailable',
-  'unknown',
-] as const;
-export type MarketAvailability = (typeof MARKET_AVAILABILITY)[number];
-
-export interface MarketAvailabilityResult {
-  country: string;
-  status: MarketAvailability;
 }
 
 export interface SearchItem {
