@@ -8,6 +8,7 @@ import {
   primaryGenreId,
   primaryGenreKey,
   primaryGenreName,
+  ratingHistogram,
   releaseNotesFor,
   screenshotsCount,
 } from './raw-facts';
@@ -254,6 +255,38 @@ describe('developerId', () => {
       ]) {
         expect(developerId(store, garbage)).toBeNull();
       }
+    }
+  });
+});
+
+describe('ratingHistogram', () => {
+  it('parses the Play histogram with number coercion', () => {
+    expect(
+      ratingHistogram(Store.GOOGLE_PLAY, {
+        histogram: { '1': 10, '2': '20', '3': 30, '4': 40, '5': 50 },
+      }),
+    ).toEqual({ '1': 10, '2': 20, '3': 30, '4': 40, '5': 50 });
+  });
+
+  it('returns null for Apple payloads', () => {
+    expect(
+      ratingHistogram(Store.APP_STORE, {
+        histogram: { '1': 1, '2': 2, '3': 3, '4': 4, '5': 5 },
+      }),
+    ).toBeNull();
+  });
+
+  it('returns null for missing or incomplete histograms', () => {
+    for (const garbage of [
+      null,
+      undefined,
+      'nope',
+      {},
+      { histogram: null },
+      { histogram: { '1': 1, '2': 2, '3': 3, '4': 4 } },
+      { histogram: { '1': 1, '2': 2, '3': 3, '4': 4, '5': 'many' } },
+    ]) {
+      expect(ratingHistogram(Store.GOOGLE_PLAY, garbage)).toBeNull();
     }
   });
 });

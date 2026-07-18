@@ -3,7 +3,11 @@ import { join } from 'path';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Store } from '@prisma/client';
-import { ApiErrorEnvelope, ReviewList } from '@asobeast/shared';
+import {
+  ApiErrorEnvelope,
+  RatingsHistogram,
+  ReviewList,
+} from '@asobeast/shared';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
@@ -128,5 +132,65 @@ describe('ReviewsController (e2e)', () => {
     const body = response.body as ReviewList;
     expect(body.total).toBe(1);
     expect(body.reviews.map((review) => review.reviewId)).toEqual(['r3']);
+  });
+
+  const seedSnapshot = async (store: Store, raw: object) => {
+    const created = await prisma.app.create({
+      data: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        store,
+        storeAppId: store === Store.GOOGLE_PLAY ? 'com.example.app' : '222',
+        country: 'us',
+        name: 'Snapshotted',
+      },
+    });
+    await prisma.appSnapshot.create({
+      data: {
+        appId: created.id,
+        title: 'Snapshotted',
+        description: 'desc',
+        raw,
+      },
+    });
+    return created;
+  };
+
+  it('reports the ratings distribution for a Play app', async () => {
+    const seeded = await seedSnapshot(Store.GOOGLE_PLAY, {
+      histogram: { '1': 10, '2': 20, '3': 30, '4': 40, '5': 100 },
+    });
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${seeded.id}/reviews/histogram`)
+      .expect(200);
+
+    const body = response.body as RatingsHistogram;
+    expect(body.available).toBe(true);
+    expect(body.counts).toEqual({
+      '1': 10,
+      '2': 20,
+      '3': 30,
+      '4': 40,
+      '5': 100,
+    });
+    expect(body.total).toBe(200);
+    expect(body.capturedAt).not.toBeNull();
+  });
+
+  it('reports no histogram for an App Store app', async () => {
+    const seeded = await seedSnapshot(Store.APP_STORE, {
+      histogram: { '1': 1, '2': 1, '3': 1, '4': 1, '5': 1 },
+    });
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${seeded.id}/reviews/histogram`)
+      .expect(200);
+
+    expect(response.body as RatingsHistogram).toEqual({
+      available: false,
+      counts: null,
+      total: null,
+      capturedAt: null,
+    });
   });
 });

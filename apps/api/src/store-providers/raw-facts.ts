@@ -1,3 +1,4 @@
+import { RatingCounts, RATING_STARS } from '@asobeast/shared';
 import { Store } from '@prisma/client';
 
 export interface RawAppFacts {
@@ -48,6 +49,14 @@ const trimmedString = (value: unknown): string | null => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
+const countOf = (value: unknown): number | null => {
+  if (typeof value !== 'number' && typeof value !== 'string') {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+};
+
 const categoryNames = (value: unknown): string[] =>
   Array.isArray(value)
     ? value
@@ -91,6 +100,28 @@ export function developerId(store: Store, raw: unknown): string | null {
   return typeof id === 'number' && Number.isFinite(id)
     ? String(id)
     : trimmedString(id);
+}
+
+export function ratingHistogram(
+  store: Store,
+  raw: unknown,
+): RatingCounts | null {
+  if (store !== Store.GOOGLE_PLAY) {
+    return null;
+  }
+  const histogram = asRecord(asRecord(raw)?.histogram);
+  if (!histogram) {
+    return null;
+  }
+  const counts = {} as RatingCounts;
+  for (const star of RATING_STARS) {
+    const value = countOf(histogram[star]);
+    if (value === null) {
+      return null;
+    }
+    counts[star] = value;
+  }
+  return counts;
 }
 
 export function isPaid(raw: unknown): boolean {

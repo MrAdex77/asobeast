@@ -1,11 +1,17 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
-import { ReviewItem, ReviewList } from '@asobeast/shared';
+import {
+  RatingsHistogram,
+  RATING_STARS,
+  ReviewItem,
+  ReviewList,
+} from '@asobeast/shared';
 import { AlertsDispatcher } from '../alerts/alerts.dispatcher';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
+import { ratingHistogram } from '../store-providers/raw-facts';
 import { StoreProviderRegistry } from '../store-providers/store-provider.registry';
 import { ReviewResult } from '../store-providers/types';
 import { SyncReviewsPayload } from '../jobs/jobs.types';
@@ -176,6 +182,33 @@ export class ReviewsService {
       text: review.text,
       version: review.version,
       reviewedAt: review.reviewedAt ? review.reviewedAt.toISOString() : null,
+    };
+  }
+
+  async histogram(appId: string): Promise<RatingsHistogram> {
+    const app = await this.prisma.app.findFirst({
+      where: { id: appId, workspaceId: DEFAULT_WORKSPACE_ID },
+      select: { store: true },
+    });
+    if (!app) {
+      throw new NotFoundException(`App ${appId} not found`);
+    }
+
+    const snapshot = await this.prisma.appSnapshot.findFirst({
+      where: { appId },
+      orderBy: { capturedAt: 'desc' },
+      select: { raw: true, capturedAt: true },
+    });
+    const counts = snapshot && ratingHistogram(app.store, snapshot.raw);
+    if (!counts) {
+      return { available: false, counts: null, total: null, capturedAt: null };
+    }
+
+    return {
+      available: true,
+      counts,
+      total: RATING_STARS.reduce((sum, star) => sum + counts[star], 0),
+      capturedAt: snapshot.capturedAt.toISOString(),
     };
   }
 
