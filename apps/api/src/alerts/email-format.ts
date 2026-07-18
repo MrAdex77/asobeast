@@ -61,6 +61,15 @@ function detailRows(payload: AlertPayload): Row[] {
   const rows: Row[] = [
     ['Window', `${payload.window.from} → ${payload.window.to}`],
   ];
+  if (payload.groups.length > 0) {
+    rows.push(['', 'Linked apps']);
+    payload.groups.forEach((group) => {
+      rows.push([
+        group.name,
+        `vis ${Math.round(group.visibility.current)} (${signedDelta(group.visibility.delta7d)})`,
+      ]);
+    });
+  }
   payload.apps.slice(0, DIGEST_APP_CAP).forEach((app) => {
     rows.push([
       appLabel(app.name),

@@ -7,6 +7,7 @@ import {
   AppSummary,
   CoverageSummary,
   DigestAppSummary,
+  DigestGroupSummary,
   DigestWeeklyPayload,
   KeywordMover,
   KeywordMovers,
@@ -368,11 +369,13 @@ export class AnalyticsService {
       select: {
         id: true,
         name: true,
+        groupId: true,
+        group: { select: { name: true } },
         competitors: { select: { id: true } },
       },
     });
 
-    const summaries = await Promise.all(
+    const members = await Promise.all(
       apps.map((app) => this.digestApp(app, from, to, reviewScoreMax)),
     );
 
@@ -380,17 +383,29 @@ export class AnalyticsService {
       event: 'digest.weekly',
       occurredAt: now.toISOString(),
       window: { from: toDateKey(from), to: toDateKey(to) },
-      apps: summaries,
-      groups: [],
+      apps: members.map((member) => member.summary),
+      groups: this.groupAggregates(members).map(
+        (group): DigestGroupSummary => ({
+          id: group.id,
+          name: group.name,
+          visibility: this.windowVisibility(group.rows, group.referenceDate),
+        }),
+      ),
     };
   }
 
   private async digestApp(
-    app: { id: string; name: string | null; competitors: { id: string }[] },
+    app: {
+      id: string;
+      name: string | null;
+      groupId: string | null;
+      group: { name: string } | null;
+      competitors: { id: string }[];
+    },
     from: Date,
     to: Date,
     reviewScoreMax: number,
-  ): Promise<DigestAppSummary> {
+  ): Promise<GroupMember & { summary: DigestAppSummary }> {
     const { rows, referenceDate } = await this.sparklineRows(app.id);
     const movers = referenceDate
       ? this.movers(rows, referenceDate)
@@ -415,13 +430,22 @@ export class AnalyticsService {
     ]);
 
     return {
-      id: app.id,
-      name: app.name,
-      visibility: this.windowVisibility(rows, referenceDate),
-      moversUp: movers.up.slice(0, DIGEST_MOVER_LIMIT),
-      moversDown: movers.down.slice(0, DIGEST_MOVER_LIMIT),
-      changes,
-      negativeReviews,
+      appId: app.id,
+      group:
+        app.groupId && app.group
+          ? { id: app.groupId, name: app.group.name }
+          : null,
+      rows,
+      referenceDate,
+      summary: {
+        id: app.id,
+        name: app.name,
+        visibility: this.windowVisibility(rows, referenceDate),
+        moversUp: movers.up.slice(0, DIGEST_MOVER_LIMIT),
+        moversDown: movers.down.slice(0, DIGEST_MOVER_LIMIT),
+        changes,
+        negativeReviews,
+      },
     };
   }
 

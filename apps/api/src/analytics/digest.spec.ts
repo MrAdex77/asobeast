@@ -46,7 +46,13 @@ describe('AnalyticsService.buildDigest', () => {
   it('composes one summary per primary app over a UTC-day inclusive 7-day window', async () => {
     const reference = new Date('2026-07-13T00:00:00Z');
     appFindMany.mockResolvedValue([
-      { id: 'app_1', name: 'Mine', competitors: [{ id: 'comp_1' }] },
+      {
+        id: 'app_1',
+        name: 'Mine',
+        groupId: null,
+        group: null,
+        competitors: [{ id: 'comp_1' }],
+      },
     ]);
     rankingFindFirst.mockResolvedValue({ date: reference });
     trackedFindMany.mockResolvedValue([
@@ -105,11 +111,91 @@ describe('AnalyticsService.buildDigest', () => {
     expect(reviewArgs.where.score.lte).toBe(2);
   });
 
+  it('summarizes linked apps as one blended group', async () => {
+    const reference = new Date('2026-07-13T00:00:00Z');
+    appFindMany.mockResolvedValue([
+      {
+        id: 'ios',
+        name: 'Mine iOS',
+        groupId: 'grp_1',
+        group: { name: 'Habit' },
+        competitors: [],
+      },
+      {
+        id: 'android',
+        name: 'Mine Play',
+        groupId: 'grp_1',
+        group: { name: 'Habit' },
+        competitors: [],
+      },
+    ]);
+    rankingFindFirst.mockResolvedValue({ date: reference });
+    trackedFindMany.mockImplementation((args: { where: { appId: string } }) => [
+      {
+        keywordId: `k_${args.where.appId}`,
+        source: 'TITLE',
+        relevance: null,
+        keyword: {
+          text: 'kw',
+          metrics: [
+            {
+              traffic: args.where.appId === 'ios' ? 10 : 5,
+              difficulty: 10,
+              date: reference,
+            },
+          ],
+          rankings: [
+            {
+              position: args.where.appId === 'ios' ? 1 : 3,
+              date: reference,
+            },
+          ],
+        },
+      },
+    ]);
+    changeEventCount.mockResolvedValue(0);
+    reviewCount.mockResolvedValue(0);
+
+    const payload = await service.buildDigest(2);
+
+    expect(payload.groups).toEqual([
+      {
+        id: 'grp_1',
+        name: 'Habit',
+        visibility: { current: 83.3, delta7d: null },
+      },
+    ]);
+  });
+
+  it('reports no groups when nothing is linked', async () => {
+    appFindMany.mockResolvedValue([
+      {
+        id: 'app_1',
+        name: 'Mine',
+        groupId: null,
+        group: null,
+        competitors: [],
+      },
+    ]);
+    rankingFindFirst.mockResolvedValue(null);
+    trackedFindMany.mockResolvedValue([]);
+    changeEventCount.mockResolvedValue(0);
+    reviewCount.mockResolvedValue(0);
+
+    expect((await service.buildDigest(2)).groups).toEqual([]);
+  });
+
   it('caps movers at three per direction', async () => {
     const reference = new Date('2026-07-13T00:00:00Z');
     const past = new Date('2026-07-06T00:00:00Z');
     appFindMany.mockResolvedValue([
-      { id: 'app_1', name: 'Mine', competitors: [] },
+      {
+        id: 'app_1',
+        name: 'Mine',
+        groupId: null,
+        group: null,
+        competitors: [],
+      },
     ]);
     rankingFindFirst.mockResolvedValue({ date: reference });
     trackedFindMany.mockResolvedValue(

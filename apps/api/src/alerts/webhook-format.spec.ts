@@ -96,6 +96,7 @@ const digest: DigestWeeklyPayload = {
     changes: i,
     negativeReviews: 1,
   })),
+  groups: [],
 };
 
 describe('formatWebhookBody', () => {
