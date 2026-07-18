@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { recentChangesOptions } from "@/lib/queries";
 import { ChangeRow } from "./ChangeTimeline";
 import { ChangeTimelineSkeleton } from "./skeletons";
@@ -26,17 +27,19 @@ function RecentChangesList() {
   }
 
   return (
-    <div className="divide-y">
-      {data.events.map((event) => (
-        <Link
-          key={event.id}
-          href={`/apps/${event.appId}/changes`}
-          className="block rounded-lg px-2 transition-colors hover:bg-muted/40"
-        >
-          <ChangeRow event={event} />
-        </Link>
-      ))}
-    </div>
+    <TooltipProvider>
+      <div className="divide-y">
+        {data.events.map((event) => (
+          <Link
+            key={event.id}
+            href={`/apps/${event.appId}/changes`}
+            className="block rounded-lg px-2 transition-colors hover:bg-muted/40"
+          >
+            <ChangeRow event={event} />
+          </Link>
+        ))}
+      </div>
+    </TooltipProvider>
   );
 }
 
