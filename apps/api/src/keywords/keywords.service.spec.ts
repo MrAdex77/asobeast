@@ -306,6 +306,66 @@ describe('KeywordsService.suggest competitors', () => {
   });
 });
 
+describe('KeywordsService.suggest developer', () => {
+  const buildService = (prisma: unknown, registry: unknown) =>
+    new KeywordsService(
+      prisma as PrismaService,
+      registry as StoreProviderRegistry,
+      { add: jest.fn() } as unknown as Queue,
+      { add: jest.fn() } as unknown as Queue,
+    );
+
+  const buildPrisma = (raw: unknown) => ({
+    app: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: 'app1',
+        store: Store.APP_STORE,
+        country: 'us',
+        storeAppId: 'store1',
+      }),
+    },
+    appSnapshot: {
+      findFirst: jest.fn().mockResolvedValue({ raw, title: 'Habit Tracker' }),
+    },
+    trackedKeyword: {
+      findMany: jest.fn().mockResolvedValue([{ keyword: { text: 'streak' } }]),
+    },
+  });
+
+  it('counts title terms across the developer catalogue', async () => {
+    const developerApps = jest.fn().mockResolvedValue([
+      { storeAppId: '2', title: 'Habit Tracker' },
+      { storeAppId: '3', title: 'Sleep Timer Pro' },
+      { storeAppId: '4', title: 'Sleep Sounds' },
+      { storeAppId: '5', title: 'Streak Counter' },
+    ]);
+    const registry = { get: jest.fn().mockReturnValue({ developerApps }) };
+    const service = buildService(
+      buildPrisma({ artistId: 284882218 }),
+      registry,
+    );
+
+    const suggestions = await service.suggest('app1', 'developer', 30);
+
+    expect(developerApps).toHaveBeenCalledWith('284882218', 'us');
+    const byText = new Map(suggestions.map((s) => [s.text, s.usedByCount]));
+    expect(byText.get('sleep')).toBe(2);
+    expect(byText.has('streak')).toBe(false);
+    expect(byText.has('habit')).toBe(false);
+    expect(byText.has('tracker')).toBe(false);
+    expect(suggestions.every((s) => s.strategy === 'developer')).toBe(true);
+  });
+
+  it('returns nothing when the snapshot carries no developer id', async () => {
+    const developerApps = jest.fn();
+    const registry = { get: jest.fn().mockReturnValue({ developerApps }) };
+    const service = buildService(buildPrisma({ source: 'fixture' }), registry);
+
+    await expect(service.suggest('app1', 'developer', 30)).resolves.toEqual([]);
+    expect(developerApps).not.toHaveBeenCalled();
+  });
+});
+
 describe('KeywordsService country tracking', () => {
   const buildService = (prisma: unknown, queue: { add: jest.Mock }) =>
     new KeywordsService(

@@ -17,6 +17,7 @@ export const KEYWORD_SUGGESTION_STRATEGIES = [
   'metadata',
   'search',
   'similar',
+  'developer',
   'competitors',
   'seasonal',
   'reviews',
