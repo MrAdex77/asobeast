@@ -20,8 +20,8 @@
   },
   "devDependencies": {
     "@asobeast/typescript-config": "workspace:*",
-    "@eslint/js": "latest",
-    "eslint": "latest",
+    "@eslint/js": "^9.39.4",
+    "eslint": "^9.39.4",
     "tsup": "latest",
     "typescript": "^5.9.3",
     "typescript-eslint": "latest",
