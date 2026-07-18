@@ -67,6 +67,22 @@ test("volatility column labels low, high and unavailable rows", async ({ page })
   await expect(nullRow.getByLabel(/volatility, \d+ out of 100/)).toHaveCount(0);
 });
 
+test("the volatility header sorts and still opens its tooltip", async ({
+  page,
+}) => {
+  await page.goto("/apps/app-1/keywords");
+
+  const header = page.getByRole("button", { name: "Volatility" });
+
+  await header.hover();
+  await expect(
+    page.getByText(/How much the top 10 changed day to day/),
+  ).toBeVisible();
+
+  await header.click();
+  await expect(page).toHaveURL(/sort=volatility/);
+});
+
 test("exporting keywords downloads a bom-prefixed csv", async ({ page }) => {
   await page.goto("/apps/app-1/keywords");
 
