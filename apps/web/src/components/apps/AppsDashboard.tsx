@@ -35,7 +35,7 @@ export function AppsDashboard() {
       ) : (
         <>
           <PortfolioTotals totals={data.totals} />
-          <PortfolioGrid apps={data.apps} />
+          <PortfolioGrid apps={data.apps} groups={data.groups} />
         </>
       )}
     </div>

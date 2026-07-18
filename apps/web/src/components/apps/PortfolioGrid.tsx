@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Link2 } from "lucide-react";
-import type { PortfolioApp, Store } from "@asobeast/shared";
+import type { PortfolioApp, PortfolioGroup, Store } from "@asobeast/shared";
 import { AppIcon } from "@/components/AppIcon";
 import { TrendChip } from "@/components/overview/TrendChip";
 import { Badge } from "@/components/ui/badge";
@@ -156,12 +156,36 @@ function PortfolioGroupMember({ app }: { app: PortfolioApp }) {
   );
 }
 
+function GroupVisibility({ group }: { group: PortfolioGroup | undefined }) {
+  if (!group) {
+    return (
+      <span className="text-3xl font-semibold text-muted-foreground tabular-nums">
+        —
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <span className="text-3xl font-semibold tabular-nums">
+          {Math.round(group.visibility.current)}
+        </span>
+        <TrendChip label="7d" value={group.visibility.delta7d} />
+      </div>
+      <Sparkline points={group.sparkline} />
+    </div>
+  );
+}
+
 function PortfolioGroupCard({
   name,
   members,
+  group,
 }: {
   name: string;
   members: PortfolioApp[];
+  group: PortfolioGroup | undefined;
 }) {
   const ordered = [...members].sort(
     (a, b) => STORE_ORDER[a.store] - STORE_ORDER[b.store],
@@ -169,12 +193,15 @@ function PortfolioGroupCard({
 
   return (
     <Card className="gap-0 p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <Link2 className="size-4 shrink-0 text-muted-foreground" />
-        <span className="truncate font-medium">{name}</span>
-        <Badge variant="outline" className="ml-auto">
-          Linked
-        </Badge>
+      <div className="mb-3 flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <Link2 className="size-4 shrink-0 text-muted-foreground" />
+          <span className="truncate font-medium">{name}</span>
+          <Badge variant="outline" className="ml-auto">
+            Linked
+          </Badge>
+        </div>
+        <GroupVisibility group={group} />
       </div>
       <ul className="flex flex-col divide-y">
         {ordered.map((member) => (
@@ -187,15 +214,26 @@ function PortfolioGroupCard({
   );
 }
 
-export function PortfolioGrid({ apps }: { apps: PortfolioApp[] }) {
+export function PortfolioGrid({
+  apps,
+  groups,
+}: {
+  apps: PortfolioApp[];
+  groups: PortfolioGroup[];
+}) {
   const rows = toRows(apps);
+  const byId = new Map(groups.map((group) => [group.id, group]));
 
   return (
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {rows.map((row) => (
         <li key={row.kind === "group" ? `group-${row.id}` : row.app.id}>
           {row.kind === "group" ? (
-            <PortfolioGroupCard name={row.name} members={row.members} />
+            <PortfolioGroupCard
+              name={row.name}
+              members={row.members}
+              group={byId.get(row.id)}
+            />
           ) : (
             <PortfolioCard app={row.app} />
           )}

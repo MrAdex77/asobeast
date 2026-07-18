@@ -543,6 +543,7 @@ export const PORTFOLIO: PortfolioSummary = {
       lastCapturedAt: utcTimestampDaysAgo(1),
     },
   ],
+  groups: [],
   totals: { apps: 2, competitors: 1, trackedKeywords: 5, changes7d: 3 },
 };
 
