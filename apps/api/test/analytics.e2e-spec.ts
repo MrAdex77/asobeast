@@ -236,12 +236,77 @@ describe('AnalyticsController (e2e)', () => {
     ]);
     expect(entry.lastCapturedAt).toBe(D0.toISOString());
 
+    expect(portfolio.groups).toEqual([]);
     expect(portfolio.totals).toEqual({
       apps: 1,
       competitors: 0,
       trackedKeywords: summary.trackedKeywords,
       changes7d: 0,
     });
+  });
+
+  it('blends visibility across a linked pair', async () => {
+    const id = await seed();
+    const group = await prisma.appGroup.create({
+      data: { workspaceId: DEFAULT_WORKSPACE_ID, name: 'Habit' },
+    });
+    const play = await prisma.app.create({
+      data: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        store: Store.GOOGLE_PLAY,
+        storeAppId: 'com.habit.tracker',
+        country: 'us',
+        name: 'Habit Tracker',
+        groupId: group.id,
+      },
+    });
+    await prisma.app.update({
+      where: { id },
+      data: { groupId: group.id },
+    });
+
+    const keyword = await prisma.keyword.create({
+      data: { text: 'habit tracker', store: Store.GOOGLE_PLAY, country: 'us' },
+    });
+    await prisma.trackedKeyword.create({
+      data: {
+        appId: play.id,
+        keywordId: keyword.id,
+        source: 'MANUAL',
+        active: true,
+      },
+    });
+    await prisma.keywordMetric.create({
+      data: { keywordId: keyword.id, date: D7, traffic: 8, difficulty: 3 },
+    });
+    await prisma.keywordRanking.create({
+      data: {
+        appId: play.id,
+        keywordId: keyword.id,
+        date: D0,
+        position: 1,
+        depth: 100,
+      },
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/portfolio')
+      .expect(200);
+    const portfolio = response.body as PortfolioSummary;
+
+    expect(portfolio.groups).toHaveLength(1);
+    const [entry] = portfolio.groups;
+    expect(entry).toMatchObject({ id: group.id, name: 'Habit' });
+    expect(entry.memberAppIds.sort()).toEqual([id, play.id].sort());
+
+    const ios = portfolio.apps.find((row) => row.id === id)!;
+    const android = portfolio.apps.find((row) => row.id === play.id)!;
+    expect(entry.visibility.current).toBeGreaterThan(ios.visibility.current);
+    expect(entry.visibility.current).toBeLessThan(android.visibility.current);
+    expect(entry.sparkline.map((point) => point.date)).toEqual([
+      '2026-06-23',
+      '2026-06-30',
+    ]);
   });
 
   it('returns a history whose last point matches current visibility', async () => {
