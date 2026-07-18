@@ -357,9 +357,12 @@ export function KeywordsTable({
         header: () => (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="cursor-default underline decoration-dotted underline-offset-4">
-                Volatility
-              </span>
+              <SortHeader
+                column="volatility"
+                label="Volatility"
+                active={sort === "volatility"}
+                onSort={setSort}
+              />
             </TooltipTrigger>
             <TooltipContent className="max-w-xs">
               How much the top 10 changed day to day over the last week. High
