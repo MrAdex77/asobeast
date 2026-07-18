@@ -34,7 +34,7 @@ interface AppBucketRow {
   storeAppId: string;
   country: string;
   store: Store;
-  collection: CategoryCollection;
+  collections: CategoryCollection[];
   genre: string;
 }
 
@@ -61,18 +61,20 @@ export class CategoryRanksService {
     const seen = new Set<string>();
     const buckets: CategoryBucket[] = [];
     for (const row of rows) {
-      for (const genre of [row.genre, OVERALL_GENRE]) {
-        const key = `${row.store}:${row.collection}:${genre}:${row.country}`;
-        if (seen.has(key)) {
-          continue;
+      for (const collection of row.collections) {
+        for (const genre of [row.genre, OVERALL_GENRE]) {
+          const key = `${row.store}:${collection}:${genre}:${row.country}`;
+          if (seen.has(key)) {
+            continue;
+          }
+          seen.add(key);
+          buckets.push({
+            collection,
+            genre,
+            country: row.country,
+            store: row.store,
+          });
         }
-        seen.add(key);
-        buckets.push({
-          collection: row.collection,
-          genre,
-          country: row.country,
-          store: row.store,
-        });
       }
     }
     return buckets;
@@ -99,7 +101,7 @@ export class CategoryRanksService {
     const date = utcToday();
     for (const row of rows) {
       const matches =
-        row.collection === collection &&
+        row.collections.includes(collection) &&
         (genre === OVERALL_GENRE || row.genre === genre);
       if (!matches) {
         continue;
@@ -216,7 +218,7 @@ export class CategoryRanksService {
         storeAppId: app.storeAppId,
         country: app.country,
         store: app.store,
-        collection: isPaid(snapshot.raw) ? 'paid' : 'free',
+        collections: [isPaid(snapshot.raw) ? 'paid' : 'free', 'grossing'],
         genre,
       });
     }
