@@ -17,12 +17,35 @@ interface SerpRow extends SerpFixture {
   position: number;
 }
 
-const PREVIOUS_DAY = new Date('2026-07-17');
+const FROZEN_NOW = new Date('2026-07-18T09:30:00.000Z');
+
+const utcDayStart = (from: Date, offsetDays = 0): Date =>
+  new Date(
+    Date.UTC(
+      from.getUTCFullYear(),
+      from.getUTCMonth(),
+      from.getUTCDate() + offsetDays,
+    ),
+  );
+
+const PREVIOUS_DAY = utcDayStart(FROZEN_NOW, -1);
 
 const serpRows = (fixtures: SerpFixture[] | null | undefined): SerpRow[] =>
   (fixtures ?? []).map((entry, index) => ({ ...entry, position: index + 1 }));
 
 describe('RankingsService.checkKeyword', () => {
+  beforeAll(() => {
+    jest
+      .useFakeTimers({
+        doNotFake: ['nextTick', 'queueMicrotask', 'setImmediate'],
+      })
+      .setSystemTime(FROZEN_NOW);
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
   const buildSearchResults = (): SearchItem[] => {
     const items: SearchItem[] = [];
     for (let i = 1; i <= 40; i += 1) {
