@@ -892,6 +892,7 @@ const SORT_VALUE: Record<
   traffic: (item) => item.traffic,
   difficulty: (item) => item.difficulty,
   position: (item) => item.latestPosition,
+  volatility: (item) => item.serpVolatility7d,
 };
 
 function sortTracked(

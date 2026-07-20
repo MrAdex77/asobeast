@@ -8,7 +8,7 @@ test("home renders the portfolio grid with totals and per-app cards", async ({ p
 
   const [first, second] = PORTFOLIO.apps;
   await expect(
-    page.getByRole("link", { name: first.name ?? "", exact: true }),
+    page.getByRole("link", { name: first.name ?? "", exact: true }).first(),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: second.name ?? "", exact: true }),

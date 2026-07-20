@@ -8,7 +8,44 @@ import { StoreProviderRegistry } from '../store-providers/store-provider.registr
 import { SearchItem } from '../store-providers/types';
 import { RankingsService } from './rankings.service';
 
+interface SerpFixture {
+  storeAppId: string;
+  title: string;
+}
+
+interface SerpRow extends SerpFixture {
+  position: number;
+}
+
+const FROZEN_NOW = new Date('2026-07-18T09:30:00.000Z');
+
+const utcDayStart = (from: Date, offsetDays = 0): Date =>
+  new Date(
+    Date.UTC(
+      from.getUTCFullYear(),
+      from.getUTCMonth(),
+      from.getUTCDate() + offsetDays,
+    ),
+  );
+
+const PREVIOUS_DAY = utcDayStart(FROZEN_NOW, -1);
+
+const serpRows = (fixtures: SerpFixture[] | null | undefined): SerpRow[] =>
+  (fixtures ?? []).map((entry, index) => ({ ...entry, position: index + 1 }));
+
 describe('RankingsService.checkKeyword', () => {
+  beforeAll(() => {
+    jest
+      .useFakeTimers({
+        doNotFake: ['nextTick', 'queueMicrotask', 'setImmediate'],
+      })
+      .setSystemTime(FROZEN_NOW);
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
   const buildSearchResults = (): SearchItem[] => {
     const items: SearchItem[] = [];
     for (let i = 1; i <= 40; i += 1) {
@@ -25,6 +62,9 @@ describe('RankingsService.checkKeyword', () => {
     existingToday?: { position: number | null } | null;
     threshold?: number;
     country?: string;
+    previousSerp?: SerpFixture[] | null;
+    sameDaySerp?: SerpFixture[] | null;
+    knownApps?: { id: string; storeAppId: string; isCompetitor: boolean }[];
   }) => {
     const search = jest.fn().mockResolvedValue(buildSearchResults());
     const upsert = jest
@@ -88,7 +128,29 @@ describe('RankingsService.checkKeyword', () => {
         findUnique: rankingFindUnique,
         findFirst: rankingFindFirst,
       },
-      serpEntry: { deleteMany, createMany },
+      serpEntry: {
+        deleteMany,
+        createMany,
+        findFirst: jest
+          .fn()
+          .mockResolvedValue(
+            options?.previousSerp ? { date: PREVIOUS_DAY } : null,
+          ),
+        findMany: jest
+          .fn<Promise<SerpRow[]>, [{ where: { date: Date } }]>()
+          .mockImplementation(({ where }) =>
+            Promise.resolve(
+              serpRows(
+                where.date.getTime() === PREVIOUS_DAY.getTime()
+                  ? options?.previousSerp
+                  : options?.sameDaySerp,
+              ),
+            ),
+          ),
+      },
+      app: {
+        findMany: jest.fn().mockResolvedValue(options?.knownApps ?? []),
+      },
       $transaction,
     };
     const registry = { get: () => ({ search }) };
@@ -283,6 +345,106 @@ describe('RankingsService.checkKeyword', () => {
     const { service, dispatch } = setup({
       tracked: primaryOnly,
       previous: null,
+    });
+
+    await service.checkKeyword('kw1');
+
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  const previousTopTen = (...tail: string[]) =>
+    [
+      'other-1',
+      'other-2',
+      'other-3',
+      'other-4',
+      'other-5',
+      'other-6',
+      'primary-store',
+      'other-8',
+      ...tail,
+    ].map((storeAppId) => ({ storeAppId, title: storeAppId }));
+
+  it('does not fire a serp.entrant alert without a previous snapshot', async () => {
+    const { service, dispatch } = setup({
+      tracked: primaryOnly,
+      previous: null,
+      previousSerp: null,
+    });
+
+    await service.checkKeyword('kw1');
+
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it('fires one serp.entrant payload listing every new arrival', async () => {
+    const { service, dispatch } = setup({
+      tracked: primaryOnly,
+      previous: null,
+      previousSerp: previousTopTen('stale-a', 'stale-b'),
+      knownApps: [
+        { id: 'competitorA', storeAppId: 'other-9', isCompetitor: true },
+      ],
+    });
+
+    await service.checkKeyword('kw1');
+
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch.mock.calls[0][0]).toMatchObject({
+      event: 'serp.entrant',
+      keyword: { id: 'kw1', text: 'habit tracker' },
+      entrants: [
+        {
+          position: 9,
+          storeAppId: 'other-9',
+          appId: 'competitorA',
+          isCompetitor: true,
+        },
+        {
+          position: 10,
+          storeAppId: 'other-10',
+          appId: null,
+          isCompetitor: false,
+        },
+      ],
+    });
+  });
+
+  it('does not re-fire serp.entrant when re-run on the same day', async () => {
+    const { service, dispatch } = setup({
+      tracked: primaryOnly,
+      previous: null,
+      previousSerp: previousTopTen('stale-a', 'stale-b'),
+      sameDaySerp: previousTopTen('other-9', 'other-10'),
+    });
+
+    await service.checkKeyword('kw1');
+
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it('fires only the arrivals since the same-day snapshot on a re-run', async () => {
+    const { service, dispatch } = setup({
+      tracked: primaryOnly,
+      previous: null,
+      previousSerp: previousTopTen('stale-a', 'stale-b'),
+      sameDaySerp: previousTopTen('other-9', 'gone-today'),
+    });
+
+    await service.checkKeyword('kw1');
+
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch.mock.calls[0][0]).toMatchObject({
+      event: 'serp.entrant',
+      entrants: [{ position: 10, storeAppId: 'other-10' }],
+    });
+  });
+
+  it('does not fire a serp.entrant alert when the top ten is unchanged', async () => {
+    const { service, dispatch } = setup({
+      tracked: primaryOnly,
+      previous: null,
+      previousSerp: previousTopTen('other-9', 'other-10'),
     });
 
     await service.checkKeyword('kw1');

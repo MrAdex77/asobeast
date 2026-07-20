@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ComponentProps } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import {
   createColumnHelper,
@@ -156,7 +156,9 @@ function SortHeader({
   label,
   active,
   onSort,
-}: {
+  className,
+  ...props
+}: ComponentProps<"button"> & {
   column: KeywordSort;
   label: string;
   active: boolean;
@@ -164,12 +166,14 @@ function SortHeader({
 }) {
   return (
     <button
+      {...props}
       type="button"
       onClick={() => onSort(column)}
       aria-pressed={active}
       className={cn(
         "inline-flex items-center gap-1 transition-colors",
         active ? "text-foreground" : "hover:text-foreground",
+        className,
       )}
     >
       {label}
@@ -357,9 +361,12 @@ export function KeywordsTable({
         header: () => (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="cursor-default underline decoration-dotted underline-offset-4">
-                Volatility
-              </span>
+              <SortHeader
+                column="volatility"
+                label="Volatility"
+                active={sort === "volatility"}
+                onSort={setSort}
+              />
             </TooltipTrigger>
             <TooltipContent className="max-w-xs">
               How much the top 10 changed day to day over the last week. High

@@ -58,6 +58,17 @@ function detailRows(payload: AlertPayload): Row[] {
     ];
   }
 
+  if (payload.event === 'serp.entrant') {
+    return [
+      ['Keyword', payload.keyword.text],
+      ['Date', payload.date],
+      ...payload.entrants.map((entrant): Row => [
+        `#${entrant.position}`,
+        entrant.isCompetitor ? `${entrant.title} (competitor)` : entrant.title,
+      ]),
+    ];
+  }
+
   const rows: Row[] = [
     ['Window', `${payload.window.from} → ${payload.window.to}`],
   ];

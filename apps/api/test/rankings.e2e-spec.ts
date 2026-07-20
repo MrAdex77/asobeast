@@ -1,15 +1,25 @@
 import { execSync } from 'child_process';
 import { join } from 'path';
+import { getQueueToken } from '@nestjs/bullmq';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Store } from '@prisma/client';
-import { ApiErrorEnvelope, SerpMovers } from '@asobeast/shared';
+import {
+  ApiErrorEnvelope,
+  SerpEntrantPayload,
+  SerpMovers,
+} from '@asobeast/shared';
+import { Queue } from 'bullmq';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
-import { obliterateQueues } from './obliterate-queues';
+import { obliterateQueues, pauseQueues } from './obliterate-queues';
 import { DEFAULT_WORKSPACE_ID } from '../src/common/workspace';
+import { QUEUES } from '../src/jobs/jobs.types';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { RankingsService } from '../src/rankings/rankings.service';
+import { StoreProviderRegistry } from '../src/store-providers/store-provider.registry';
+import { SearchItem, StoreProvider } from '../src/store-providers/types';
 
 function utcMidnight(offsetDays: number): Date {
   const now = new Date();
@@ -158,5 +168,152 @@ describe('RankingsController serp-movers (e2e)', () => {
       appId: null,
       isCompetitor: false,
     });
+  });
+});
+
+describe('RankingsService serp entrant alerts (e2e)', () => {
+  let app: INestApplication<App>;
+  let prisma: PrismaService;
+  let rankings: RankingsService;
+  let alertsQueue: Queue;
+
+  const SERP: SearchItem[] = [
+    { storeAppId: 'self-store', title: 'You' },
+    { storeAppId: 'newcomer-store', title: 'Newcomer' },
+  ];
+
+  const registry = {
+    get: (): StoreProvider =>
+      ({ search: () => Promise.resolve(SERP) }) as unknown as StoreProvider,
+  };
+
+  const seedKeyword = async (): Promise<string> => {
+    const you = await prisma.app.create({
+      data: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        store: Store.APP_STORE,
+        storeAppId: 'self-store',
+        country: 'us',
+        name: 'You',
+      },
+    });
+    const keyword = await prisma.keyword.create({
+      data: { text: 'habit tracker', store: Store.APP_STORE, country: 'us' },
+    });
+    await prisma.trackedKeyword.create({
+      data: {
+        appId: you.id,
+        keywordId: keyword.id,
+        source: 'MANUAL',
+        active: true,
+      },
+    });
+    return keyword.id;
+  };
+
+  const queuedEvents = async (): Promise<string[]> => {
+    const jobs = await alertsQueue.getJobs(['waiting', 'delayed', 'paused']);
+    return jobs.map(
+      (job) => (job.data as { payload: { event: string } }).payload.event,
+    );
+  };
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(StoreProviderRegistry)
+      .useValue(registry)
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    await app.init();
+    await pauseQueues(app);
+
+    prisma = app.get(PrismaService);
+    rankings = app.get(RankingsService);
+    alertsQueue = app.get<Queue>(getQueueToken(QUEUES.ALERTS), {
+      strict: false,
+    });
+    await prisma.workspace.upsert({
+      where: { id: DEFAULT_WORKSPACE_ID },
+      update: {},
+      create: { id: DEFAULT_WORKSPACE_ID, name: 'Default' },
+    });
+  });
+
+  beforeEach(async () => {
+    await alertsQueue.drain(true);
+    await prisma.$executeRawUnsafe(
+      'TRUNCATE TABLE "App", "Keyword", "Webhook" RESTART IDENTITY CASCADE',
+    );
+  });
+
+  afterAll(async () => {
+    await obliterateQueues(app);
+    await app.close();
+  });
+
+  it('emits nothing on the first ever capture', async () => {
+    const keywordId = await seedKeyword();
+    await prisma.webhook.create({
+      data: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        url: 'https://hooks.example.com/entrants',
+        events: ['serp.entrant'],
+      },
+    });
+
+    await rankings.checkKeyword(keywordId);
+
+    expect(await queuedEvents()).not.toContain('serp.entrant');
+  });
+
+  it('queues one payload for subscribed channels only', async () => {
+    const keywordId = await seedKeyword();
+    await prisma.webhook.createMany({
+      data: [
+        {
+          workspaceId: DEFAULT_WORKSPACE_ID,
+          url: 'https://hooks.example.com/entrants',
+          events: ['serp.entrant'],
+        },
+        {
+          workspaceId: DEFAULT_WORKSPACE_ID,
+          url: 'https://hooks.example.com/metadata',
+          events: ['metadata.changed'],
+        },
+      ],
+    });
+    await prisma.serpEntry.create({
+      data: {
+        keywordId,
+        date: utcMidnight(1),
+        position: 1,
+        storeAppId: 'self-store',
+        title: 'You',
+      },
+    });
+
+    await rankings.checkKeyword(keywordId);
+
+    const jobs = await alertsQueue.getJobs(['waiting', 'delayed', 'paused']);
+    const entrantJobs = jobs.filter(
+      (job) =>
+        (job.data as { payload: { event: string } }).payload.event ===
+        'serp.entrant',
+    );
+    expect(entrantJobs).toHaveLength(1);
+    expect(
+      (entrantJobs[0].data as { payload: SerpEntrantPayload }).payload.entrants,
+    ).toEqual([
+      {
+        position: 2,
+        storeAppId: 'newcomer-store',
+        title: 'Newcomer',
+        appId: null,
+        isCompetitor: false,
+      },
+    ]);
   });
 });

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Link2 } from "lucide-react";
+import { Globe, Link2 } from "lucide-react";
 import type { PortfolioApp, PortfolioGroup, Store } from "@asobeast/shared";
 import { AppIcon } from "@/components/AppIcon";
 import { TrendChip } from "@/components/overview/TrendChip";
@@ -19,32 +19,79 @@ const STORE_ORDER: Record<Store, number> = {
   GOOGLE_PLAY: 1,
 };
 
+type GroupVariant = "linked" | "storefront";
+
 type PortfolioRow =
   | { kind: "app"; app: PortfolioApp }
-  | { kind: "group"; id: string; name: string; members: PortfolioApp[] };
+  | {
+      kind: "group";
+      id: string;
+      name: string;
+      variant: GroupVariant;
+      members: PortfolioApp[];
+    };
+
+function storefrontKey(app: PortfolioApp): string {
+  return `${app.store}:${app.storeAppId}`;
+}
 
 function toRows(apps: PortfolioApp[]): PortfolioRow[] {
+  const storefrontCounts = new Map<string, number>();
+  for (const app of apps) {
+    if (app.groupId === null) {
+      const key = storefrontKey(app);
+      storefrontCounts.set(key, (storefrontCounts.get(key) ?? 0) + 1);
+    }
+  }
+
   const rows: PortfolioRow[] = [];
   const groupRowIndex = new Map<string, number>();
 
+  const pushMember = (
+    key: string,
+    row: Omit<PortfolioRow & { kind: "group" }, "members">,
+    app: PortfolioApp,
+  ) => {
+    const existing = groupRowIndex.get(key);
+    if (existing === undefined) {
+      groupRowIndex.set(key, rows.length);
+      rows.push({ ...row, members: [app] });
+      return;
+    }
+    (rows[existing] as { members: PortfolioApp[] }).members.push(app);
+  };
+
   for (const app of apps) {
-    if (app.groupId === null) {
+    if (app.groupId !== null) {
+      pushMember(
+        `group:${app.groupId}`,
+        {
+          kind: "group",
+          id: app.groupId,
+          name: app.groupName ?? app.name ?? "App group",
+          variant: "linked",
+        },
+        app,
+      );
+      continue;
+    }
+
+    const key = storefrontKey(app);
+    if ((storefrontCounts.get(key) ?? 0) < 2) {
       rows.push({ kind: "app", app });
       continue;
     }
 
-    const existing = groupRowIndex.get(app.groupId);
-    if (existing === undefined) {
-      groupRowIndex.set(app.groupId, rows.length);
-      rows.push({
+    pushMember(
+      `storefront:${key}`,
+      {
         kind: "group",
-        id: app.groupId,
-        name: app.groupName ?? app.name ?? "App group",
-        members: [app],
-      });
-    } else {
-      (rows[existing] as { members: PortfolioApp[] }).members.push(app);
-    }
+        id: key,
+        name: app.name ?? "Untitled app",
+        variant: "storefront",
+      },
+      app,
+    );
   }
 
   return rows;
@@ -181,27 +228,33 @@ function GroupVisibility({ group }: { group: PortfolioGroup | undefined }) {
 function PortfolioGroupCard({
   name,
   members,
+  variant,
   group,
 }: {
   name: string;
   members: PortfolioApp[];
+  variant: GroupVariant;
   group: PortfolioGroup | undefined;
 }) {
   const ordered = [...members].sort(
-    (a, b) => STORE_ORDER[a.store] - STORE_ORDER[b.store],
+    (a, b) =>
+      STORE_ORDER[a.store] - STORE_ORDER[b.store] ||
+      a.country.localeCompare(b.country),
   );
+  const storefront = variant === "storefront";
+  const Icon = storefront ? Globe : Link2;
 
   return (
     <Card className="gap-0 p-4">
       <div className="mb-3 flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <Link2 className="size-4 shrink-0 text-muted-foreground" />
+          <Icon className="size-4 shrink-0 text-muted-foreground" />
           <span className="truncate font-medium">{name}</span>
           <Badge variant="outline" className="ml-auto">
-            Linked
+            {storefront ? "Storefronts" : "Linked"}
           </Badge>
         </div>
-        <GroupVisibility group={group} />
+        {storefront ? null : <GroupVisibility group={group} />}
       </div>
       <ul className="flex flex-col divide-y">
         {ordered.map((member) => (
@@ -227,11 +280,12 @@ export function PortfolioGrid({
   return (
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {rows.map((row) => (
-        <li key={row.kind === "group" ? `group-${row.id}` : row.app.id}>
+        <li key={row.kind === "group" ? `${row.variant}-${row.id}` : row.app.id}>
           {row.kind === "group" ? (
             <PortfolioGroupCard
               name={row.name}
               members={row.members}
+              variant={row.variant}
               group={byId.get(row.id)}
             />
           ) : (

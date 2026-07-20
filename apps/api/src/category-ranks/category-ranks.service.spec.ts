@@ -55,7 +55,31 @@ describe('CategoryRanksService buckets', () => {
         country: 'us',
         store: 'APP_STORE',
       },
+      {
+        collection: 'grossing',
+        genre: '6007',
+        country: 'us',
+        store: 'APP_STORE',
+      },
+      {
+        collection: 'grossing',
+        genre: 'overall',
+        country: 'us',
+        store: 'APP_STORE',
+      },
     ]);
+  });
+
+  it('schedules grossing for every app alongside its price collection', async () => {
+    const { service } = makeService([
+      app('a1', '111', { primaryGenreId: 6007, price: 2.99 }),
+    ]);
+
+    const collections = (await service.buckets(['a1'])).map(
+      (bucket) => bucket.collection,
+    );
+
+    expect(new Set(collections)).toEqual(new Set(['paid', 'grossing']));
   });
 
   it('splits free and paid apps into separate collections', async () => {
@@ -74,10 +98,28 @@ describe('CategoryRanksService buckets', () => {
         country: 'us',
         store: 'APP_STORE',
       },
+      {
+        collection: 'grossing',
+        genre: '6007',
+        country: 'us',
+        store: 'APP_STORE',
+      },
+      {
+        collection: 'grossing',
+        genre: 'overall',
+        country: 'us',
+        store: 'APP_STORE',
+      },
       { collection: 'paid', genre: '6014', country: 'us', store: 'APP_STORE' },
       {
         collection: 'paid',
         genre: 'overall',
+        country: 'us',
+        store: 'APP_STORE',
+      },
+      {
+        collection: 'grossing',
+        genre: '6014',
         country: 'us',
         store: 'APP_STORE',
       },
@@ -151,6 +193,32 @@ describe('CategoryRanksService checkCategory', () => {
       ([arg]) => (arg as { create: { appId: string } }).create.appId,
     );
     expect(appIds).toEqual(['a1', 'a2']);
+  });
+
+  it('writes grossing positions for paid and free apps alike', async () => {
+    const { service, upsert } = makeService(
+      [
+        app('a1', '111', { primaryGenreId: 6007, price: 0 }),
+        app('a2', '222', { primaryGenreId: 6007, price: 4.99 }),
+      ],
+      [{ storeAppId: '222', title: 'Second' }],
+    );
+
+    await service.checkCategory({
+      collection: 'grossing',
+      genre: '6007',
+      country: 'us',
+      store: 'APP_STORE',
+    });
+
+    const positions = upsert.mock.calls.map(
+      ([arg]) =>
+        (arg as { create: { appId: string; position: number | null } }).create,
+    );
+    expect(positions).toEqual([
+      expect.objectContaining({ appId: 'a1', position: null }),
+      expect.objectContaining({ appId: 'a2', position: 1 }),
+    ]);
   });
 
   it('reruns idempotently via the same composite key', async () => {

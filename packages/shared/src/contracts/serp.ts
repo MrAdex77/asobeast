@@ -49,3 +49,19 @@ export interface SerpMovers {
   windowDays: number;
   items: SerpMoverItem[];
 }
+
+export interface SerpEntrant {
+  position: number;
+  storeAppId: string;
+  title: string;
+  appId: string | null;
+  isCompetitor: boolean;
+}
+
+export interface SerpEntrantPayload {
+  event: 'serp.entrant';
+  occurredAt: string;
+  keyword: { id: string; text: string };
+  date: string;
+  entrants: SerpEntrant[];
+}

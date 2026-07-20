@@ -299,6 +299,50 @@ describe('KeywordsController (e2e)', () => {
     ]);
   });
 
+  it('sorts tracked keywords by serp volatility with nulls last', async () => {
+    const id = await importApp();
+
+    const added = await request(app.getHttpServer())
+      .post(`/apps/${id}/keywords`)
+      .send({ keywords: ['stable term', 'churn term', 'unchecked term'] })
+      .expect(201);
+    const items = added.body as TrackedKeywordItem[];
+    const keywordId = (text: string) =>
+      items.find((item) => item.text === text)!.keywordId;
+
+    const day = (date: string, kwId: string, storeAppIds: string[]) =>
+      storeAppIds.map((storeAppId, index) => ({
+        keywordId: kwId,
+        date: new Date(date),
+        position: index + 1,
+        storeAppId,
+        title: storeAppId,
+      }));
+
+    await prisma.serpEntry.createMany({
+      data: [
+        ...day('2026-07-07', keywordId('stable term'), ['a', 'b']),
+        ...day('2026-07-08', keywordId('stable term'), ['a', 'b']),
+        ...day('2026-07-07', keywordId('churn term'), ['a', 'b']),
+        ...day('2026-07-08', keywordId('churn term'), ['x', 'y']),
+      ],
+    });
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${id}/keywords`)
+      .query({ sort: 'volatility' })
+      .expect(200);
+    const sorted = response.body as TrackedKeywordItem[];
+
+    expect(sorted[0].text).toBe('churn term');
+    expect(sorted[0].serpVolatility7d).toBe(100);
+    expect(sorted[1].text).toBe('stable term');
+    expect(sorted[1].serpVolatility7d).toBe(0);
+    expect(
+      sorted.slice(2).every((item) => item.serpVolatility7d === null),
+    ).toBe(true);
+  });
+
   it('suggests untracked metadata candidates by default', async () => {
     const id = await importApp();
 

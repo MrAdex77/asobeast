@@ -128,10 +128,94 @@ export class RankingsService {
       ratingCount: item.ratingCount ?? null,
     }));
 
+    const baseline = await this.entrantBaseline(keywordId, date);
+
     await this.prisma.$transaction([
       this.prisma.serpEntry.deleteMany({ where: { keywordId, date } }),
       this.prisma.serpEntry.createMany({ data: entries }),
     ]);
+
+    if (baseline) {
+      await this.dispatchEntrantAlert(
+        { id: keyword.id, text: keyword.text },
+        keyword.store,
+        keyword.country,
+        [
+          baseline,
+          {
+            date: toDateKey(date),
+            entries: entries.map(({ position, storeAppId, title }) => ({
+              position,
+              storeAppId,
+              title,
+            })),
+          },
+        ],
+      );
+    }
+  }
+
+  private async entrantBaseline(
+    keywordId: string,
+    date: Date,
+  ): Promise<SerpSnapshotDay | null> {
+    const sameDay = await this.serpDay(keywordId, date);
+    if (sameDay) {
+      return sameDay;
+    }
+    const latest = await this.prisma.serpEntry.findFirst({
+      where: { keywordId, date: { lt: date } },
+      orderBy: { date: 'desc' },
+      select: { date: true },
+    });
+    return latest ? this.serpDay(keywordId, latest.date) : null;
+  }
+
+  private async serpDay(
+    keywordId: string,
+    date: Date,
+  ): Promise<SerpSnapshotDay | null> {
+    const rows = await this.prisma.serpEntry.findMany({
+      where: { keywordId, date },
+      orderBy: { position: 'asc' },
+      select: { position: true, storeAppId: true, title: true },
+    });
+    return rows.length > 0 ? { date: toDateKey(date), entries: rows } : null;
+  }
+
+  private async dispatchEntrantAlert(
+    keyword: { id: string; text: string },
+    store: Store,
+    country: string,
+    snapshots: SerpSnapshotDay[],
+  ): Promise<void> {
+    const detected = detectEntrants(snapshots);
+    if (detected.length === 0) {
+      return;
+    }
+
+    const appByStoreAppId = await this.appsByStoreAppId(
+      store,
+      country,
+      detected.map((entrant) => entrant.storeAppId),
+    );
+
+    await this.alerts.dispatch({
+      event: 'serp.entrant',
+      occurredAt: new Date().toISOString(),
+      keyword,
+      date: detected[0].date,
+      entrants: detected.map((entrant) => {
+        const known = appByStoreAppId.get(entrant.storeAppId);
+        return {
+          position: entrant.position,
+          storeAppId: entrant.storeAppId,
+          title: entrant.title,
+          appId: known?.id ?? null,
+          isCompetitor: known?.isCompetitor ?? false,
+        };
+      }),
+    });
   }
 
   private async dispatchRankAlert(
