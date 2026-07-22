@@ -40,11 +40,9 @@ export function CommandPalette() {
   const { data: apps } = useQuery({ ...appsOptions, enabled: open });
 
   const openRef = useRef(open);
-  useEffect(() => {
-    openRef.current = open;
-  }, [open]);
 
   const handleOpenChange = useCallback((next: boolean) => {
+    openRef.current = next;
     setOpen(next);
     if (!next) {
       setQuery("");
