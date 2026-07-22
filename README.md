@@ -111,12 +111,15 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 | `SCRAPE_GPLAY_RPM` | `10` | Google Play job-starts per minute; the `gplay` worker runs concurrency 1 behind this limiter. A Play score job makes ≈15–18 requests (1 search + ≤7 suggests + 10 detail fetches) against ≈2 for Apple; self-hosters with hundreds of Play keywords should lower this or expect the weekly scoring window to stretch. |
 | `CRON_RETENTION` | `0 5 * * *` | Cron for the data retention pruning job (UTC). |
 | `CRON_DIGEST` | `0 8 * * 1` | Cron for the weekly digest webhook (UTC, Monday 08:00). |
+| `ALERT_DELIVERY` | `batched` | `batched` collects events into an outbox and sends one grouped email/POST per channel per flush; `instant` is the pre-phase-36 per-event delivery. |
+| `CRON_ALERT_FLUSH` | `0 7 * * *` | Cron for the grouped alert flush (UTC), after the daily pipeline drains; set hourly for lower latency. |
 | `RETENTION_RANKINGS_DAYS` | `365` | Prune keyword rankings older than N days; `0` keeps forever. |
 | `RETENTION_SERP_DAYS` | `90` | Prune SERP entries older than N days; `0` keeps forever. |
 | `RETENTION_SNAPSHOTS_DAYS` | `180` | Prune app snapshots older than N days; the newest snapshot per app is always kept; `0` keeps forever. |
 | `RETENTION_CATEGORY_RANKS_DAYS` | `365` | Prune category ranks older than N days; `0` keeps forever. |
 | `RETENTION_CHANGE_EVENTS_DAYS` | `0` | Prune change events older than N days; `0` keeps forever. |
 | `RETENTION_DELIVERIES_DAYS` | `30` | Prune alert delivery log rows older than N days; `0` keeps forever. |
+| `RETENTION_ALERT_EVENTS_DAYS` | `30` | Prune flushed alert outbox rows older than N days; `0` keeps forever. |
 | `SMTP_HOST` | — | SMTP server host. Set together with `SMTP_FROM` to enable email alerts; leave empty to disable. |
 | `SMTP_PORT` | `587` | SMTP server port (`465` with `SMTP_SECURE=true`). |
 | `SMTP_SECURE` | `false` | `true` wraps the connection in TLS (port 465). |
@@ -129,6 +132,12 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 | `LOG_LEVEL` | `debug` | `error`, `warn`, `log`, `debug` or `verbose`. |
 
 Alerts fan out to two channels: **webhooks** (Slack, Discord, ntfy or any endpoint) and **email** (SMTP, enabled only when `SMTP_HOST` and `SMTP_FROM` are set). Both carry the same events and record every attempt in a delivery log, surfaced per channel on the settings page so failed deliveries are visible instead of silently retrying.
+
+### Grouped delivery
+
+By default (`ALERT_DELIVERY=batched`) alerts are **collected, not streamed**. Every alert-producing signal — rank changes, SERP entrants, metadata changes, negative reviews — is driven by the daily pipeline, which has daily granularity, so per-event delivery is noise, not timeliness. Instead of enqueueing one email and one webhook POST per event, batched mode writes each event to an outbox and the flush job (`CRON_ALERT_FLUSH`, default `0 7 * * *` UTC, after the 03:00 pipeline drains) sends **one professional email and one webhook POST per channel**, grouped by app → store → section, with competitor activity nested under its primary app. Re-runs and multi-market checks that emit the same fact twice are deduplicated within the window (latest values win). The guarantee is one email and one POST per channel **per flush** — set `CRON_ALERT_FLUSH` hourly if you want lower latency, and use **Flush now** on the settings page to send immediately. This is why a full daily pipeline gives you one grouped email instead of thirty single-line ones. Channel subscriptions still apply: a channel's batch contains only the event types it subscribed to, and a channel whose filtered batch is empty gets nothing. The weekly digest is already a digest and bypasses the outbox on its own schedule.
+
+To restore the pre-phase-36 behavior set `ALERT_DELIVERY=instant`, which delivers each event immediately, one notification per event — byte-identical to before. This is a **breaking change for webhook consumers** that parse the granular event shapes: either switch that consumer to `instant`, or parse the batch body's flat `events[]` array, which carries the same per-event payloads alongside the grouped `apps` tree. Flushed outbox rows are pruned by `RETENTION_ALERT_EVENTS_DAYS` (default 30) so yesterday's grouped email stays debuggable without growing forever.
 
 `apps/web/.env`:
 

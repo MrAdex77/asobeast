@@ -132,12 +132,15 @@ CRON_SCORING=0 4 * * 0      # weekly scoring, UTC (Sunday)
 SCRAPE_ITUNES_RPM=15
 SCRAPE_GPLAY_RPM=10         # google play job-starts/minute; each Play score job fans out to ~15-18 requests
 ALERT_RANK_DROP_THRESHOLD=5  # positions a primary app must move to fire a rank alert
+ALERT_DELIVERY=batched              # batched: one grouped email/POST per flush; instant: pre-phase-36 per-event delivery
+CRON_ALERT_FLUSH=0 7 * * *          # grouped alert flush, UTC (after the daily pipeline drains)
 CRON_RETENTION=0 5 * * *            # data retention pruning, UTC
 RETENTION_RANKINGS_DAYS=365         # keyword rankings; 0 keeps forever
 RETENTION_SERP_DAYS=90              # serp entries; 0 keeps forever
 RETENTION_SNAPSHOTS_DAYS=180        # app snapshots; newest per app always kept; 0 keeps forever
 RETENTION_CATEGORY_RANKS_DAYS=365   # category ranks; 0 keeps forever
 RETENTION_CHANGE_EVENTS_DAYS=0      # change events; 0 keeps forever
+RETENTION_ALERT_EVENTS_DAYS=30      # flushed alert outbox rows; 0 keeps forever
 BULL_BOARD_ENABLED=true
 LOG_LEVEL=debug
 ```
