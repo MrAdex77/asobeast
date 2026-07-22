@@ -38,3 +38,22 @@ export interface MetadataAuditResult {
   coverage: KeywordCoverageRow[];
   keywordFieldSuggestion: KeywordFieldSuggestion | null;
 }
+
+export interface MetadataDraft {
+  field: MetadataField;
+  value: string;
+  chars: number;
+  limit: number;
+  issues: LintIssue[];
+  rationale: string;
+}
+
+export interface MetadataAssistantResult {
+  model: string;
+  drafts: MetadataDraft[];
+}
+
+export interface MetadataAssistantStatus {
+  configured: boolean;
+  model: string | null;
+}
