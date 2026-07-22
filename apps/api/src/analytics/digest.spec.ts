@@ -77,8 +77,14 @@ describe('AnalyticsService.buildDigest', () => {
     changeEventCount.mockResolvedValue(3);
     reviewCount.mockResolvedValue(2);
     auditScoreFindFirst
-      .mockResolvedValueOnce({ overall: 78 })
-      .mockResolvedValueOnce({ overall: 75 });
+      .mockResolvedValueOnce({
+        date: new Date('2026-07-13T00:00:00Z'),
+        overall: 78,
+      })
+      .mockResolvedValueOnce({
+        date: new Date('2026-07-06T00:00:00Z'),
+        overall: 75,
+      });
 
     const payload = await service.buildDigest(2);
 
@@ -117,6 +123,30 @@ describe('AnalyticsService.buildDigest', () => {
     };
     expect(reviewArgs.where.appId).toBe('app_1');
     expect(reviewArgs.where.score.lte).toBe(2);
+  });
+
+  it('reports a null delta when the only snapshot predates the 7-day baseline', async () => {
+    appFindMany.mockResolvedValue([
+      {
+        id: 'app_1',
+        name: 'Mine',
+        groupId: null,
+        group: null,
+        competitors: [],
+      },
+    ]);
+    rankingFindFirst.mockResolvedValue(null);
+    trackedFindMany.mockResolvedValue([]);
+    changeEventCount.mockResolvedValue(0);
+    reviewCount.mockResolvedValue(0);
+    const stale = { date: new Date('2026-07-01T00:00:00Z'), overall: 70 };
+    auditScoreFindFirst
+      .mockResolvedValueOnce(stale)
+      .mockResolvedValueOnce(stale);
+
+    const payload = await service.buildDigest(2);
+
+    expect(payload.apps[0].audit).toEqual({ current: 70, delta7d: null });
   });
 
   it('summarizes linked apps as one blended group', async () => {

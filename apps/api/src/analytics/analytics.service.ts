@@ -462,12 +462,12 @@ export class AnalyticsService {
       this.prisma.auditScore.findFirst({
         where: { appId, date: { lte: to } },
         orderBy: { date: 'desc' },
-        select: { overall: true },
+        select: { date: true, overall: true },
       }),
       this.prisma.auditScore.findFirst({
         where: { appId, date: { lte: addDays(to, -DIGEST_WINDOW_DAYS) } },
         orderBy: { date: 'desc' },
-        select: { overall: true },
+        select: { date: true, overall: true },
       }),
     ]);
 
@@ -475,8 +475,10 @@ export class AnalyticsService {
       return null;
     }
 
+    const hasBaseline =
+      baseline !== null && baseline.date.getTime() < current.date.getTime();
     const delta7d =
-      current.overall !== null && baseline?.overall != null
+      hasBaseline && current.overall !== null && baseline.overall !== null
         ? current.overall - baseline.overall
         : null;
 
