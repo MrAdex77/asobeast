@@ -38,6 +38,8 @@ import type {
   TrackedKeywordItem,
   VisibilityHistory,
   AlertDeliveryItem,
+  AlertDeliveryStatus,
+  AlertFlushResult,
   AlertsConfig,
   EmailAlertItem,
   WebhookEvent,
@@ -474,6 +476,14 @@ export function testWebhook(id: string): Promise<WebhookTestResult> {
 
 export function getAlertsConfig(): Promise<AlertsConfig> {
   return apiFetch<AlertsConfig>("/alerts/config");
+}
+
+export function getAlertDeliveryStatus(): Promise<AlertDeliveryStatus> {
+  return apiFetch<AlertDeliveryStatus>("/alerts/delivery");
+}
+
+export function flushAlerts(): Promise<AlertFlushResult> {
+  return apiFetch<AlertFlushResult>("/alerts/flush", { method: "POST" });
 }
 
 export function getEmailAlerts(): Promise<EmailAlertItem[]> {

@@ -1,12 +1,15 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Queue } from 'bullmq';
 import {
   AlertBatchPayload,
+  AlertDeliveryStatus,
   AlertFlushResult,
   AlertPayload,
 } from '@asobeast/shared';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
+import { Env } from '../config/env';
 import {
   DeliverAlertPayload,
   DeliverEmailPayload,
@@ -36,9 +39,29 @@ export class AlertFlushService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailer: MailerService,
+    private readonly config: ConfigService<Env, true>,
     @InjectQueue(QUEUES.ALERTS)
     private readonly queue: Queue<DeliverAlertPayload | DeliverEmailPayload>,
   ) {}
+
+  async status(): Promise<AlertDeliveryStatus> {
+    const [pending, lastFlushed] = await Promise.all([
+      this.prisma.alertEvent.count({
+        where: { workspaceId: DEFAULT_WORKSPACE_ID, flushedAt: null },
+      }),
+      this.prisma.alertEvent.findFirst({
+        where: { workspaceId: DEFAULT_WORKSPACE_ID, flushedAt: { not: null } },
+        orderBy: { flushedAt: 'desc' },
+        select: { flushedAt: true },
+      }),
+    ]);
+    return {
+      mode: this.config.get('ALERT_DELIVERY', { infer: true }),
+      cron: this.config.get('CRON_ALERT_FLUSH', { infer: true }),
+      lastFlushAt: lastFlushed?.flushedAt?.toISOString() ?? null,
+      pending,
+    };
+  }
 
   async flush(): Promise<AlertFlushResult> {
     const rows = await this.prisma.alertEvent.findMany({

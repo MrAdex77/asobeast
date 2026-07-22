@@ -46,6 +46,31 @@ function AlertsCardSkeleton() {
   );
 }
 
+export function DeliveryCardSkeleton() {
+  return (
+    <Card>
+      <CardHeader className="flex-row items-start justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-5 w-24" />
+        </div>
+        <Skeleton className="h-8 w-24" />
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <Skeleton className="h-4 w-full max-w-md" />
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="flex flex-col gap-1">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-5 w-20" />
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function WebhooksCardSkeleton() {
   return <AlertsCardSkeleton />;
 }

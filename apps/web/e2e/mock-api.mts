@@ -101,6 +101,22 @@ const routes: Route[] = [
   },
   {
     method: "GET",
+    pattern: /^\/alerts\/delivery$/,
+    handler: (_p, _q, res) =>
+      json(res, 200, {
+        mode: "batched",
+        cron: "0 7 * * *",
+        lastFlushAt: "2026-07-22T07:00:00.000Z",
+        pending: 3,
+      }),
+  },
+  {
+    method: "POST",
+    pattern: /^\/alerts\/flush$/,
+    handler: (_p, _q, res) => json(res, 200, { flushed: 3, channels: 2 }),
+  },
+  {
+    method: "GET",
     pattern: /^\/email-alerts$/,
     handler: (_p, _q, res) => json(res, 200, EMAIL_ALERTS),
   },

@@ -85,6 +85,15 @@ export interface AlertFlushResult {
   channels: number;
 }
 
+export type AlertDeliveryMode = 'batched' | 'instant';
+
+export interface AlertDeliveryStatus {
+  mode: AlertDeliveryMode;
+  cron: string;
+  lastFlushAt: string | null;
+  pending: number;
+}
+
 export interface MetadataChangedPayload {
   event: 'metadata.changed';
   occurredAt: string;

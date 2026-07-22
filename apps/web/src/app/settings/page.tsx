@@ -1,15 +1,18 @@
 import { Suspense } from "react";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { BudgetCard } from "@/components/settings/BudgetCard";
+import { DeliveryCard } from "@/components/settings/DeliveryCard";
 import { EmailAlertsCard } from "@/components/settings/EmailAlertsCard";
 import { WebhooksCard } from "@/components/settings/WebhooksCard";
 import {
   BudgetCardSkeleton,
+  DeliveryCardSkeleton,
   EmailAlertsCardSkeleton,
   WebhooksCardSkeleton,
 } from "@/components/settings/skeletons";
 import { getQueryClient } from "@/lib/get-query-client";
 import {
+  alertDeliveryOptions,
   alertsConfigOptions,
   budgetOptions,
   emailAlertsOptions,
@@ -22,6 +25,7 @@ export default async function SettingsPage() {
     queryClient.prefetchQuery(webhooksOptions),
     queryClient.prefetchQuery(emailAlertsOptions),
     queryClient.prefetchQuery(alertsConfigOptions),
+    queryClient.prefetchQuery(alertDeliveryOptions),
     queryClient.prefetchQuery(budgetOptions),
   ]);
 
@@ -36,6 +40,9 @@ export default async function SettingsPage() {
         </div>
         <Suspense fallback={<BudgetCardSkeleton />}>
           <BudgetCard />
+        </Suspense>
+        <Suspense fallback={<DeliveryCardSkeleton />}>
+          <DeliveryCard />
         </Suspense>
         <Suspense fallback={<WebhooksCardSkeleton />}>
           <WebhooksCard />

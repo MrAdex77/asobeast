@@ -5,6 +5,7 @@ import type {
 } from "@asobeast/shared";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
+  getAlertDeliveryStatus,
   getAlertsConfig,
   getApp,
   getApps,
@@ -107,6 +108,8 @@ export const emailAlertKeys = {
 };
 
 export const alertsConfigKey = ["alerts", "config"] as const;
+
+export const alertDeliveryKey = ["alerts", "delivery"] as const;
 
 export const deliveryKeys = {
   all: ["alert-deliveries"] as const,
@@ -287,6 +290,11 @@ export const emailAlertsOptions = queryOptions({
 export const alertsConfigOptions = queryOptions({
   queryKey: alertsConfigKey,
   queryFn: getAlertsConfig,
+});
+
+export const alertDeliveryOptions = queryOptions({
+  queryKey: alertDeliveryKey,
+  queryFn: getAlertDeliveryStatus,
 });
 
 export const healthOptions = queryOptions({

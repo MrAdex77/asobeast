@@ -2,6 +2,7 @@ import { Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   AlertDeliveryItem,
+  AlertDeliveryStatus,
   AlertFlushResult,
   AlertsConfig,
 } from '@asobeast/shared';
@@ -23,6 +24,12 @@ export class AlertsController {
   @ApiOperation({ summary: 'Probe which alert channels are available' })
   config(): AlertsConfig {
     return { emailEnabled: this.mailer.enabled };
+  }
+
+  @Get('delivery')
+  @ApiOperation({ summary: 'Report the alert delivery mode and outbox status' })
+  delivery(): Promise<AlertDeliveryStatus> {
+    return this.flush.status();
   }
 
   @Post('flush')
