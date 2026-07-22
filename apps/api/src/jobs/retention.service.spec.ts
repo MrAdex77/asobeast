@@ -14,6 +14,7 @@ const buildConfig = (days: Days): ConfigService<Env, true> => {
     RETENTION_CHANGE_EVENTS_DAYS: 0,
     RETENTION_DELIVERIES_DAYS: 30,
     RETENTION_AUDIT_SCORES_DAYS: 0,
+    RETENTION_ALERT_EVENTS_DAYS: 30,
     ...days,
   };
   return {
@@ -27,6 +28,7 @@ const buildPrisma = () => ({
   categoryRank: { deleteMany: jest.fn().mockResolvedValue({ count: 3 }) },
   changeEvent: { deleteMany: jest.fn().mockResolvedValue({ count: 4 }) },
   alertDelivery: { deleteMany: jest.fn().mockResolvedValue({ count: 6 }) },
+  alertEvent: { deleteMany: jest.fn().mockResolvedValue({ count: 9 }) },
   suggestProbe: { deleteMany: jest.fn().mockResolvedValue({ count: 7 }) },
   appSnapshot: {
     findMany: jest.fn().mockResolvedValue([{ id: 'a' }, { id: 'b' }]),
@@ -117,6 +119,25 @@ describe('RetentionService', () => {
     expect(deleted.alertDelivery).toBe(0);
   });
 
+  it('prunes only flushed alert events by their own knob', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-13T09:30:00.000Z'));
+    const prisma = buildPrisma();
+    const service = new RetentionService(
+      buildConfig({ RETENTION_ALERT_EVENTS_DAYS: 30 }),
+      prisma as unknown as PrismaService,
+    );
+
+    const deleted = await service.prune();
+
+    expect(deleted.alertEvent).toBe(9);
+    const [{ where }] = prisma.alertEvent.deleteMany.mock.calls[0] as [
+      { where: { flushedAt: { not: null; lt: Date } } },
+    ];
+    expect(where.flushedAt.lt).toEqual(new Date('2026-06-13T00:00:00.000Z'));
+    expect(where.flushedAt.not).toBeNull();
+    jest.useRealTimers();
+  });
+
   it('prunes audit scores by their own knob', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-07-13T09:30:00.000Z'));
     const prisma = buildPrisma();
@@ -171,6 +192,7 @@ describe('RetentionService', () => {
     prisma.categoryRank.deleteMany.mockImplementation(boom);
     prisma.changeEvent.deleteMany.mockImplementation(boom);
     prisma.alertDelivery.deleteMany.mockImplementation(boom);
+    prisma.alertEvent.deleteMany.mockImplementation(boom);
     prisma.suggestProbe.deleteMany.mockImplementation(boom);
     prisma.appSnapshot.deleteMany.mockImplementation(boom);
     prisma.auditScore.deleteMany.mockImplementation(boom);

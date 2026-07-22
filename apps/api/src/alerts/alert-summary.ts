@@ -43,5 +43,10 @@ export function summarize(payload: AlertPayload): string {
     return `${count} new entrant${count === 1 ? '' : 's'} in the top ${SERP_DEPTH} for "${payload.keyword.text}"`;
   }
 
+  if (payload.event === 'alerts.batch') {
+    const { events, apps } = payload.totals;
+    return `${events} alert${events === 1 ? '' : 's'} across ${apps} app${apps === 1 ? '' : 's'}`;
+  }
+
   return `Weekly digest: ${payload.apps.length} app${payload.apps.length === 1 ? '' : 's'}`;
 }

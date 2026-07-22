@@ -69,6 +69,10 @@ function detailRows(payload: AlertPayload): Row[] {
     ];
   }
 
+  if (payload.event === 'alerts.batch') {
+    return [];
+  }
+
   const rows: Row[] = [
     ['Window', `${payload.window.from} → ${payload.window.to}`],
   ];
