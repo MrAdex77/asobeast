@@ -2,8 +2,13 @@ import { notFound } from "next/navigation";
 import type { KeywordCoverageRow, MetadataField } from "@asobeast/shared";
 import { BucketBadge } from "@/components/BucketBadge";
 import { KeywordFieldSuggestionCard } from "@/components/KeywordFieldSuggestionCard";
+import { MetadataAssistantPanel } from "@/components/metadata/MetadataAssistantPanel";
 import { MetadataFieldCard } from "@/components/MetadataFieldCard";
-import { ApiError, getMetadataAudit } from "@/lib/api";
+import {
+  ApiError,
+  getMetadataAssistantStatus,
+  getMetadataAudit,
+} from "@/lib/api";
 
 const FIELD_ORDER: MetadataField[] = [
   "title",
@@ -99,6 +104,7 @@ export default async function MetadataPage({
     if (err instanceof ApiError && err.envelope.statusCode === 404) notFound();
     return null;
   });
+  const assistant = await getMetadataAssistantStatus().catch(() => null);
   if (!result) {
     return (
       <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
@@ -120,6 +126,10 @@ export default async function MetadataPage({
           />
         ))}
       </section>
+
+      {assistant?.configured ? (
+        <MetadataAssistantPanel appId={id} store={result.store} />
+      ) : null}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-medium">Keyword coverage</h2>

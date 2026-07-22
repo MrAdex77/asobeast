@@ -20,7 +20,10 @@ import type {
   KeywordSuggestion,
   KeywordSuggestionStrategy,
   MarketAvailabilityResult,
+  MetadataAssistantResult,
+  MetadataAssistantStatus,
   MetadataAuditResult,
+  MetadataField,
   PortfolioSummary,
   RankDistributionHistory,
   RankingSeries,
@@ -427,6 +430,20 @@ export function runAiAudit(appId: string): Promise<AppAuditResult> {
 
 export function getMetadataAudit(appId: string): Promise<MetadataAuditResult> {
   return apiFetch<MetadataAuditResult>(`/apps/${appId}/metadata/audit`);
+}
+
+export function getMetadataAssistantStatus(): Promise<MetadataAssistantStatus> {
+  return apiFetch<MetadataAssistantStatus>("/metadata/assistant");
+}
+
+export function generateMetadataDrafts(
+  appId: string,
+  body: { fields?: MetadataField[]; instructions?: string },
+): Promise<MetadataAssistantResult> {
+  return apiFetch<MetadataAssistantResult>(
+    `/apps/${appId}/metadata/assistant`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
 }
 
 export function getWebhooks(): Promise<WebhookItem[]> {
