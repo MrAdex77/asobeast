@@ -1,3 +1,4 @@
+import type { Store } from '../index';
 import type { ReviewNegativePayload } from './reviews';
 import type { DigestWeeklyPayload } from './portfolio';
 import type { SerpEntrantPayload } from './serp';
@@ -110,10 +111,42 @@ export interface RankImprovedPayload {
   threshold: number;
 }
 
+export interface AlertBatchApp {
+  id: string;
+  name: string | null;
+  store: Store;
+  country: string;
+}
+
+export interface AlertBatchCompetitorSection {
+  app: AlertBatchApp;
+  changes: MetadataChangedPayload[];
+}
+
+export interface AlertBatchAppSection {
+  app: AlertBatchApp;
+  rankDrops: RankDroppedPayload[];
+  rankImprovements: RankImprovedPayload[];
+  serpEntrants: SerpEntrantPayload[];
+  changes: MetadataChangedPayload[];
+  negativeReviews: ReviewNegativePayload[];
+  competitors: AlertBatchCompetitorSection[];
+}
+
+export interface AlertBatchPayload {
+  event: 'alerts.batch';
+  occurredAt: string;
+  window: { from: string; to: string };
+  totals: { events: number; apps: number };
+  apps: AlertBatchAppSection[];
+  events: AlertPayload[];
+}
+
 export type AlertPayload =
   | MetadataChangedPayload
   | RankDroppedPayload
   | RankImprovedPayload
   | ReviewNegativePayload
   | DigestWeeklyPayload
-  | SerpEntrantPayload;
+  | SerpEntrantPayload
+  | AlertBatchPayload;
