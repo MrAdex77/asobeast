@@ -28,6 +28,7 @@ model Workspace {
   appGroups   AppGroup[]
   webhooks    Webhook[]
   emailAlerts EmailAlert[]
+  alertEvents AlertEvent[]
   createdAt   DateTime     @default(now())
 }
 
@@ -261,6 +262,21 @@ model AlertDelivery {
 
   @@index([webhookId, createdAt])
   @@index([emailAlertId, createdAt])
+  @@index([createdAt])
+}
+
+model AlertEvent {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  event       String
+  appId       String?
+  dedupeKey   String?   @unique
+  payload     Json
+  createdAt   DateTime  @default(now())
+  flushedAt   DateTime?
+
+  @@index([workspaceId, flushedAt])
   @@index([createdAt])
 }
 
