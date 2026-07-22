@@ -126,6 +126,12 @@ function digestSlackBody(payload: DigestWeeklyPayload): unknown {
 
 export function formatWebhookBody(url: string, payload: AlertPayload): string {
   if (payload.event === 'alerts.batch') {
+    if (isDiscord(url)) {
+      return JSON.stringify({ content: renderMessage(payload) });
+    }
+    if (isSlack(url)) {
+      return JSON.stringify({ text: renderMessage(payload) });
+    }
     return JSON.stringify(payload);
   }
   if (payload.event === 'digest.weekly') {
