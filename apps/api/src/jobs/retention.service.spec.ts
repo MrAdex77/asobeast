@@ -13,6 +13,7 @@ const buildConfig = (days: Days): ConfigService<Env, true> => {
     RETENTION_CATEGORY_RANKS_DAYS: 365,
     RETENTION_CHANGE_EVENTS_DAYS: 0,
     RETENTION_DELIVERIES_DAYS: 30,
+    RETENTION_AUDIT_SCORES_DAYS: 0,
     ...days,
   };
   return {
@@ -31,6 +32,7 @@ const buildPrisma = () => ({
     findMany: jest.fn().mockResolvedValue([{ id: 'a' }, { id: 'b' }]),
     deleteMany: jest.fn().mockResolvedValue({ count: 5 }),
   },
+  auditScore: { deleteMany: jest.fn().mockResolvedValue({ count: 8 }) },
 });
 
 describe('RetentionService', () => {
@@ -115,6 +117,37 @@ describe('RetentionService', () => {
     expect(deleted.alertDelivery).toBe(0);
   });
 
+  it('prunes audit scores by their own knob', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-13T09:30:00.000Z'));
+    const prisma = buildPrisma();
+    const service = new RetentionService(
+      buildConfig({ RETENTION_AUDIT_SCORES_DAYS: 365 }),
+      prisma as unknown as PrismaService,
+    );
+
+    const deleted = await service.prune();
+
+    expect(deleted.auditScore).toBe(8);
+    const [{ where }] = prisma.auditScore.deleteMany.mock.calls[0] as [
+      { where: { date: { lt: Date } } },
+    ];
+    expect(where.date.lt).toEqual(new Date('2025-07-13T00:00:00.000Z'));
+    jest.useRealTimers();
+  });
+
+  it('keeps audit scores forever when the knob is zero', async () => {
+    const prisma = buildPrisma();
+    const service = new RetentionService(
+      buildConfig({ RETENTION_AUDIT_SCORES_DAYS: 0 }),
+      prisma as unknown as PrismaService,
+    );
+
+    const deleted = await service.prune();
+
+    expect(prisma.auditScore.deleteMany).not.toHaveBeenCalled();
+    expect(deleted.auditScore).toBe(0);
+  });
+
   it('runs remaining pruners when one fails', async () => {
     const prisma = buildPrisma();
     prisma.keywordRanking.deleteMany.mockRejectedValue(new Error('boom'));
@@ -140,8 +173,12 @@ describe('RetentionService', () => {
     prisma.alertDelivery.deleteMany.mockImplementation(boom);
     prisma.suggestProbe.deleteMany.mockImplementation(boom);
     prisma.appSnapshot.deleteMany.mockImplementation(boom);
+    prisma.auditScore.deleteMany.mockImplementation(boom);
     const service = new RetentionService(
-      buildConfig({ RETENTION_CHANGE_EVENTS_DAYS: 30 }),
+      buildConfig({
+        RETENTION_CHANGE_EVENTS_DAYS: 30,
+        RETENTION_AUDIT_SCORES_DAYS: 365,
+      }),
       prisma as unknown as PrismaService,
     );
 

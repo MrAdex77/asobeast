@@ -2,6 +2,7 @@ import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Job, Queue } from 'bullmq';
+import { AuditService } from '../audit/audit.service';
 import { Env } from '../config/env';
 import { DigestService } from './digest.service';
 import { JOBS, LAST_DAILY_RUN_KEY, QUEUES } from './jobs.types';
@@ -18,6 +19,7 @@ export class PipelineWorker extends WorkerHost implements OnModuleInit {
     private readonly pipeline: PipelineService,
     private readonly retention: RetentionService,
     private readonly digest: DigestService,
+    private readonly audit: AuditService,
   ) {
     super();
   }
@@ -46,6 +48,11 @@ export class PipelineWorker extends WorkerHost implements OnModuleInit {
       { pattern: this.config.get('CRON_DIGEST', { infer: true }), tz: 'UTC' },
       { name: JOBS.DIGEST },
     );
+    await this.pipelineQueue.upsertJobScheduler(
+      'audit',
+      { pattern: this.config.get('CRON_AUDIT', { infer: true }), tz: 'UTC' },
+      { name: JOBS.AUDIT_SNAPSHOT },
+    );
   }
 
   async process(job: Job): Promise<void> {
@@ -65,6 +72,10 @@ export class PipelineWorker extends WorkerHost implements OnModuleInit {
     }
     if (job.name === JOBS.DIGEST) {
       await this.digest.run();
+      return;
+    }
+    if (job.name === JOBS.AUDIT_SNAPSHOT) {
+      await this.audit.snapshotAll();
       return;
     }
     throw new Error(`Unknown pipeline job ${job.name}`);

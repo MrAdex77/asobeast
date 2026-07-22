@@ -24,6 +24,7 @@ export class RetentionService {
       ['appSnapshot', () => this.pruneSnapshots(now)],
       ['alertDelivery', () => this.pruneDeliveries(now)],
       ['suggestProbe', () => this.pruneSuggestProbes(now)],
+      ['auditScore', () => this.pruneAuditScores(now)],
     ];
 
     const settled = await Promise.allSettled(rules.map(([, run]) => run()));
@@ -119,6 +120,19 @@ export class RetentionService {
   private async pruneSuggestProbes(now: Date): Promise<number> {
     const { count } = await this.prisma.suggestProbe.deleteMany({
       where: { day: { lt: this.cutoff(SUGGEST_PROBE_DAYS, now) } },
+    });
+    return count;
+  }
+
+  private async pruneAuditScores(now: Date): Promise<number> {
+    const days = this.config.get('RETENTION_AUDIT_SCORES_DAYS', {
+      infer: true,
+    });
+    if (days === 0) {
+      return 0;
+    }
+    const { count } = await this.prisma.auditScore.deleteMany({
+      where: { date: { lt: this.cutoff(days, now) } },
     });
     return count;
   }

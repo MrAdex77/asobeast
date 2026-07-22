@@ -8,6 +8,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { obliterateQueues } from './obliterate-queues';
+import { AuditService } from '../src/audit/audit.service';
 import { DEFAULT_WORKSPACE_ID } from '../src/common/workspace';
 import { PrismaService } from '../src/prisma/prisma.service';
 
@@ -226,5 +227,40 @@ describe('AuditController (e2e)', () => {
     expect(factor(result, 'keywordField')).toBeUndefined();
     expect(factor(result, 'description')?.weight).toBe(15);
     expect(result.totalWeight).toBe(90);
+  });
+
+  it('snapshots one audit score row per primary app, skipping competitors', async () => {
+    const id = await seed();
+    await prisma.app.create({
+      data: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        store: Store.APP_STORE,
+        storeAppId: '9876543210',
+        country: 'us',
+        name: 'Rival',
+        isCompetitor: true,
+        primaryAppId: id,
+      },
+    });
+
+    const saved = await app.get(AuditService).snapshotAll();
+
+    expect(saved).toBe(1);
+    const rows = await prisma.auditScore.findMany();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].appId).toBe(id);
+    expect(rows[0].coveredWeight).toBeGreaterThan(0);
+    expect(rows[0].totalWeight).toBe(110);
+    expect(Array.isArray(rows[0].factors)).toBe(true);
+  });
+
+  it('upserts the same day idempotently', async () => {
+    const id = await seed();
+
+    await app.get(AuditService).snapshotAll();
+    await app.get(AuditService).snapshotAll();
+
+    const rows = await prisma.auditScore.findMany({ where: { appId: id } });
+    expect(rows).toHaveLength(1);
   });
 });

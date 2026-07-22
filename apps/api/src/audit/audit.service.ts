@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, Store } from '@prisma/client';
 import {
   AppAuditResult,
@@ -18,6 +18,8 @@ const TREND_WINDOW_DAYS = 30;
 
 @Injectable()
 export class AuditService {
+  private readonly logger = new Logger(AuditService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly keywords: KeywordsService,
@@ -25,6 +27,44 @@ export class AuditService {
 
   async audit(appId: string): Promise<AppAuditResult> {
     return computeAudit(await this.buildContext(appId));
+  }
+
+  async snapshotAll(): Promise<number> {
+    const apps = await this.prisma.app.findMany({
+      where: { workspaceId: DEFAULT_WORKSPACE_ID, isCompetitor: false },
+      select: { id: true },
+    });
+    const date = utcDate();
+
+    let saved = 0;
+    for (const { id } of apps) {
+      try {
+        const result = await this.audit(id);
+        await this.prisma.auditScore.upsert({
+          where: { appId_date: { appId: id, date } },
+          create: {
+            appId: id,
+            date,
+            overall: result.overall,
+            coveredWeight: result.coveredWeight,
+            totalWeight: result.totalWeight,
+            factors: toSlimFactors(result),
+          },
+          update: {
+            overall: result.overall,
+            coveredWeight: result.coveredWeight,
+            totalWeight: result.totalWeight,
+            factors: toSlimFactors(result),
+          },
+        });
+        saved += 1;
+      } catch (error) {
+        this.logger.error(`audit snapshot failed for app ${id}`, error);
+      }
+    }
+
+    this.logger.log(`audit snapshot saved ${saved}/${apps.length}`);
+    return saved;
   }
 
   async saveInputs(
@@ -138,6 +178,16 @@ export class AuditService {
     };
   }
 }
+
+const utcDate = (now = new Date()): Date =>
+  new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+const toSlimFactors = (result: AppAuditResult): Prisma.InputJsonValue =>
+  result.factors.map((factor) => ({
+    id: factor.id,
+    score: factor.score,
+    weight: factor.weight,
+  }));
 
 const toAuditKeyword = (item: TrackedKeywordItem): AuditKeyword => ({
   text: item.text,
