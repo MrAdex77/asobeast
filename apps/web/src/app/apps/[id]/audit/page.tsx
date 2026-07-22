@@ -1,6 +1,12 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { AuditHealthChart } from "@/components/audit/AuditHealthChart";
 import { AuditView } from "@/components/audit/AuditView";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, getAudit } from "@/lib/api";
+import { getQueryClient } from "@/lib/get-query-client";
+import { auditHistoryOptions } from "@/lib/queries";
 
 export default async function AuditPage({
   params,
@@ -20,5 +26,19 @@ export default async function AuditPage({
     );
   }
 
-  return <AuditView appId={id} audit={audit} />;
+  const queryClient = getQueryClient();
+  void queryClient.prefetchQuery(auditHistoryOptions(id));
+
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <div className="flex flex-col gap-8">
+        <Suspense
+          fallback={<Skeleton className="h-[336px] w-full rounded-xl" />}
+        >
+          <AuditHealthChart id={id} />
+        </Suspense>
+        <AuditView appId={id} audit={audit} />
+      </div>
+    </HydrationBoundary>
+  );
 }

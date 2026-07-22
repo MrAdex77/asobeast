@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Put } from '@nestjs/common';
+import { Body, Controller, Get, Param, Put, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AppAuditResult } from '@asobeast/shared';
+import { AppAuditResult, AuditHistory } from '@asobeast/shared';
 import { AuditService } from './audit.service';
+import { AuditHistoryQueryDto } from './dto/audit-history-query.dto';
 import { AuditInputAnswersDto } from './dto/audit-inputs.dto';
 
 @ApiTags('audit')
@@ -13,6 +14,15 @@ export class AuditController {
   @ApiOperation({ summary: 'ASO audit score card for an app' })
   getAudit(@Param('id') id: string): Promise<AppAuditResult> {
     return this.audit.audit(id);
+  }
+
+  @Get('history')
+  @ApiOperation({ summary: 'ASO audit score history series for an app' })
+  history(
+    @Param('id') id: string,
+    @Query() query: AuditHistoryQueryDto,
+  ): Promise<AuditHistory> {
+    return this.audit.history(id, query);
   }
 
   @Put('inputs')

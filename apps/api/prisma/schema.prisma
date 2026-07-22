@@ -65,6 +65,7 @@ model App {
   reviews      Review[]
   suggestProbes SuggestProbe[]
   auditInput   AuditInput?
+  auditScores  AuditScore[]
   createdAt    DateTime         @default(now())
 
   @@unique([workspaceId, store, storeAppId, country])
@@ -273,4 +274,18 @@ model SuggestProbe {
   createdAt DateTime @default(now())
 
   @@id([appId, term, day, probe])
+}
+
+model AuditScore {
+  appId         String
+  app           App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  date          DateTime @db.Date
+  overall       Float?
+  coveredWeight Int
+  totalWeight   Int
+  factors       Json
+  createdAt     DateTime @default(now())
+
+  @@id([appId, date])
+  @@index([appId, date])
 }

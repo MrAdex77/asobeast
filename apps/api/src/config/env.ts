@@ -30,8 +30,10 @@ export const EnvSchema = z.object({
   RETENTION_CATEGORY_RANKS_DAYS: z.coerce.number().int().min(0).default(365),
   RETENTION_CHANGE_EVENTS_DAYS: z.coerce.number().int().min(0).default(0),
   RETENTION_DELIVERIES_DAYS: z.coerce.number().int().min(0).default(30),
+  RETENTION_AUDIT_SCORES_DAYS: z.coerce.number().int().min(0).default(0),
   CRON_RETENTION: z.string().min(1).default('0 5 * * *'),
   CRON_DIGEST: z.string().min(1).default('0 8 * * 1'),
+  CRON_AUDIT: z.string().min(1).default('0 6 * * *'),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_SECURE: z

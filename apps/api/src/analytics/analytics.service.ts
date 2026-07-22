@@ -416,7 +416,7 @@ export class AnalyticsService {
 
     const appIds = [app.id, ...app.competitors.map((c) => c.id)];
     const rangeEnd = addDays(to, 1);
-    const [changes, negativeReviews] = await Promise.all([
+    const [changes, negativeReviews, audit] = await Promise.all([
       this.prisma.changeEvent.count({
         where: {
           appId: { in: appIds },
@@ -430,6 +430,7 @@ export class AnalyticsService {
           createdAt: { gte: from, lt: rangeEnd },
         },
       }),
+      this.auditDelta(app.id, to),
     ]);
 
     return {
@@ -448,8 +449,40 @@ export class AnalyticsService {
         moversDown: movers.down.slice(0, DIGEST_MOVER_LIMIT),
         changes,
         negativeReviews,
+        audit,
       },
     };
+  }
+
+  private async auditDelta(
+    appId: string,
+    to: Date,
+  ): Promise<DigestAppSummary['audit']> {
+    const [current, baseline] = await Promise.all([
+      this.prisma.auditScore.findFirst({
+        where: { appId, date: { lte: to } },
+        orderBy: { date: 'desc' },
+        select: { date: true, overall: true },
+      }),
+      this.prisma.auditScore.findFirst({
+        where: { appId, date: { lte: addDays(to, -DIGEST_WINDOW_DAYS) } },
+        orderBy: { date: 'desc' },
+        select: { date: true, overall: true },
+      }),
+    ]);
+
+    if (!current) {
+      return null;
+    }
+
+    const hasBaseline =
+      baseline !== null && baseline.date.getTime() < current.date.getTime();
+    const delta7d =
+      hasBaseline && current.overall !== null && baseline.overall !== null
+        ? current.overall - baseline.overall
+        : null;
+
+    return { current: current.overall, delta7d };
   }
 
   private visibilityPoints(rows: TrackedRow[]): VisibilityPoint[] {

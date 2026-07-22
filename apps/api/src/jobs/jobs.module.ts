@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { AlertsModule } from '../alerts/alerts.module';
 import { AnalyticsModule } from '../analytics/analytics.module';
 import { AppsModule } from '../apps/apps.module';
+import { AuditModule } from '../audit/audit.module';
 import { CategoryRanksModule } from '../category-ranks/category-ranks.module';
 import { Env } from '../config/env';
 import { KeywordsModule } from '../keywords/keywords.module';
@@ -73,6 +74,7 @@ const bullBoardModules: DynamicModule[] =
     AlertsModule,
     AnalyticsModule,
     ReviewsModule,
+    AuditModule,
     ...bullBoardModules,
   ],
   controllers: [JobsController, BudgetController, ScoringController],

@@ -18,6 +18,7 @@ export const JOBS = {
   SCORING: 'weekly-scoring',
   RETENTION: 'data-retention',
   DIGEST: 'weekly-digest',
+  AUDIT_SNAPSHOT: 'audit-snapshot',
   REFRESH_APP: 'refresh-app',
   CHECK_KEYWORD: 'check-keyword',
   CHECK_CATEGORY: 'check-category',
