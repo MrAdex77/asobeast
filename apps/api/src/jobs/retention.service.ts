@@ -23,6 +23,7 @@ export class RetentionService {
       ['changeEvent', () => this.pruneChangeEvents(now)],
       ['appSnapshot', () => this.pruneSnapshots(now)],
       ['alertDelivery', () => this.pruneDeliveries(now)],
+      ['alertEvent', () => this.pruneAlertEvents(now)],
       ['suggestProbe', () => this.pruneSuggestProbes(now)],
       ['auditScore', () => this.pruneAuditScores(now)],
     ];
@@ -113,6 +114,21 @@ export class RetentionService {
     }
     const { count } = await this.prisma.alertDelivery.deleteMany({
       where: { createdAt: { lt: this.cutoff(days, now) } },
+    });
+    return count;
+  }
+
+  private async pruneAlertEvents(now: Date): Promise<number> {
+    const days = this.config.get('RETENTION_ALERT_EVENTS_DAYS', {
+      infer: true,
+    });
+    if (days === 0) {
+      return 0;
+    }
+    const { count } = await this.prisma.alertEvent.deleteMany({
+      where: {
+        flushedAt: { not: null, lt: this.cutoff(days, now) },
+      },
     });
     return count;
   }

@@ -2,6 +2,7 @@ import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Job, Queue } from 'bullmq';
+import { AlertFlushService } from '../alerts/alert-flush.service';
 import { AuditService } from '../audit/audit.service';
 import { Env } from '../config/env';
 import { DigestService } from './digest.service';
@@ -20,6 +21,7 @@ export class PipelineWorker extends WorkerHost implements OnModuleInit {
     private readonly retention: RetentionService,
     private readonly digest: DigestService,
     private readonly audit: AuditService,
+    private readonly alertFlush: AlertFlushService,
   ) {
     super();
   }
@@ -53,6 +55,14 @@ export class PipelineWorker extends WorkerHost implements OnModuleInit {
       { pattern: this.config.get('CRON_AUDIT', { infer: true }), tz: 'UTC' },
       { name: JOBS.AUDIT_SNAPSHOT },
     );
+    await this.pipelineQueue.upsertJobScheduler(
+      'alert-flush',
+      {
+        pattern: this.config.get('CRON_ALERT_FLUSH', { infer: true }),
+        tz: 'UTC',
+      },
+      { name: JOBS.ALERT_FLUSH },
+    );
   }
 
   async process(job: Job): Promise<void> {
@@ -76,6 +86,10 @@ export class PipelineWorker extends WorkerHost implements OnModuleInit {
     }
     if (job.name === JOBS.AUDIT_SNAPSHOT) {
       await this.audit.snapshotAll();
+      return;
+    }
+    if (job.name === JOBS.ALERT_FLUSH) {
+      await this.alertFlush.flush();
       return;
     }
     throw new Error(`Unknown pipeline job ${job.name}`);

@@ -1,7 +1,11 @@
-import { AlertPayload, SERP_DEPTH } from '@asobeast/shared';
+import { AlertPayload, SERP_DEPTH, Store } from '@asobeast/shared';
 
 export function position(value: number | null): string {
   return value === null ? 'outside top 100' : `#${value}`;
+}
+
+export function storeLabel(store: Store): string {
+  return store === 'GOOGLE_PLAY' ? 'Google Play' : 'App Store';
 }
 
 export function rank(value: number | null): string {
@@ -41,6 +45,11 @@ export function summarize(payload: AlertPayload): string {
   if (payload.event === 'serp.entrant') {
     const count = payload.entrants.length;
     return `${count} new entrant${count === 1 ? '' : 's'} in the top ${SERP_DEPTH} for "${payload.keyword.text}"`;
+  }
+
+  if (payload.event === 'alerts.batch') {
+    const { events, apps } = payload.totals;
+    return `${events} alert${events === 1 ? '' : 's'} across ${apps} app${apps === 1 ? '' : 's'}`;
   }
 
   return `Weekly digest: ${payload.apps.length} app${payload.apps.length === 1 ? '' : 's'}`;

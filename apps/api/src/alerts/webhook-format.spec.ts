@@ -1,4 +1,5 @@
 import {
+  AlertBatchPayload,
   DigestWeeklyPayload,
   MetadataChangedPayload,
   RankDroppedPayload,
@@ -176,5 +177,38 @@ describe('formatWebhookBody', () => {
   it('sends the raw digest payload for generic receivers', () => {
     const body = formatWebhookBody('https://hooks.example.com/x', digest);
     expect(JSON.parse(body)).toEqual(digest);
+  });
+
+  const batch: AlertBatchPayload = {
+    event: 'alerts.batch',
+    occurredAt: '2026-07-22T11:00:00.000Z',
+    window: {
+      from: '2026-07-22T09:00:00.000Z',
+      to: '2026-07-22T11:00:00.000Z',
+    },
+    totals: { events: 3, apps: 2 },
+    apps: [],
+    events: [],
+  };
+
+  it('wraps a batch in a content field for discord', () => {
+    const body = formatWebhookBody(
+      'https://discord.com/api/webhooks/123/abc',
+      batch,
+    );
+    expect(JSON.parse(body)).toEqual({ content: renderMessage(batch) });
+  });
+
+  it('wraps a batch in a text field for slack', () => {
+    const body = formatWebhookBody(
+      'https://hooks.slack.com/services/T/B/x',
+      batch,
+    );
+    expect(JSON.parse(body)).toEqual({ text: renderMessage(batch) });
+  });
+
+  it('sends the raw batch payload for generic receivers', () => {
+    const body = formatWebhookBody('https://hooks.example.com/x', batch);
+    expect(JSON.parse(body)).toEqual(batch);
   });
 });

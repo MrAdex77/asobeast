@@ -69,6 +69,22 @@ test("settings lists email alerts and expands their delivery log", async ({
   await expect(page.getByText("Success").first()).toBeVisible();
 });
 
+test("settings shows the delivery card and flushes on demand", async ({
+  page,
+}) => {
+  await page.goto("/settings");
+
+  await expect(page.getByText("Delivery", { exact: true })).toBeVisible();
+  await expect(page.getByText("Batched", { exact: true })).toBeVisible();
+  await expect(page.getByText("0 7 * * *", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Flush now" }).click();
+
+  await expect(
+    page.getByText("Flushed 3 events to 2 channels"),
+  ).toBeVisible();
+});
+
 test("health badge reflects the mocked health endpoint", async ({ page }) => {
   await page.goto("/");
 

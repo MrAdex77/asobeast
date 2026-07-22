@@ -51,6 +51,11 @@ export function renderMessage(payload: AlertPayload): string {
     return `🆕 New in the top ${SERP_DEPTH} for "${payload.keyword.text}": ${names}`;
   }
 
+  if (payload.event === 'alerts.batch') {
+    const { events, apps } = payload.totals;
+    return `📦 ${events} alert${events === 1 ? '' : 's'} across ${apps} app${apps === 1 ? '' : 's'}`;
+  }
+
   const who = payload.app.name ?? 'An app';
   const icon = payload.event === 'rank.dropped' ? '📉' : '📈';
   const verb = payload.event === 'rank.dropped' ? 'dropped' : 'improved';
@@ -120,6 +125,15 @@ function digestSlackBody(payload: DigestWeeklyPayload): unknown {
 }
 
 export function formatWebhookBody(url: string, payload: AlertPayload): string {
+  if (payload.event === 'alerts.batch') {
+    if (isDiscord(url)) {
+      return JSON.stringify({ content: renderMessage(payload) });
+    }
+    if (isSlack(url)) {
+      return JSON.stringify({ text: renderMessage(payload) });
+    }
+    return JSON.stringify(payload);
+  }
   if (payload.event === 'digest.weekly') {
     if (isDiscord(url)) {
       return JSON.stringify(digestDiscordBody(payload));

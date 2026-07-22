@@ -22,6 +22,9 @@ test("keyboard round trip navigates to an app and then a section", async ({
   await page.keyboard.press("ControlOrMeta+k");
   await expect(palette).toBeVisible();
   await page.keyboard.type("Keywords");
+  await expect(
+    palette.getByRole("option", { name: "Keywords" }),
+  ).toBeVisible();
   await page.keyboard.press("Enter");
 
   await expect(page).toHaveURL(`/apps/${APP_1.id}/keywords`);

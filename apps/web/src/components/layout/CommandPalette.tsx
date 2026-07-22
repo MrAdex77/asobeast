@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { LayoutDashboard, Search, Settings } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppIcon } from "@/components/AppIcon";
 import { SECTIONS } from "@/components/app-detail/SectionNav";
 import { Badge } from "@/components/ui/badge";
@@ -33,28 +33,39 @@ const GENERAL = [
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const router = useRouter();
   const params = useParams<{ id?: string }>();
   const appId = params?.id;
   const { data: apps } = useQuery({ ...appsOptions, enabled: open });
 
+  const openRef = useRef(open);
+
+  const handleOpenChange = useCallback((next: boolean) => {
+    openRef.current = next;
+    setOpen(next);
+    if (!next) {
+      setQuery("");
+    }
+  }, []);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "k" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
-        setOpen((previous) => !previous);
+        handleOpenChange(!openRef.current);
       }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [handleOpenChange]);
 
   const go = useCallback(
     (href: string) => {
-      setOpen(false);
+      handleOpenChange(false);
       router.push(href);
     },
-    [router],
+    [handleOpenChange, router],
   );
 
   return (
@@ -66,7 +77,7 @@ export function CommandPalette() {
               variant="ghost"
               size="icon-sm"
               aria-label="Open command palette"
-              onClick={() => setOpen(true)}
+              onClick={() => handleOpenChange(true)}
             >
               <Search />
             </Button>
@@ -77,12 +88,16 @@ export function CommandPalette() {
 
       <CommandDialog
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={handleOpenChange}
         title="Command palette"
         description="Jump to an app, a section or a page."
       >
         <Command>
-          <CommandInput placeholder="Search apps and sections…" />
+          <CommandInput
+            value={query}
+            onValueChange={setQuery}
+            placeholder="Search apps and sections…"
+          />
           <CommandList>
             <CommandEmpty>No matches.</CommandEmpty>
 

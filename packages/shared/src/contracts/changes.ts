@@ -1,3 +1,4 @@
+import type { Store } from '../index';
 import type { ReviewNegativePayload } from './reviews';
 import type { DigestWeeklyPayload } from './portfolio';
 import type { SerpEntrantPayload } from './serp';
@@ -79,6 +80,20 @@ export interface AlertsConfig {
   emailEnabled: boolean;
 }
 
+export interface AlertFlushResult {
+  flushed: number;
+  channels: number;
+}
+
+export type AlertDeliveryMode = 'batched' | 'instant';
+
+export interface AlertDeliveryStatus {
+  mode: AlertDeliveryMode;
+  cron: string;
+  lastFlushAt: string | null;
+  pending: number;
+}
+
 export interface MetadataChangedPayload {
   event: 'metadata.changed';
   occurredAt: string;
@@ -110,10 +125,43 @@ export interface RankImprovedPayload {
   threshold: number;
 }
 
-export type AlertPayload =
+export interface AlertBatchApp {
+  id: string;
+  name: string | null;
+  store: Store;
+  country: string;
+}
+
+export interface AlertBatchCompetitorSection {
+  app: AlertBatchApp;
+  changes: MetadataChangedPayload[];
+}
+
+export interface AlertBatchAppSection {
+  app: AlertBatchApp;
+  rankDrops: RankDroppedPayload[];
+  rankImprovements: RankImprovedPayload[];
+  serpEntrants: SerpEntrantPayload[];
+  changes: MetadataChangedPayload[];
+  negativeReviews: ReviewNegativePayload[];
+  competitors: AlertBatchCompetitorSection[];
+}
+
+export type GranularAlertPayload =
   | MetadataChangedPayload
   | RankDroppedPayload
   | RankImprovedPayload
   | ReviewNegativePayload
   | DigestWeeklyPayload
   | SerpEntrantPayload;
+
+export interface AlertBatchPayload {
+  event: 'alerts.batch';
+  occurredAt: string;
+  window: { from: string; to: string };
+  totals: { events: number; apps: number };
+  apps: AlertBatchAppSection[];
+  events: GranularAlertPayload[];
+}
+
+export type AlertPayload = GranularAlertPayload | AlertBatchPayload;
