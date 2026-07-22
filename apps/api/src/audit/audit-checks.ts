@@ -1,9 +1,9 @@
 import { KeywordSource, Store } from '@prisma/client';
 import {
+  AuditAiStatus,
   AuditCheckKind,
   AuditCheckResult,
   AuditCheckStatus,
-  AuditInputAnswers,
   KeywordBucket,
   lintDescription,
   lintKeywordField,
@@ -15,6 +15,7 @@ import {
 } from '@asobeast/shared';
 import { clamp, logScale } from '../scoring/formulas';
 import { RawAppFacts } from '../store-providers/raw-facts';
+import { AiAuditChecks } from './audit-ai.service';
 
 export interface AuditKeyword {
   text: string;
@@ -49,7 +50,8 @@ export interface AuditContext {
   competitorTitles: string[];
   competitorNames: string[];
   brandTokens: string[];
-  answers: AuditInputAnswers;
+  aiChecks: AiAuditChecks;
+  aiStatus: AuditAiStatus;
 }
 
 const TITLE_FULL_CHARS = 27;
@@ -79,17 +81,16 @@ const check = (
   detail,
 });
 
-const manualCheck = (
+const aiCheck = (
   id: string,
   label: string,
-  answer: boolean | undefined,
-  yes: string,
-  no: string,
+  ai: AiAuditChecks,
 ): AuditCheckResult => {
-  if (answer === undefined) {
-    return check(id, label, 'manual', null, 'Not answered yet.');
+  const found = ai[id];
+  if (!found) {
+    return check(id, label, 'ai', null, 'Run the AI audit to score this.');
   }
-  return check(id, label, 'manual', answer ? 10 : 0, answer ? yes : no);
+  return check(id, label, 'ai', clamp(found.score, 0, 10), found.detail);
 };
 
 const lintScore = (issues: LintIssue[]): number => {
@@ -322,7 +323,7 @@ export const descriptionChecks = (
 
 export const screenshotChecks = (context: AuditContext): AuditCheckResult[] => {
   const count = context.rawFacts.screenshotCount;
-  const answers = context.answers;
+  const ai = context.aiChecks;
   return [
     check(
       'screenshots-count',
@@ -333,58 +334,22 @@ export const screenshotChecks = (context: AuditContext): AuditCheckResult[] => {
         ? 'Screenshot count unavailable.'
         : `${count} of 10 slots used.`,
     ),
-    manualCheck(
-      'screenshots-first-three',
-      'First three most compelling',
-      answers.screenshotsFirst3Compelling,
-      'Leads with the strongest features.',
-      'Reorder to lead with the strongest features.',
-    ),
-    manualCheck(
-      'screenshots-text-overlays',
-      'Benefit-driven captions',
-      answers.screenshotsTextOverlays,
-      'Captions communicate benefits.',
-      'Add benefit-driven captions.',
-    ),
-    manualCheck(
-      'screenshots-consistent',
-      'Consistent design',
-      answers.screenshotsConsistent,
-      'Cohesive design language.',
-      'Unify the design language.',
-    ),
-    manualCheck(
-      'screenshots-localized',
-      'Localized',
-      answers.screenshotsLocalized,
-      'Localized for the target market.',
-      'Localize for the target market.',
-    ),
-    manualCheck(
-      'screenshots-device-frames',
-      'Modern device frames',
-      answers.screenshotsDeviceFrames,
-      'Uses modern frames or frameless.',
-      'Update to modern device frames.',
-    ),
+    aiCheck('screenshots-first-three', 'First three most compelling', ai),
+    aiCheck('screenshots-text-overlays', 'Benefit-driven captions', ai),
+    aiCheck('screenshots-consistent', 'Consistent design', ai),
+    aiCheck('screenshots-localized', 'Localized', ai),
+    aiCheck('screenshots-device-frames', 'Modern device frames', ai),
   ];
 };
 
 export const previewVideoChecks = (
   context: AuditContext,
 ): AuditCheckResult[] => {
-  const answers = context.answers;
+  const ai = context.aiChecks;
   const hasVideo = context.rawFacts.hasVideo;
   const previewVideoExists =
     hasVideo === null
-      ? manualCheck(
-          'preview-video-exists',
-          'Preview video exists',
-          answers.previewVideoExists,
-          'Has a preview video.',
-          'Add a preview video.',
-        )
+      ? aiCheck('preview-video-exists', 'Preview video exists', ai)
       : check(
           'preview-video-exists',
           'Preview video exists',
@@ -394,27 +359,9 @@ export const previewVideoChecks = (
         );
   return [
     previewVideoExists,
-    manualCheck(
-      'preview-video-hook',
-      'Hook in first 3 seconds',
-      answers.previewVideoHook,
-      'Hooks in the first three seconds.',
-      'Add a hook in the first three seconds.',
-    ),
-    manualCheck(
-      'preview-video-length',
-      'Optimal length',
-      answers.previewVideoLength,
-      '15 to 30 seconds.',
-      'Trim to 15 to 30 seconds.',
-    ),
-    manualCheck(
-      'preview-video-sound',
-      'Works without sound',
-      answers.previewVideoWorksWithoutSound,
-      'Readable without sound.',
-      'Add captions so it works muted.',
-    ),
+    aiCheck('preview-video-hook', 'Hook in first 3 seconds', ai),
+    aiCheck('preview-video-length', 'Optimal length', ai),
+    aiCheck('preview-video-sound', 'Works without sound', ai),
   ];
 };
 
@@ -453,54 +400,18 @@ export const ratingChecks = (context: AuditContext): AuditCheckResult[] => {
         ? 'No 30 day history yet.'
         : 'Compared ratings to 30 days ago.',
     ),
-    manualCheck(
-      'ratings-responses',
-      'Responds to reviews',
-      context.answers.reviewResponses,
-      'Responds to negative reviews.',
-      'Respond to negative reviews.',
-    ),
-    manualCheck(
-      'ratings-prompts',
-      'Strategic rating prompts',
-      context.answers.ratingPrompts,
-      'Prompts for ratings in-app.',
-      'Add strategic in-app rating prompts.',
-    ),
+    aiCheck('ratings-responses', 'Responds to reviews', context.aiChecks),
+    aiCheck('ratings-prompts', 'Strategic rating prompts', context.aiChecks),
   ];
 };
 
 export const iconChecks = (context: AuditContext): AuditCheckResult[] => {
-  const answers = context.answers;
+  const ai = context.aiChecks;
   return [
-    manualCheck(
-      'icon-distinctive',
-      'Distinctive',
-      answers.iconDistinctive,
-      'Stands out in search.',
-      'Make the icon stand out in search.',
-    ),
-    manualCheck(
-      'icon-simple',
-      'Simple',
-      answers.iconSimple,
-      'Clear at small sizes.',
-      'Simplify for small sizes.',
-    ),
-    manualCheck(
-      'icon-category-fit',
-      'Category fit',
-      answers.iconCategoryFit,
-      'Matches category expectations.',
-      'Align with category expectations.',
-    ),
-    manualCheck(
-      'icon-no-text',
-      'No text',
-      answers.iconNoText,
-      'Avoids unreadable text.',
-      'Remove text from the icon.',
-    ),
+    aiCheck('icon-distinctive', 'Distinctive', ai),
+    aiCheck('icon-simple', 'Simple', ai),
+    aiCheck('icon-category-fit', 'Category fit', ai),
+    aiCheck('icon-no-text', 'No text', ai),
   ];
 };
 
@@ -557,26 +468,8 @@ export const conversionChecks = (context: AuditContext): AuditCheckResult[] => {
         fresh ? 'recently' : 'over 30 days ago'
       }.`,
     ),
-    manualCheck(
-      'conversion-promo',
-      'Promotional text',
-      context.answers.promotionalText,
-      'Uses promotional text.',
-      'Use promotional text for timely messaging.',
-    ),
-    manualCheck(
-      'conversion-events',
-      'In-app events',
-      context.answers.inAppEvents,
-      'Runs in-app events.',
-      'Add in-app events for visibility.',
-    ),
-    manualCheck(
-      'conversion-cpp',
-      'Custom product pages',
-      context.answers.customProductPages,
-      'Uses custom product pages.',
-      'Add custom product pages for audiences.',
-    ),
+    aiCheck('conversion-promo', 'Promotional text', context.aiChecks),
+    aiCheck('conversion-events', 'In-app events', context.aiChecks),
+    aiCheck('conversion-cpp', 'Custom product pages', context.aiChecks),
   ];
 };

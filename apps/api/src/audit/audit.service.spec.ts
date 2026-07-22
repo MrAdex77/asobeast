@@ -1,6 +1,7 @@
 import { AppAuditResult } from '@asobeast/shared';
 import { KeywordsService } from '../keywords/keywords.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditAiService } from './audit-ai.service';
 import { AuditService } from './audit.service';
 
 const buildResult = (
@@ -30,6 +31,7 @@ const buildResult = (
     },
   ],
   recommendations: { quickWins: [], highImpact: [], strategic: [] },
+  ai: { configured: false, model: null, generatedAt: null },
   generatedAt: '2026-07-22T06:00:00.000Z',
   ...overrides,
 });
@@ -48,6 +50,7 @@ describe('AuditService.snapshotAll', () => {
     const service = new AuditService(
       prisma as unknown as PrismaService,
       {} as unknown as KeywordsService,
+      { configured: false, model: null } as unknown as AuditAiService,
     );
     jest
       .spyOn(service, 'audit')
@@ -81,6 +84,7 @@ describe('AuditService.snapshotAll', () => {
     const service = new AuditService(
       prisma as unknown as PrismaService,
       {} as unknown as KeywordsService,
+      { configured: false, model: null } as unknown as AuditAiService,
     );
     jest
       .spyOn(service, 'audit')

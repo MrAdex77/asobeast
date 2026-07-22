@@ -11,6 +11,8 @@ export interface RawAppFacts {
   genreKey: string | null;
   genreName: string | null;
   hasVideo: boolean | null;
+  iconUrl: string | null;
+  screenshotUrls: string[];
 }
 
 const EMPTY_FACTS: RawAppFacts = {
@@ -23,6 +25,8 @@ const EMPTY_FACTS: RawAppFacts = {
   genreKey: null,
   genreName: null,
   hasVideo: null,
+  iconUrl: null,
+  screenshotUrls: [],
 };
 
 const asRecord = (value: unknown): Record<string, unknown> | null =>
@@ -158,6 +162,8 @@ export function extractAppStoreRawFacts(raw: unknown): RawAppFacts {
     genreKey: primaryGenreKey(Store.APP_STORE, record),
     genreName: nonEmptyString(record.primaryGenre),
     hasVideo: null,
+    iconUrl: nonEmptyString(record.icon),
+    screenshotUrls: stringArray(record.screenshots),
   };
 }
 
@@ -176,6 +182,8 @@ export function extractGooglePlayRawFacts(raw: unknown): RawAppFacts {
     genreKey: nonEmptyString(record.genreId),
     genreName: nonEmptyString(record.genre),
     hasVideo: Boolean(record.video),
+    iconUrl: nonEmptyString(record.icon),
+    screenshotUrls: stringArray(record.screenshots),
   };
 }
 

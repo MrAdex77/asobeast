@@ -3,7 +3,6 @@ import { Prisma, Store } from '@prisma/client';
 import {
   AppAuditResult,
   AuditHistory,
-  AuditInputAnswers,
   tokenize,
   TrackedKeywordItem,
 } from '@asobeast/shared';
@@ -11,6 +10,7 @@ import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { KeywordsService } from '../keywords/keywords.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { extractRawFacts } from '../store-providers/raw-facts';
+import { AiAuditChecks, AuditAiService } from './audit-ai.service';
 import { AuditContext, AuditKeyword } from './audit-checks';
 import { AuditHistoryQueryDto } from './dto/audit-history-query.dto';
 import { computeAudit } from './rubric';
@@ -27,10 +27,43 @@ export class AuditService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly keywords: KeywordsService,
+    private readonly auditAi: AuditAiService,
   ) {}
 
   async audit(appId: string): Promise<AppAuditResult> {
     return computeAudit(await this.buildContext(appId));
+  }
+
+  async runAi(appId: string): Promise<AppAuditResult> {
+    const app = await this.ensureApp(appId);
+    const latest = await this.prisma.appSnapshot.findFirst({
+      where: { appId },
+      orderBy: { capturedAt: 'desc' },
+    });
+    const rawFacts = extractRawFacts(app.store, latest?.raw);
+    const checks = await this.auditAi.generate({
+      store: app.store,
+      title: latest?.title ?? '',
+      subtitle: latest?.subtitle ?? null,
+      summary: latest?.summary ?? null,
+      description: latest?.description ?? '',
+      genreName: rawFacts.genreName,
+      languages: rawFacts.languages,
+      releaseNotes: rawFacts.releaseNotes,
+      hasVideo: rawFacts.hasVideo,
+      ratingAvg: latest?.ratingAvg ?? null,
+      ratingCount: latest?.ratingCount ?? null,
+      iconUrl: rawFacts.iconUrl,
+      screenshotUrls: rawFacts.screenshotUrls,
+    });
+    const model = this.auditAi.model ?? 'unknown';
+    const payload = checks as unknown as Prisma.InputJsonValue;
+    await this.prisma.auditInsight.upsert({
+      where: { appId },
+      create: { appId, model, checks: payload, generatedAt: new Date() },
+      update: { model, checks: payload, generatedAt: new Date() },
+    });
+    return this.audit(appId);
   }
 
   async snapshotAll(): Promise<number> {
@@ -105,20 +138,6 @@ export class AuditService {
     };
   }
 
-  async saveInputs(
-    appId: string,
-    answers: AuditInputAnswers,
-  ): Promise<AppAuditResult> {
-    await this.ensureApp(appId);
-    const payload = answers as Prisma.InputJsonValue;
-    await this.prisma.auditInput.upsert({
-      where: { appId },
-      create: { appId, answers: payload },
-      update: { answers: payload },
-    });
-    return this.audit(appId);
-  }
-
   private async ensureApp(
     appId: string,
   ): Promise<{ id: string; store: Store; name: string | null }> {
@@ -136,7 +155,7 @@ export class AuditService {
     const app = await this.ensureApp(appId);
     const cutoff = new Date(Date.now() - TREND_WINDOW_DAYS * DAY_MS);
 
-    const [latest, prior, tracked, comparison, competitors, inputRow] =
+    const [latest, prior, tracked, comparison, competitors, insight] =
       await Promise.all([
         this.prisma.appSnapshot.findFirst({
           where: { appId },
@@ -160,7 +179,7 @@ export class AuditService {
             },
           },
         }),
-        this.prisma.auditInput.findUnique({ where: { appId } }),
+        this.prisma.auditInsight.findUnique({ where: { appId } }),
       ]);
 
     const active = tracked.filter((item) => item.active);
@@ -189,7 +208,12 @@ export class AuditService {
         .map((competitor) => competitor.name)
         .filter((name): name is string => Boolean(name)),
       brandTokens: tokenize(app.name ?? ''),
-      answers: (inputRow?.answers as AuditInputAnswers) ?? {},
+      aiChecks: (insight?.checks as AiAuditChecks | undefined) ?? {},
+      aiStatus: {
+        configured: this.auditAi.configured,
+        model: this.auditAi.model,
+        generatedAt: insight?.generatedAt?.toISOString() ?? null,
+      },
     };
   }
 

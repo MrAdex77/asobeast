@@ -7,6 +7,8 @@ import { AppAuditResult, AuditHistory } from '@asobeast/shared';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import { AiClient, OPENAI_CLIENT } from '../src/ai/openai.client';
+import { SUBJECTIVE_CHECK_IDS } from '../src/audit/audit-ai.service';
 import { obliterateQueues } from './obliterate-queues';
 import { AuditService } from '../src/audit/audit.service';
 import { DEFAULT_WORKSPACE_ID } from '../src/common/workspace';
@@ -16,6 +18,19 @@ const D0 = new Date('2026-07-01T00:00:00.000Z');
 
 const factor = (result: AppAuditResult, id: string) =>
   result.factors.find((item) => item.id === id);
+
+const AI_RESPONSE = {
+  checks: SUBJECTIVE_CHECK_IDS.map((id) => ({
+    id,
+    score: 10,
+    detail: 'Excellent.',
+  })),
+};
+
+const fakeAiClient: AiClient = {
+  model: 'gpt-4o',
+  structured: jest.fn().mockResolvedValue(AI_RESPONSE),
+};
 
 describe('AuditController (e2e)', () => {
   let app: INestApplication<App>;
@@ -30,7 +45,10 @@ describe('AuditController (e2e)', () => {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(OPENAI_CLIENT)
+      .useValue(fakeAiClient)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
@@ -76,6 +94,7 @@ describe('AuditController (e2e)', () => {
         ratingCount: 5000,
         storeUpdatedAt: new Date(),
         raw: {
+          icon: 'https://cdn.example.com/icon.png',
           screenshots: Array.from({ length: 8 }, (_, i) => `s${i}.png`),
           releaseNotes: 'Bug fixes and improvements.',
         },
@@ -134,6 +153,8 @@ describe('AuditController (e2e)', () => {
     expect(factor(result, 'title')?.weight).toBe(20);
     expect(result.totalWeight).toBe(110);
     expect(result.overall).not.toBeNull();
+    expect(result.ai.configured).toBe(true);
+    expect(result.ai.generatedAt).toBeNull();
 
     const ratings = factor(result, 'ratings');
     expect(ratings?.score).toBeCloseTo(6.7, 1);
@@ -142,50 +163,37 @@ describe('AuditController (e2e)', () => {
     expect(factor(result, 'keywordField')?.score).toBeNull();
   });
 
-  it('persists manual answers and raises the overall', async () => {
+  it('runs the AI audit, caches it, and raises the overall', async () => {
     const id = await seed();
 
     const before = (
       await request(app.getHttpServer()).get(`/apps/${id}/audit`).expect(200)
     ).body as AppAuditResult;
+    expect(factor(before, 'icon')?.needsInput).toBe(true);
 
     const after = (
       await request(app.getHttpServer())
-        .put(`/apps/${id}/audit/inputs`)
-        .send({
-          screenshotsFirst3Compelling: true,
-          screenshotsTextOverlays: true,
-          screenshotsConsistent: true,
-          screenshotsLocalized: true,
-          screenshotsDeviceFrames: true,
-          previewVideoExists: true,
-          previewVideoHook: true,
-          previewVideoLength: true,
-          previewVideoWorksWithoutSound: true,
-          iconDistinctive: true,
-          iconSimple: true,
-          iconCategoryFit: true,
-          iconNoText: true,
-        })
-        .expect(200)
+        .post(`/apps/${id}/audit/ai`)
+        .expect(201)
     ).body as AppAuditResult;
 
     expect(factor(after, 'previewVideo')?.needsInput).toBe(false);
     expect(factor(after, 'icon')?.score).toBe(10);
     expect((after.overall as number) > (before.overall as number)).toBe(true);
+    expect(after.ai.model).toBe('gpt-4o');
+    expect(after.ai.generatedAt).not.toBeNull();
 
     const reloaded = (
       await request(app.getHttpServer()).get(`/apps/${id}/audit`).expect(200)
     ).body as AppAuditResult;
     expect(factor(reloaded, 'icon')?.score).toBe(10);
+    expect(reloaded.ai.generatedAt).not.toBeNull();
   });
 
-  it('rejects unknown input keys', async () => {
-    const id = await seed();
+  it('returns 404 when running the AI audit for an unknown app', async () => {
     await request(app.getHttpServer())
-      .put(`/apps/${id}/audit/inputs`)
-      .send({ notARealAnswer: true })
-      .expect(400);
+      .post('/apps/missing/audit/ai')
+      .expect(404);
   });
 
   it('returns 404 for an unknown app', async () => {
@@ -331,5 +339,61 @@ describe('AuditController (e2e)', () => {
     await request(app.getHttpServer())
       .get('/apps/missing/audit/history')
       .expect(404);
+  });
+});
+
+describe('AuditController without an AI key (e2e)', () => {
+  let app: INestApplication<App>;
+  let prisma: PrismaService;
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(OPENAI_CLIENT)
+      .useValue(null)
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    await app.init();
+
+    prisma = app.get(PrismaService);
+    await prisma.workspace.upsert({
+      where: { id: DEFAULT_WORKSPACE_ID },
+      update: {},
+      create: { id: DEFAULT_WORKSPACE_ID, name: 'Default' },
+    });
+  });
+
+  afterAll(async () => {
+    await obliterateQueues(app);
+    await app.close();
+  });
+
+  it('reports the audit unconfigured and 409s the run endpoint', async () => {
+    await prisma.$executeRawUnsafe(
+      'TRUNCATE TABLE "App", "Keyword" RESTART IDENTITY CASCADE',
+    );
+    const created = await prisma.app.create({
+      data: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        store: Store.APP_STORE,
+        storeAppId: '5555555555',
+        country: 'us',
+        name: 'No Key App',
+      },
+    });
+
+    const audit = (
+      await request(app.getHttpServer())
+        .get(`/apps/${created.id}/audit`)
+        .expect(200)
+    ).body as AppAuditResult;
+    expect(audit.ai.configured).toBe(false);
+    expect(audit.ai.model).toBeNull();
+
+    await request(app.getHttpServer())
+      .post(`/apps/${created.id}/audit/ai`)
+      .expect(409);
   });
 });

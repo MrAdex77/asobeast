@@ -17,9 +17,36 @@ const emptyFacts = {
   genreKey: null,
   genreName: null,
   hasVideo: null,
+  iconUrl: null,
+  screenshotUrls: [],
 };
 
 const NOW = new Date('2026-07-09T00:00:00.000Z');
+
+const SUBJECTIVE_IDS = [
+  'screenshots-first-three',
+  'screenshots-text-overlays',
+  'screenshots-consistent',
+  'screenshots-localized',
+  'screenshots-device-frames',
+  'preview-video-exists',
+  'preview-video-hook',
+  'preview-video-length',
+  'preview-video-sound',
+  'ratings-responses',
+  'ratings-prompts',
+  'icon-distinctive',
+  'icon-simple',
+  'icon-category-fit',
+  'icon-no-text',
+  'conversion-promo',
+  'conversion-events',
+  'conversion-cpp',
+];
+
+const perfectAiChecks = Object.fromEntries(
+  SUBJECTIVE_IDS.map((id) => [id, { score: 10, detail: 'Excellent.' }]),
+);
 
 const emptyContext = (): AuditContext => ({
   appId: 'app1',
@@ -38,7 +65,8 @@ const emptyContext = (): AuditContext => ({
   competitorTitles: [],
   competitorNames: [],
   brandTokens: [],
-  answers: {},
+  aiChecks: {},
+  aiStatus: { configured: false, model: null, generatedAt: null },
 });
 
 const keywordFieldEntries: AuditKeyword[] = [
@@ -98,25 +126,11 @@ const perfectContext = (): AuditContext => ({
   competitorTitles: [],
   competitorNames: [],
   brandTokens: [],
-  answers: {
-    screenshotsFirst3Compelling: true,
-    screenshotsTextOverlays: true,
-    screenshotsConsistent: true,
-    screenshotsLocalized: true,
-    screenshotsDeviceFrames: true,
-    previewVideoExists: true,
-    previewVideoHook: true,
-    previewVideoLength: true,
-    previewVideoWorksWithoutSound: true,
-    reviewResponses: true,
-    ratingPrompts: true,
-    iconDistinctive: true,
-    iconSimple: true,
-    iconCategoryFit: true,
-    iconNoText: true,
-    promotionalText: true,
-    inAppEvents: true,
-    customProductPages: true,
+  aiChecks: perfectAiChecks,
+  aiStatus: {
+    configured: true,
+    model: 'gpt-4o',
+    generatedAt: NOW.toISOString(),
   },
 });
 
@@ -237,18 +251,20 @@ describe('factor bands', () => {
     expect(absent?.score).toBe(0);
   });
 
-  it('falls back to the manual answer when hasVideo is null', () => {
+  it('falls back to the AI check when hasVideo is null', () => {
     const answered = previewExists(
       withContext({
         rawFacts: { ...emptyFacts, hasVideo: null },
-        answers: { previewVideoExists: true },
+        aiChecks: {
+          'preview-video-exists': { score: 10, detail: 'Has a preview video.' },
+        },
       }),
     );
-    const unanswered = previewExists(
+    const unscored = previewExists(
       withContext({ rawFacts: { ...emptyFacts, hasVideo: null } }),
     );
-    expect(answered?.kind).toBe('manual');
+    expect(answered?.kind).toBe('ai');
     expect(answered?.score).toBe(10);
-    expect(unanswered?.score).toBeNull();
+    expect(unscored?.score).toBeNull();
   });
 });

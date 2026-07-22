@@ -1,9 +1,8 @@
-import { Body, Controller, Get, Param, Put, Query } from '@nestjs/common';
+import { Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppAuditResult, AuditHistory } from '@asobeast/shared';
 import { AuditService } from './audit.service';
 import { AuditHistoryQueryDto } from './dto/audit-history-query.dto';
-import { AuditInputAnswersDto } from './dto/audit-inputs.dto';
 
 @ApiTags('audit')
 @Controller('apps/:id/audit')
@@ -25,12 +24,9 @@ export class AuditController {
     return this.audit.history(id, query);
   }
 
-  @Put('inputs')
-  @ApiOperation({ summary: 'Save manual audit answers and recompute' })
-  saveInputs(
-    @Param('id') id: string,
-    @Body() dto: AuditInputAnswersDto,
-  ): Promise<AppAuditResult> {
-    return this.audit.saveInputs(id, dto);
+  @Post('ai')
+  @ApiOperation({ summary: 'Run the AI audit for an app and recompute' })
+  runAi(@Param('id') id: string): Promise<AppAuditResult> {
+    return this.audit.runAi(id);
   }
 }
