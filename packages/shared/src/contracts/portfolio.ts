@@ -46,6 +46,7 @@ export interface DigestAppSummary {
   moversDown: KeywordMover[];
   changes: number;
   negativeReviews: number | null;
+  audit: { current: number | null; delta7d: number | null } | null;
 }
 
 export interface DigestGroupSummary {

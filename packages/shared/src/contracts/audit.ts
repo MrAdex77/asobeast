@@ -45,6 +45,17 @@ export interface AppAuditResult {
   generatedAt: string;
 }
 
+export interface AuditScorePoint {
+  date: string;
+  overall: number | null;
+  coveredWeight: number;
+  totalWeight: number;
+}
+
+export interface AuditHistory {
+  points: AuditScorePoint[];
+}
+
 export interface AuditInputAnswers {
   screenshotsFirst3Compelling?: boolean;
   screenshotsTextOverlays?: boolean;
