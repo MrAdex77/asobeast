@@ -46,6 +46,8 @@ export const EnvSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  AI_MODEL: z.string().min(1).default('gpt-4o'),
   BULL_BOARD_ENABLED: z
     .enum(['true', 'false'])
     .default('true')
