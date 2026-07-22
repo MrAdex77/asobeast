@@ -54,17 +54,25 @@ export class AlertsDispatcher {
 
   private async collect(payload: AlertPayload): Promise<void> {
     for (const row of outboxRows(payload)) {
+      const json = row.payload as unknown as Prisma.InputJsonValue;
       await this.prisma.alertEvent.upsert({
-        where: { dedupeKey: row.dedupeKey },
+        where: {
+          workspaceId_dedupeKey: {
+            workspaceId: DEFAULT_WORKSPACE_ID,
+            dedupeKey: row.dedupeKey,
+          },
+        },
         create: {
           workspaceId: DEFAULT_WORKSPACE_ID,
           event: row.event,
           appId: row.appId,
           dedupeKey: row.dedupeKey,
-          payload: row.payload as unknown as Prisma.InputJsonValue,
+          payload: json,
         },
         update: {
-          payload: row.payload as unknown as Prisma.InputJsonValue,
+          event: row.event,
+          appId: row.appId,
+          payload: json,
         },
       });
     }

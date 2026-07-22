@@ -271,11 +271,12 @@ model AlertEvent {
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   event       String
   appId       String?
-  dedupeKey   String?   @unique
+  dedupeKey   String?
   payload     Json
   createdAt   DateTime  @default(now())
   flushedAt   DateTime?
 
+  @@unique([workspaceId, dedupeKey])
   @@index([workspaceId, flushedAt])
   @@index([createdAt])
 }

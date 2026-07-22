@@ -222,7 +222,12 @@ describe('Alert flush (e2e)', () => {
     const key = `rank:${primary}:kw1:2026-07-22`;
     await seedEvent('rank.dropped', primary, key, rankPayload(primary, 12));
     await prisma.alertEvent.upsert({
-      where: { dedupeKey: key },
+      where: {
+        workspaceId_dedupeKey: {
+          workspaceId: DEFAULT_WORKSPACE_ID,
+          dedupeKey: key,
+        },
+      },
       create: {
         workspaceId: DEFAULT_WORKSPACE_ID,
         event: 'rank.dropped',

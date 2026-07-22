@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Queue } from 'bullmq';
 import { RankDroppedPayload } from '@asobeast/shared';
+import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { Env } from '../config/env';
 import { DeliverAlertPayload, DeliverEmailPayload } from '../jobs/jobs.types';
 import { PrismaService } from '../prisma/prisma.service';
@@ -52,12 +53,27 @@ describe('AlertsDispatcher', () => {
     expect(prisma.alertEvent.upsert).toHaveBeenCalledTimes(1);
     const [args] = prisma.alertEvent.upsert.mock.calls[0] as [
       {
-        where: { dedupeKey: string };
-        update: { payload: RankDroppedPayload };
+        where: {
+          workspaceId_dedupeKey: { workspaceId: string; dedupeKey: string };
+        };
+        update: {
+          event: string;
+          appId: string | null;
+          payload: RankDroppedPayload;
+        };
       },
     ];
-    expect(args.where).toEqual({ dedupeKey: 'rank:app1:kw1:2026-07-22' });
-    expect(args.update.payload).toEqual(rankPayload);
+    expect(args.where).toEqual({
+      workspaceId_dedupeKey: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        dedupeKey: 'rank:app1:kw1:2026-07-22',
+      },
+    });
+    expect(args.update).toEqual({
+      event: 'rank.dropped',
+      appId: 'app1',
+      payload: rankPayload,
+    });
     expect(add).not.toHaveBeenCalled();
   });
 
