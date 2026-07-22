@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, Store } from '@prisma/client';
 import {
   AppAuditResult,
+  AuditHistory,
   AuditInputAnswers,
   tokenize,
   TrackedKeywordItem,
@@ -11,10 +12,13 @@ import { KeywordsService } from '../keywords/keywords.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { extractRawFacts } from '../store-providers/raw-facts';
 import { AuditContext, AuditKeyword } from './audit-checks';
+import { AuditHistoryQueryDto } from './dto/audit-history-query.dto';
 import { computeAudit } from './rubric';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TREND_WINDOW_DAYS = 30;
+const DEFAULT_HISTORY_DAYS = 90;
+const MAX_HISTORY_DAYS = 365;
 
 @Injectable()
 export class AuditService {
@@ -65,6 +69,40 @@ export class AuditService {
 
     this.logger.log(`audit snapshot saved ${saved}/${apps.length}`);
     return saved;
+  }
+
+  async history(
+    appId: string,
+    query: AuditHistoryQueryDto,
+  ): Promise<AuditHistory> {
+    await this.ensureApp(appId);
+
+    const to = query.to ? new Date(query.to) : utcDate();
+    const earliest = new Date(to.getTime() - MAX_HISTORY_DAYS * DAY_MS);
+    const requestedFrom = query.from
+      ? new Date(query.from)
+      : new Date(to.getTime() - DEFAULT_HISTORY_DAYS * DAY_MS);
+    const from = requestedFrom < earliest ? earliest : requestedFrom;
+
+    const rows = await this.prisma.auditScore.findMany({
+      where: { appId, date: { gte: from, lte: to } },
+      orderBy: { date: 'asc' },
+      select: {
+        date: true,
+        overall: true,
+        coveredWeight: true,
+        totalWeight: true,
+      },
+    });
+
+    return {
+      points: rows.map((row) => ({
+        date: row.date.toISOString().slice(0, 10),
+        overall: row.overall,
+        coveredWeight: row.coveredWeight,
+        totalWeight: row.totalWeight,
+      })),
+    };
   }
 
   async saveInputs(

@@ -3,7 +3,7 @@ import { join } from 'path';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Store } from '@prisma/client';
-import { AppAuditResult } from '@asobeast/shared';
+import { AppAuditResult, AuditHistory } from '@asobeast/shared';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
@@ -262,5 +262,58 @@ describe('AuditController (e2e)', () => {
 
     const rows = await prisma.auditScore.findMany({ where: { appId: id } });
     expect(rows).toHaveLength(1);
+  });
+
+  const seedScore = (
+    appId: string,
+    date: string,
+    overall: number | null,
+  ): Promise<unknown> =>
+    prisma.auditScore.create({
+      data: {
+        appId,
+        date: new Date(date),
+        overall,
+        coveredWeight: 80,
+        totalWeight: 110,
+        factors: [{ id: 'title', score: overall, weight: 20 }],
+      },
+    });
+
+  it('returns an empty history for an app with no snapshots', async () => {
+    const id = await seed();
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${id}/audit/history`)
+      .expect(200);
+
+    expect(response.body).toEqual({ points: [] });
+  });
+
+  it('windows the history and serializes null overall points', async () => {
+    const id = await seed();
+    await seedScore(id, '2026-06-01', 70);
+    await seedScore(id, '2026-06-15', null);
+    await seedScore(id, '2026-07-01', 76);
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${id}/audit/history`)
+      .query({ from: '2026-06-10', to: '2026-07-05' })
+      .expect(200);
+    const body = response.body as AuditHistory;
+
+    expect(body.points.map((point) => point.date)).toEqual([
+      '2026-06-15',
+      '2026-07-01',
+    ]);
+    expect(body.points[0].overall).toBeNull();
+    expect(body.points[0].coveredWeight).toBe(80);
+    expect(body.points[1].overall).toBe(76);
+  });
+
+  it('returns 404 history for an unknown app', async () => {
+    await request(app.getHttpServer())
+      .get('/apps/missing/audit/history')
+      .expect(404);
   });
 });
