@@ -77,10 +77,10 @@ export class AuditService {
   ): Promise<AuditHistory> {
     await this.ensureApp(appId);
 
-    const to = query.to ? new Date(query.to) : utcDate();
+    const to = query.to ? utcDate(new Date(query.to)) : utcDate();
     const earliest = new Date(to.getTime() - MAX_HISTORY_DAYS * DAY_MS);
     const requestedFrom = query.from
-      ? new Date(query.from)
+      ? utcDate(new Date(query.from))
       : new Date(to.getTime() - DEFAULT_HISTORY_DAYS * DAY_MS);
     const from = requestedFrom < earliest ? earliest : requestedFrom;
 

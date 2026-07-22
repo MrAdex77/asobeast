@@ -311,6 +311,22 @@ describe('AuditController (e2e)', () => {
     expect(body.points[1].overall).toBe(76);
   });
 
+  it('normalizes timestamped bounds to the UTC day so boundary points are kept', async () => {
+    const id = await seed();
+    await seedScore(id, '2026-06-15', 72);
+
+    const response = await request(app.getHttpServer())
+      .get(`/apps/${id}/audit/history`)
+      .query({
+        from: '2026-06-15T18:00:00.000Z',
+        to: '2026-06-15T06:00:00.000Z',
+      })
+      .expect(200);
+    const body = response.body as AuditHistory;
+
+    expect(body.points.map((point) => point.date)).toEqual(['2026-06-15']);
+  });
+
   it('returns 404 history for an unknown app', async () => {
     await request(app.getHttpServer())
       .get('/apps/missing/audit/history')
