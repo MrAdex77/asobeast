@@ -143,6 +143,8 @@ RETENTION_CHANGE_EVENTS_DAYS=0      # change events; 0 keeps forever
 RETENTION_DELIVERIES_DAYS=30        # alert delivery log rows; 0 keeps forever
 RETENTION_AUDIT_SCORES_DAYS=0       # audit score rows; 0 keeps forever
 RETENTION_ALERT_EVENTS_DAYS=30      # flushed alert outbox rows; 0 keeps forever
+OPENAI_API_KEY=                     # optional; enables the AI audit + metadata drafts. Empty = features hidden
+AI_MODEL=gpt-4o                     # OpenAI model with vision + structured outputs
 BULL_BOARD_ENABLED=true
 LOG_LEVEL=debug
 ```

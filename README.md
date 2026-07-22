@@ -126,6 +126,8 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 | `SMTP_USER` | — | SMTP username; leave empty for unauthenticated relays. |
 | `SMTP_PASSWORD` | — | SMTP password. |
 | `SMTP_FROM` | — | From address, e.g. `asobeast <alerts@example.com>`. Required to enable email alerts. |
+| `OPENAI_API_KEY` | — | OpenAI API key. Set it to enable the AI audit and metadata drafts; leave empty to hide both features entirely. |
+| `AI_MODEL` | `gpt-4o` | OpenAI model used for the AI features; any current model with vision and structured-output support works. |
 | `BULL_BOARD_ENABLED` | `true` | Serve the Bull Board queue dashboard at `/admin/queues`. |
 | `BULL_BOARD_USER` | — | Set together with `BULL_BOARD_PASSWORD` to protect `/admin/queues` with HTTP basic auth. |
 | `BULL_BOARD_PASSWORD` | — | Basic-auth password for `/admin/queues`; the guard activates only when both are set. |
@@ -138,6 +140,15 @@ Alerts fan out to two channels: **webhooks** (Slack, Discord, ntfy or any endpoi
 By default (`ALERT_DELIVERY=batched`) alerts are **collected, not streamed**. Every alert-producing signal — rank changes, SERP entrants, metadata changes, negative reviews — is driven by the daily pipeline, which has daily granularity, so per-event delivery is noise, not timeliness. Instead of enqueueing one email and one webhook POST per event, batched mode writes each event to an outbox and the flush job (`CRON_ALERT_FLUSH`, default `0 7 * * *` UTC, after the 03:00 pipeline drains) sends **one professional email and one webhook POST per channel**, grouped by app → store → section, with competitor activity nested under its primary app. Re-runs and multi-market checks that emit the same fact twice are deduplicated within the window (latest values win). The guarantee is one email and one POST per channel **per flush** — set `CRON_ALERT_FLUSH` hourly if you want lower latency, and use **Flush now** on the settings page to send immediately. This is why a full daily pipeline gives you one grouped email instead of thirty single-line ones. Channel subscriptions still apply: a channel's batch contains only the event types it subscribed to, and a channel whose filtered batch is empty gets nothing. The weekly digest is already a digest and bypasses the outbox on its own schedule.
 
 To restore the pre-phase-36 behavior set `ALERT_DELIVERY=instant`, which delivers each event immediately, one notification per event — byte-identical to before. This is a **breaking change for webhook consumers** that parse the granular event shapes: either switch that consumer to `instant`, or parse the batch body's flat `events[]` array, which carries the same per-event payloads alongside the grouped `apps` tree. Flushed outbox rows are pruned by `RETENTION_ALERT_EVENTS_DAYS` (default 30) so yesterday's grouped email stays debuggable without growing forever.
+
+### AI features (optional)
+
+Set `OPENAI_API_KEY` to unlock two AI features, both bring-your-own-key and off by default — with no key the endpoints answer 409 and the UI hides them, exactly like SMTP.
+
+- **AI audit** — the audit tab replaces its manual questionnaire with a **Run AI audit** button. One call to OpenAI reads the app's own listing (title, subtitle/short description, description, category, ratings) **and its store icon and screenshots** (vision) and scores the subjective factors — screenshots, icon, preview video, review and conversion signals — 0–10 with a rationale, following the `docs/aso` rubric. The exact factors asobeast already measures (character usage, keyword-field hygiene, live keyword rankings, rating numbers, freshness) stay computed in code, and the existing weighted engine merges both into the score. Runs only when you click; the result is cached per app and the nightly score snapshot reuses it, so there are no background OpenAI calls.
+- **Metadata drafts** — the metadata tab gains a **Generate drafts** card that proposes optimised title / subtitle / keyword-field (Apple) or title / short-description / description (Play) values grounded in your tracked keywords, coverage gaps and competitor titles. Every draft is re-linted server-side and clamped to the field limit, and an optional instruction box lets you steer tone.
+
+Only the data for the app being worked on is sent (its metadata, keyword stats and its own store image URLs) — nothing else. Each action is a single completion (the audit uses vision, drafts are text-only), so cost is roughly one mid-size request per run. asobeast has no write path to the stores: AI output ends at the score card and a copy button, never auto-published.
 
 `apps/web/.env`:
 
