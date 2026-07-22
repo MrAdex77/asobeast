@@ -62,24 +62,3 @@ export interface AuditScorePoint {
 export interface AuditHistory {
   points: AuditScorePoint[];
 }
-
-export interface AuditInputAnswers {
-  screenshotsFirst3Compelling?: boolean;
-  screenshotsTextOverlays?: boolean;
-  screenshotsConsistent?: boolean;
-  screenshotsLocalized?: boolean;
-  screenshotsDeviceFrames?: boolean;
-  previewVideoExists?: boolean;
-  previewVideoHook?: boolean;
-  previewVideoLength?: boolean;
-  previewVideoWorksWithoutSound?: boolean;
-  reviewResponses?: boolean;
-  ratingPrompts?: boolean;
-  iconDistinctive?: boolean;
-  iconSimple?: boolean;
-  iconCategoryFit?: boolean;
-  iconNoText?: boolean;
-  promotionalText?: boolean;
-  inAppEvents?: boolean;
-  customProductPages?: boolean;
-}

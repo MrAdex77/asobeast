@@ -6,7 +6,6 @@ import type {
   AppListItem,
   AppSummary,
   AuditHistory,
-  AuditInputAnswers,
   CategoryRankSeries,
   ChangeTimeline,
   CompetitorAnalysis,
@@ -420,13 +419,9 @@ export function getAuditHistory(
   );
 }
 
-export function saveAuditInputs(
-  appId: string,
-  answers: AuditInputAnswers,
-): Promise<AppAuditResult> {
-  return apiFetch<AppAuditResult>(`/apps/${appId}/audit/inputs`, {
-    method: "PUT",
-    body: JSON.stringify(answers),
+export function runAiAudit(appId: string): Promise<AppAuditResult> {
+  return apiFetch<AppAuditResult>(`/apps/${appId}/audit/ai`, {
+    method: "POST",
   });
 }
 
