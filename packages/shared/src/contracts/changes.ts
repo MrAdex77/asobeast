@@ -147,20 +147,21 @@ export interface AlertBatchAppSection {
   competitors: AlertBatchCompetitorSection[];
 }
 
+export type GranularAlertPayload =
+  | MetadataChangedPayload
+  | RankDroppedPayload
+  | RankImprovedPayload
+  | ReviewNegativePayload
+  | DigestWeeklyPayload
+  | SerpEntrantPayload;
+
 export interface AlertBatchPayload {
   event: 'alerts.batch';
   occurredAt: string;
   window: { from: string; to: string };
   totals: { events: number; apps: number };
   apps: AlertBatchAppSection[];
-  events: AlertPayload[];
+  events: GranularAlertPayload[];
 }
 
-export type AlertPayload =
-  | MetadataChangedPayload
-  | RankDroppedPayload
-  | RankImprovedPayload
-  | ReviewNegativePayload
-  | DigestWeeklyPayload
-  | SerpEntrantPayload
-  | AlertBatchPayload;
+export type AlertPayload = GranularAlertPayload | AlertBatchPayload;

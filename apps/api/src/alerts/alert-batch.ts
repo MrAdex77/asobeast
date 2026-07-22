@@ -3,7 +3,7 @@ import {
   AlertBatchAppSection,
   AlertBatchCompetitorSection,
   AlertBatchPayload,
-  AlertPayload,
+  GranularAlertPayload,
   MetadataChangedPayload,
   RankDroppedPayload,
   RankImprovedPayload,
@@ -23,7 +23,7 @@ export interface ResolvedApp {
 export interface OutboxEvent {
   event: string;
   appId: string | null;
-  payload: AlertPayload;
+  payload: GranularAlertPayload;
   createdAt: Date;
 }
 

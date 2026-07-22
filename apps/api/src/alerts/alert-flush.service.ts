@@ -6,7 +6,7 @@ import {
   AlertBatchPayload,
   AlertDeliveryStatus,
   AlertFlushResult,
-  AlertPayload,
+  GranularAlertPayload,
 } from '@asobeast/shared';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import { Env } from '../config/env';
@@ -82,7 +82,7 @@ export class AlertFlushService {
     const events: OutboxEvent[] = rows.map((row) => ({
       event: row.event,
       appId: row.appId,
-      payload: row.payload as unknown as AlertPayload,
+      payload: row.payload as unknown as GranularAlertPayload,
       createdAt: row.createdAt,
     }));
 
@@ -94,12 +94,13 @@ export class AlertFlushService {
       now: new Date(),
     });
 
+    const channels = await this.enqueue(batch);
+
     await this.prisma.alertEvent.updateMany({
       where: { id: { in: rows.map((row) => row.id) } },
       data: { flushedAt: new Date() },
     });
 
-    const channels = await this.enqueue(batch);
     return { flushed: rows.length, channels };
   }
 
