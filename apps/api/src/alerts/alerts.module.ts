@@ -2,6 +2,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { QUEUES } from '../jobs/jobs.types';
 import { AlertDeliveriesService } from './alert-deliveries.service';
+import { AlertFlushService } from './alert-flush.service';
 import { AlertsController } from './alerts.controller';
 import { AlertsDispatcher } from './alerts.dispatcher';
 import { AlertsWorker } from './alerts.worker';
@@ -27,11 +28,12 @@ import { WebhooksService } from './webhooks.service';
     WebhooksService,
     EmailAlertsService,
     AlertDeliveriesService,
+    AlertFlushService,
     WebhookDelivery,
     MailerService,
     AlertsDispatcher,
     AlertsWorker,
   ],
-  exports: [AlertsDispatcher, BullModule],
+  exports: [AlertsDispatcher, AlertFlushService, BullModule],
 })
 export class AlertsModule {}

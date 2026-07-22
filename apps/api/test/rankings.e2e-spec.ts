@@ -211,12 +211,11 @@ describe('RankingsService serp entrant alerts (e2e)', () => {
     return keyword.id;
   };
 
-  const queuedEvents = async (): Promise<string[]> => {
-    const jobs = await alertsQueue.getJobs(['waiting', 'delayed', 'paused']);
-    return jobs.map(
-      (job) => (job.data as { payload: { event: string } }).payload.event,
-    );
-  };
+  const outboxEntrants = (): Promise<{ payload: unknown }[]> =>
+    prisma.alertEvent.findMany({
+      where: { event: 'serp.entrant' },
+      select: { payload: true },
+    });
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -245,7 +244,7 @@ describe('RankingsService serp entrant alerts (e2e)', () => {
   beforeEach(async () => {
     await alertsQueue.drain(true);
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE "App", "Keyword", "Webhook" RESTART IDENTITY CASCADE',
+      'TRUNCATE TABLE "App", "Keyword", "Webhook", "AlertEvent" RESTART IDENTITY CASCADE',
     );
   });
 
@@ -254,37 +253,16 @@ describe('RankingsService serp entrant alerts (e2e)', () => {
     await app.close();
   });
 
-  it('emits nothing on the first ever capture', async () => {
+  it('collects nothing on the first ever capture', async () => {
     const keywordId = await seedKeyword();
-    await prisma.webhook.create({
-      data: {
-        workspaceId: DEFAULT_WORKSPACE_ID,
-        url: 'https://hooks.example.com/entrants',
-        events: ['serp.entrant'],
-      },
-    });
 
     await rankings.checkKeyword(keywordId);
 
-    expect(await queuedEvents()).not.toContain('serp.entrant');
+    expect(await outboxEntrants()).toHaveLength(0);
   });
 
-  it('queues one payload for subscribed channels only', async () => {
+  it('collects one entrant outbox row for the day', async () => {
     const keywordId = await seedKeyword();
-    await prisma.webhook.createMany({
-      data: [
-        {
-          workspaceId: DEFAULT_WORKSPACE_ID,
-          url: 'https://hooks.example.com/entrants',
-          events: ['serp.entrant'],
-        },
-        {
-          workspaceId: DEFAULT_WORKSPACE_ID,
-          url: 'https://hooks.example.com/metadata',
-          events: ['metadata.changed'],
-        },
-      ],
-    });
     await prisma.serpEntry.create({
       data: {
         keywordId,
@@ -297,16 +275,9 @@ describe('RankingsService serp entrant alerts (e2e)', () => {
 
     await rankings.checkKeyword(keywordId);
 
-    const jobs = await alertsQueue.getJobs(['waiting', 'delayed', 'paused']);
-    const entrantJobs = jobs.filter(
-      (job) =>
-        (job.data as { payload: { event: string } }).payload.event ===
-        'serp.entrant',
-    );
-    expect(entrantJobs).toHaveLength(1);
-    expect(
-      (entrantJobs[0].data as { payload: SerpEntrantPayload }).payload.entrants,
-    ).toEqual([
+    const rows = await outboxEntrants();
+    expect(rows).toHaveLength(1);
+    expect((rows[0].payload as SerpEntrantPayload).entrants).toEqual([
       {
         position: 2,
         storeAppId: 'newcomer-store',

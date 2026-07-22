@@ -80,6 +80,11 @@ export interface AlertsConfig {
   emailEnabled: boolean;
 }
 
+export interface AlertFlushResult {
+  flushed: number;
+  channels: number;
+}
+
 export interface MetadataChangedPayload {
   event: 'metadata.changed';
   occurredAt: string;

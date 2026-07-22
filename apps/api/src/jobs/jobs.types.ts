@@ -27,6 +27,7 @@ export const JOBS = {
   SYNC_REVIEWS: 'sync-reviews',
   DELIVER_ALERT: 'deliver-alert',
   DELIVER_EMAIL: 'deliver-email',
+  ALERT_FLUSH: 'alert-flush',
 } as const;
 
 export interface RefreshAppPayload {
