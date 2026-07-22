@@ -3,15 +3,43 @@ import { join } from 'path';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Store } from '@prisma/client';
-import { MetadataAuditResult } from '@asobeast/shared';
+import {
+  MetadataAssistantResult,
+  MetadataAssistantStatus,
+  MetadataAuditResult,
+} from '@asobeast/shared';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import { AiClient, OPENAI_CLIENT } from '../src/ai/openai.client';
 import { obliterateQueues } from './obliterate-queues';
 import { DEFAULT_WORKSPACE_ID } from '../src/common/workspace';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 const D0 = new Date('2026-07-01T00:00:00.000Z');
+
+const fakeAiClient: AiClient = {
+  model: 'gpt-4o',
+  structured: jest.fn().mockResolvedValue({
+    drafts: [
+      {
+        field: 'title',
+        value: 'Habit Tracker: Daily Goals',
+        rationale: 'Adds the primary keyword.',
+      },
+      {
+        field: 'subtitle',
+        value: 'Sleep Timer & Water Log',
+        rationale: 'Secondary keywords with no title repeats.',
+      },
+      {
+        field: 'keywordField',
+        value: 'goal,water,reminder,sleep',
+        rationale: 'Covers uncovered terms in singular form.',
+      },
+    ],
+  }),
+};
 
 describe('MetadataController (e2e)', () => {
   let app: INestApplication<App>;
@@ -26,7 +54,10 @@ describe('MetadataController (e2e)', () => {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(OPENAI_CLIENT)
+      .useValue(fakeAiClient)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
@@ -262,5 +293,43 @@ describe('MetadataController (e2e)', () => {
     expect(inDescription?.uncovered).toBe(false);
 
     expect(result.keywordFieldSuggestion).toBeNull();
+  });
+
+  it('reports the metadata assistant configured', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/metadata/assistant')
+      .expect(200);
+    expect(response.body as MetadataAssistantStatus).toEqual({
+      configured: true,
+      model: 'gpt-4o',
+    });
+  });
+
+  it('generates linted drafts for the store indexed fields', async () => {
+    const id = await seed(false);
+
+    const response = await request(app.getHttpServer())
+      .post(`/apps/${id}/metadata/assistant`)
+      .send({ instructions: 'be punchy' })
+      .expect(201);
+    const result = response.body as MetadataAssistantResult;
+
+    expect(result.model).toBe('gpt-4o');
+    expect(result.drafts.map((draft) => draft.field)).toEqual([
+      'title',
+      'subtitle',
+      'keywordField',
+    ]);
+    const title = result.drafts.find((draft) => draft.field === 'title');
+    expect(title?.chars).toBeLessThanOrEqual(30);
+    expect(title?.limit).toBe(30);
+    expect(Array.isArray(title?.issues)).toBe(true);
+  });
+
+  it('returns 404 when generating drafts for an unknown app', async () => {
+    await request(app.getHttpServer())
+      .post('/apps/missing/metadata/assistant')
+      .send({})
+      .expect(404);
   });
 });
