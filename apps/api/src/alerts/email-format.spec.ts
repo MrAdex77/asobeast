@@ -1,11 +1,13 @@
 import {
+  AlertBatchAppSection,
+  AlertBatchPayload,
   DigestWeeklyPayload,
   MetadataChangedPayload,
   RankDroppedPayload,
   RankImprovedPayload,
   ReviewNegativePayload,
 } from '@asobeast/shared';
-import { formatEmail } from './email-format';
+import { formatBatchEmail, formatEmail } from './email-format';
 
 const metadata: MetadataChangedPayload = {
   event: 'metadata.changed',
@@ -138,5 +140,136 @@ describe('formatEmail', () => {
     expect(text).toContain('Linked apps');
     expect(text).toContain('Habit: vis 61 (-2.5)');
     expect(text.indexOf('Linked apps')).toBeLessThan(text.indexOf('App 0:'));
+  });
+});
+
+const emptySection = (
+  app: AlertBatchAppSection['app'],
+): AlertBatchAppSection => ({
+  app,
+  rankDrops: [],
+  rankImprovements: [],
+  serpEntrants: [],
+  changes: [],
+  negativeReviews: [],
+  competitors: [],
+});
+
+const alpha: AlertBatchAppSection = {
+  ...emptySection({
+    id: 'a',
+    name: 'Alpha',
+    store: 'APP_STORE',
+    country: 'us',
+  }),
+  rankDrops: [
+    {
+      event: 'rank.dropped',
+      occurredAt: '2026-07-22T10:00:00.000Z',
+      app: { id: 'a', name: 'Alpha' },
+      keyword: { id: 'k1', text: 'game' },
+      from: 3,
+      to: 12,
+      threshold: 5,
+    },
+  ],
+  changes: [
+    {
+      event: 'metadata.changed',
+      occurredAt: '2026-07-22T10:00:00.000Z',
+      app: { id: 'a', name: 'Alpha', isCompetitor: false },
+      changes: [{ field: 'title', before: 'x'.repeat(200), after: 'short' }],
+    },
+  ],
+  competitors: [
+    {
+      app: { id: 'c', name: 'Charlie', store: 'APP_STORE', country: 'us' },
+      changes: [
+        {
+          event: 'metadata.changed',
+          occurredAt: '2026-07-22T10:00:00.000Z',
+          app: { id: 'c', name: 'Charlie', isCompetitor: true },
+          changes: [{ field: 'subtitle', before: 'a', after: 'b' }],
+        },
+      ],
+    },
+  ],
+};
+
+const bravo: AlertBatchAppSection = {
+  ...emptySection({
+    id: 'b',
+    name: 'Bravo',
+    store: 'GOOGLE_PLAY',
+    country: 'gb',
+  }),
+  serpEntrants: [
+    {
+      event: 'serp.entrant',
+      occurredAt: '2026-07-22T10:00:00.000Z',
+      keyword: { id: 'k2', text: 'planner' },
+      date: '2026-07-22',
+      entrants: [
+        {
+          position: 4,
+          storeAppId: 'x',
+          title: 'Newcomer',
+          appId: null,
+          isCompetitor: false,
+        },
+      ],
+    },
+  ],
+};
+
+const batch: AlertBatchPayload = {
+  event: 'alerts.batch',
+  occurredAt: '2026-07-22T11:00:00.000Z',
+  window: { from: '2026-07-22T09:00:00.000Z', to: '2026-07-22T11:00:00.000Z' },
+  totals: { events: 4, apps: 2 },
+  apps: [alpha, bravo],
+  events: [],
+};
+
+describe('formatBatchEmail', () => {
+  it('counts each category in the subject with plurals', () => {
+    const email = formatBatchEmail(batch);
+    expect(email.subject).toBe(
+      '[asobeast] 1 rank drop, 1 entrant, 1 metadata change, 1 competitor change across 2 apps',
+    );
+  });
+
+  it('uses plural app wording for multiple apps and singular otherwise', () => {
+    const single = formatBatchEmail({
+      ...batch,
+      apps: [bravo],
+      totals: { events: 1, apps: 1 },
+    });
+    expect(single.subject).toBe('[asobeast] 1 entrant across 1 app');
+  });
+
+  it('omits empty sections from the rendered card', () => {
+    const email = formatBatchEmail(batch);
+    expect(email.text).toContain('Rank drops');
+    expect(email.text).not.toContain('Rank improvements');
+    expect(email.text).toContain('New entrants');
+  });
+
+  it('nests competitor activity under the primary app', () => {
+    const email = formatBatchEmail(batch);
+    expect(email.text).toContain('Competitor activity — Charlie · App Store');
+    expect(email.html).toContain('Competitor · Charlie · App Store');
+  });
+
+  it('truncates long metadata values', () => {
+    const email = formatBatchEmail(batch);
+    expect(email.text).toContain('…');
+    expect(email.text).not.toContain('x'.repeat(200));
+  });
+
+  it('labels each app with its store and country', () => {
+    const email = formatBatchEmail(batch);
+    expect(email.text).toContain('Alpha · App Store · US');
+    expect(email.text).toContain('Bravo · Google Play · GB');
   });
 });

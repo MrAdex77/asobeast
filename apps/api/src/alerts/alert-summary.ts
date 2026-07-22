@@ -1,7 +1,11 @@
-import { AlertPayload, SERP_DEPTH } from '@asobeast/shared';
+import { AlertPayload, SERP_DEPTH, Store } from '@asobeast/shared';
 
 export function position(value: number | null): string {
   return value === null ? 'outside top 100' : `#${value}`;
+}
+
+export function storeLabel(store: Store): string {
+  return store === 'GOOGLE_PLAY' ? 'Google Play' : 'App Store';
 }
 
 export function rank(value: number | null): string {
