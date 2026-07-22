@@ -5,6 +5,7 @@ import type {
   AppGroupSummary,
   AppListItem,
   AppSummary,
+  AuditHistory,
   AuditInputAnswers,
   CategoryRankSeries,
   ChangeTimeline,
@@ -403,6 +404,18 @@ export function getRecentChanges(limit?: number): Promise<ChangeTimeline> {
 
 export function getAudit(appId: string): Promise<AppAuditResult> {
   return apiFetch<AppAuditResult>(`/apps/${appId}/audit`);
+}
+
+export function getAuditHistory(
+  appId: string,
+  { from, to }: RangeParams = {},
+): Promise<AuditHistory> {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  return apiFetch<AuditHistory>(
+    withQuery(`/apps/${appId}/audit/history`, params),
+  );
 }
 
 export function saveAuditInputs(

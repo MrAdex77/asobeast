@@ -64,6 +64,7 @@ const digest: DigestWeeklyPayload = {
     moversDown: [],
     changes: i,
     negativeReviews: null,
+    audit: i === 0 ? { current: 78, delta7d: 3 } : null,
   })),
   groups: [],
 };
@@ -126,6 +127,10 @@ describe('formatEmail', () => {
 
   it('omits the linked apps section when the digest has no groups', () => {
     expect(formatEmail(digest).text).not.toContain('Linked apps');
+  });
+
+  it('appends the audit score and delta to the app line', () => {
+    expect(formatEmail(digest).text).toContain('Audit 78 (+3)');
   });
 
   it('renders linked apps before the per-app lines', () => {

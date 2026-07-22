@@ -12,6 +12,7 @@ describe('AnalyticsService.buildDigest', () => {
     [Record<string, unknown>]
   >();
   const reviewCount = jest.fn<Promise<number>, [Record<string, unknown>]>();
+  const auditScoreFindFirst = jest.fn();
 
   beforeEach(async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-07-13T09:00:00Z'));
@@ -20,6 +21,8 @@ describe('AnalyticsService.buildDigest', () => {
     trackedFindMany.mockReset();
     changeEventCount.mockReset();
     reviewCount.mockReset();
+    auditScoreFindFirst.mockReset();
+    auditScoreFindFirst.mockResolvedValue(null);
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -32,6 +35,7 @@ describe('AnalyticsService.buildDigest', () => {
             trackedKeyword: { findMany: trackedFindMany },
             changeEvent: { count: changeEventCount },
             review: { count: reviewCount },
+            auditScore: { findFirst: auditScoreFindFirst },
           },
         },
       ],
@@ -72,6 +76,9 @@ describe('AnalyticsService.buildDigest', () => {
     ]);
     changeEventCount.mockResolvedValue(3);
     reviewCount.mockResolvedValue(2);
+    auditScoreFindFirst
+      .mockResolvedValueOnce({ overall: 78 })
+      .mockResolvedValueOnce({ overall: 75 });
 
     const payload = await service.buildDigest(2);
 
@@ -86,6 +93,7 @@ describe('AnalyticsService.buildDigest', () => {
       name: 'Mine',
       changes: 3,
       negativeReviews: 2,
+      audit: { current: 78, delta7d: 3 },
     });
     expect(entry.moversUp[0]).toMatchObject({ text: 'kw', from: 20, to: 4 });
     expect(entry.moversDown).toEqual([]);
@@ -182,7 +190,9 @@ describe('AnalyticsService.buildDigest', () => {
     changeEventCount.mockResolvedValue(0);
     reviewCount.mockResolvedValue(0);
 
-    expect((await service.buildDigest(2)).groups).toEqual([]);
+    const payload = await service.buildDigest(2);
+    expect(payload.groups).toEqual([]);
+    expect(payload.apps[0].audit).toBeNull();
   });
 
   it('caps movers at three per direction', async () => {

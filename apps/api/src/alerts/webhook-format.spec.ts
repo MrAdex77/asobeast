@@ -95,6 +95,7 @@ const digest: DigestWeeklyPayload = {
     moversDown: [{ keywordId: `d${i}`, text: `down ${i}`, from: 5, to: 12 }],
     changes: i,
     negativeReviews: 1,
+    audit: null,
   })),
   groups: [],
 };

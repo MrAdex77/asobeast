@@ -82,10 +82,15 @@ function detailRows(payload: AlertPayload): Row[] {
     });
   }
   payload.apps.slice(0, DIGEST_APP_CAP).forEach((app) => {
-    rows.push([
-      appLabel(app.name),
+    const cells = [
       `vis ${Math.round(app.visibility.current)} (${signedDelta(app.visibility.delta7d)})`,
-    ]);
+    ];
+    if (app.audit && app.audit.current !== null) {
+      cells.push(
+        `Audit ${Math.round(app.audit.current)} (${signedDelta(app.audit.delta7d)})`,
+      );
+    }
+    rows.push([appLabel(app.name), cells.join(' · ')]);
   });
   if (payload.apps.length > DIGEST_APP_CAP) {
     rows.push(['', `+${payload.apps.length - DIGEST_APP_CAP} more`]);

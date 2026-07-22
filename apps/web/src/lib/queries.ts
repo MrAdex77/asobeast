@@ -8,6 +8,7 @@ import {
   getAlertsConfig,
   getApp,
   getApps,
+  getAuditHistory,
   getBudget,
   getCategoryRanks,
   getChanges,
@@ -67,6 +68,8 @@ export const appKeys = {
     [...appKeys.detail(id), "serp-movers", { days }] as const,
   categoryRanks: (id: string, params: RangeParams) =>
     [...appKeys.detail(id), "category-ranks", params] as const,
+  auditHistory: (id: string, params: RangeParams) =>
+    [...appKeys.detail(id), "audit-history", params] as const,
   visibility: (id: string, params: RangeParams) =>
     [...appKeys.detail(id), "visibility", params] as const,
   rankDistribution: (id: string, params: RangeParams) =>
@@ -204,6 +207,12 @@ export const categoryRanksOptions = (id: string, params: RangeParams) =>
   queryOptions({
     queryKey: appKeys.categoryRanks(id, params),
     queryFn: () => getCategoryRanks(id, params),
+  });
+
+export const auditHistoryOptions = (id: string, params: RangeParams = {}) =>
+  queryOptions({
+    queryKey: appKeys.auditHistory(id, params),
+    queryFn: () => getAuditHistory(id, params),
   });
 
 export const rankDistributionHistoryOptions = (
