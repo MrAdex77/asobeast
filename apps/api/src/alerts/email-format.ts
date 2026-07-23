@@ -2,16 +2,20 @@ import {
   AlertBatchAppSection,
   AlertBatchPayload,
   AlertPayload,
-  MetadataChangedPayload,
-  RankDroppedPayload,
-  RankImprovedPayload,
-  ReviewNegativePayload,
-  SerpEntrantPayload,
 } from '@asobeast/shared';
-import { appLabel, rank, stars, storeLabel, summarize } from './alert-summary';
+import {
+  AlertBatchBlock,
+  appHeader,
+  appLabel,
+  changeLines,
+  rank,
+  sectionBlocks,
+  stars,
+  storeLabel,
+  summarize,
+} from './alert-summary';
 
 const DIGEST_APP_CAP = 10;
-const VALUE_MAX = 80;
 
 export interface EmailContent {
   subject: string;
@@ -146,11 +150,6 @@ export function formatEmail(payload: AlertPayload): EmailContent {
   return { subject: `[asobeast] ${summary}`, text, html };
 }
 
-function truncate(raw: string | null): string {
-  const value = raw ?? '—';
-  return value.length > VALUE_MAX ? `${value.slice(0, VALUE_MAX - 1)}…` : value;
-}
-
 function plural(count: number, singular: string): string {
   return `${count} ${singular}${count === 1 ? '' : 's'}`;
 }
@@ -209,71 +208,6 @@ function batchSubject(payload: AlertBatchPayload): string {
   return `[asobeast] ${headline} across ${apps}`;
 }
 
-function rankLine(alert: RankDroppedPayload | RankImprovedPayload): string {
-  const arrow = alert.event === 'rank.dropped' ? '▼' : '▲';
-  return `${alert.keyword.text}  ${rank(alert.from)} → ${rank(alert.to)} ${arrow}`;
-}
-
-function entrantLines(entrant: SerpEntrantPayload): string[] {
-  return entrant.entrants.map((item) => `#${item.position} · ${item.title}`);
-}
-
-function changeLines(change: MetadataChangedPayload): string[] {
-  return change.changes.map(
-    (field) =>
-      `${field.field}: ${truncate(field.before)} → ${truncate(field.after)}`,
-  );
-}
-
-function reviewLine(review: ReviewNegativePayload): string {
-  const version = review.review.version ? ` — v${review.review.version}` : '';
-  return `${stars(review.review.score)} "${truncate(review.review.text)}"${version}`;
-}
-
-interface TextBlock {
-  title: string;
-  lines: string[];
-}
-
-function sectionBlocks(section: AlertBatchAppSection): TextBlock[] {
-  const blocks: TextBlock[] = [];
-  if (section.rankDrops.length > 0) {
-    blocks.push({
-      title: 'Rank drops',
-      lines: section.rankDrops.map(rankLine),
-    });
-  }
-  if (section.rankImprovements.length > 0) {
-    blocks.push({
-      title: 'Rank improvements',
-      lines: section.rankImprovements.map(rankLine),
-    });
-  }
-  if (section.serpEntrants.length > 0) {
-    blocks.push({
-      title: 'New entrants',
-      lines: section.serpEntrants.flatMap(entrantLines),
-    });
-  }
-  if (section.changes.length > 0) {
-    blocks.push({
-      title: 'Metadata changes',
-      lines: section.changes.flatMap(changeLines),
-    });
-  }
-  if (section.negativeReviews.length > 0) {
-    blocks.push({
-      title: 'Negative reviews',
-      lines: section.negativeReviews.map(reviewLine),
-    });
-  }
-  return blocks;
-}
-
-function appHeader(section: AlertBatchAppSection): string {
-  return `${appLabel(section.app.name)} · ${storeLabel(section.app.store)} · ${section.app.country.toUpperCase()}`;
-}
-
 function batchText(payload: AlertBatchPayload): string {
   const lines: string[] = [];
   for (const section of payload.apps) {
@@ -303,7 +237,7 @@ function htmlList(lines: string[]): string {
   return `<ul style="margin:4px 0 8px;padding-left:18px">${items}</ul>`;
 }
 
-function htmlBlock(block: TextBlock): string {
+function htmlBlock(block: AlertBatchBlock): string {
   return `<p style="margin:8px 0 2px;font-weight:600;font-size:13px">${escapeHtml(block.title)}</p>${htmlList(block.lines)}`;
 }
 
