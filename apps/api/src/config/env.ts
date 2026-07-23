@@ -66,14 +66,44 @@ export const EnvSchema = z.object({
     .transform((value) => value === 'true'),
   BULL_BOARD_USER: z.string().min(1).optional(),
   BULL_BOARD_PASSWORD: z.string().min(1).optional(),
+  AUTH_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  AUTH_SECRET: z.string().optional(),
+  AUTH_SESSION_DAYS: z.coerce.number().int().positive().default(7),
+  AUTH_ALLOW_REGISTRATION: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  AUTH_COOKIE_SECURE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  BILLING_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  TRIAL_DAYS: z.coerce.number().int().min(0).default(7),
   LOG_LEVEL: z
     .enum(['error', 'warn', 'log', 'debug', 'verbose'])
     .default('debug'),
+});
+
+const EnvSchemaChecked = EnvSchema.superRefine((env, ctx) => {
+  if (env.AUTH_ENABLED && (env.AUTH_SECRET ?? '').length < 32) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['AUTH_SECRET'],
+      message:
+        'AUTH_SECRET is required and must be at least 32 characters when AUTH_ENABLED=true',
+    });
+  }
 });
 
 export type Env = z.infer<typeof EnvSchema>;
 
 /** Used as the `validate` hook in `ConfigModule.forRoot`. */
 export function validateEnv(config: Record<string, unknown>): Env {
-  return EnvSchema.parse(config);
+  return EnvSchemaChecked.parse(config);
 }

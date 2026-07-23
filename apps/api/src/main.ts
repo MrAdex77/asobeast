@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 import { SUPPORTED_STORES } from '@asobeast/shared';
 import { AppModule } from './app.module';
 
@@ -20,6 +21,7 @@ const { version } = JSON.parse(
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors();
+  app.use(cookieParser());
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('asobeast API')
