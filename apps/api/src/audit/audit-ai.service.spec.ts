@@ -5,13 +5,23 @@ import {
   AiAuditInput,
   AuditAiService,
   buildAuditContent,
-  completeChecks,
   SUBJECTIVE_CHECK_IDS,
   validateAuditChecks,
 } from './audit-ai.service';
 
+const fullChecks = (
+  overrides: Record<string, { score: number | null; detail: string }> = {},
+) => ({
+  checks: SUBJECTIVE_CHECK_IDS.map((id) => ({
+    id,
+    score: overrides[id]?.score ?? null,
+    detail: overrides[id]?.detail ?? 'Not assessed.',
+  })),
+});
+
 const baseInput = (overrides: Partial<AiAuditInput> = {}): AiAuditInput => ({
   store: Store.APP_STORE,
+  country: 'us',
   title: 'Habit Tracker',
   subtitle: 'Daily Streaks',
   summary: null,
@@ -67,17 +77,6 @@ describe('validateAuditChecks', () => {
   });
 });
 
-describe('completeChecks', () => {
-  it('fills every missing factor with a null score', () => {
-    const filled = completeChecks({
-      'icon-simple': { score: 8, detail: 'Clean.' },
-    });
-    expect(Object.keys(filled)).toHaveLength(SUBJECTIVE_CHECK_IDS.length);
-    expect(filled['icon-simple']).toEqual({ score: 8, detail: 'Clean.' });
-    expect(filled['preview-video-hook'].score).toBeNull();
-  });
-});
-
 describe('buildAuditContent', () => {
   it('emits a text block then the icon and up to six screenshots', () => {
     const parts = buildAuditContent(
@@ -110,13 +109,13 @@ describe('AuditAiService', () => {
     );
   });
 
-  it('sends the creative and returns validated checks', async () => {
-    const structured = jest.fn().mockResolvedValue({
-      checks: [
-        { id: 'icon-simple', score: 9, detail: 'Clean.' },
-        { id: 'screenshots-consistent', score: 12, detail: 'Cohesive.' },
-      ],
-    });
+  it('sends the creative and returns every factor, keeping nulls', async () => {
+    const structured = jest.fn().mockResolvedValue(
+      fullChecks({
+        'icon-simple': { score: 9, detail: 'Clean.' },
+        'screenshots-consistent': { score: 12, detail: 'Cohesive.' },
+      }),
+    );
     const client: AiClient = { model: 'gpt-4o', structured };
     const service = new AuditAiService(client);
 
@@ -130,10 +129,7 @@ describe('AuditAiService', () => {
     expect(service.configured).toBe(true);
     expect(service.model).toBe('gpt-4o');
     expect(result['icon-simple']).toEqual({ score: 9, detail: 'Clean.' });
-    expect(result['screenshots-consistent']).toEqual({
-      score: 10,
-      detail: 'Cohesive.',
-    });
+    expect(result['screenshots-consistent'].score).toBe(10);
     expect(Object.keys(result)).toHaveLength(SUBJECTIVE_CHECK_IDS.length);
     expect(result['icon-no-text'].score).toBeNull();
     const calls = structured.mock.calls as Array<
@@ -149,8 +145,18 @@ describe('AuditAiService', () => {
     ]);
   });
 
-  it('fails when the model returns no usable scores for an app with creative', async () => {
-    const structured = jest.fn().mockResolvedValue({ checks: [] });
+  it('fails when the response is missing factors', async () => {
+    const structured = jest.fn().mockResolvedValue({
+      checks: [{ id: 'icon-simple', score: 8, detail: 'Clean.' }],
+    });
+    const service = new AuditAiService({ model: 'gpt-4o', structured });
+    await expect(
+      service.generate(baseInput({ iconUrl: 'https://cdn/icon.png' })),
+    ).rejects.toBeInstanceOf(BadGatewayException);
+  });
+
+  it('fails when a complete response scores nothing for an app with creative', async () => {
+    const structured = jest.fn().mockResolvedValue(fullChecks());
     const service = new AuditAiService({ model: 'gpt-4o', structured });
     await expect(
       service.generate(baseInput({ iconUrl: 'https://cdn/icon.png' })),

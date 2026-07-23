@@ -24,6 +24,8 @@ const MAX_HISTORY_DAYS = 365;
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
 
+  private readonly inFlightAi = new Map<string, Promise<AppAuditResult>>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly keywords: KeywordsService,
@@ -35,6 +37,18 @@ export class AuditService {
   }
 
   async runAi(appId: string): Promise<AppAuditResult> {
+    const existing = this.inFlightAi.get(appId);
+    if (existing) {
+      return existing;
+    }
+    const run = this.generateAi(appId).finally(() =>
+      this.inFlightAi.delete(appId),
+    );
+    this.inFlightAi.set(appId, run);
+    return run;
+  }
+
+  private async generateAi(appId: string): Promise<AppAuditResult> {
     const app = await this.ensureApp(appId);
     const latest = await this.prisma.appSnapshot.findFirst({
       where: { appId },
@@ -43,6 +57,7 @@ export class AuditService {
     const rawFacts = extractRawFacts(app.store, latest?.raw);
     const checks = await this.auditAi.generate({
       store: app.store,
+      country: app.country,
       title: latest?.title ?? '',
       subtitle: latest?.subtitle ?? null,
       summary: latest?.summary ?? null,
@@ -138,12 +153,15 @@ export class AuditService {
     };
   }
 
-  private async ensureApp(
-    appId: string,
-  ): Promise<{ id: string; store: Store; name: string | null }> {
+  private async ensureApp(appId: string): Promise<{
+    id: string;
+    store: Store;
+    country: string;
+    name: string | null;
+  }> {
     const app = await this.prisma.app.findFirst({
       where: { id: appId, workspaceId: DEFAULT_WORKSPACE_ID },
-      select: { id: true, store: true, name: true },
+      select: { id: true, store: true, country: true, name: true },
     });
     if (!app) {
       throw new NotFoundException(`App ${appId} not found`);
@@ -211,7 +229,7 @@ export class AuditService {
       aiChecks: (insight?.checks as AiAuditChecks | undefined) ?? {},
       aiStatus: {
         configured: this.auditAi.configured,
-        model: this.auditAi.model,
+        model: insight?.model ?? this.auditAi.model,
         generatedAt: insight?.generatedAt?.toISOString() ?? null,
       },
     };
