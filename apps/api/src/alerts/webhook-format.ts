@@ -1,11 +1,25 @@
 import {
+  AlertBatchAppSection,
+  AlertBatchPayload,
   AlertPayload,
   DigestWeeklyPayload,
   SERP_DEPTH,
 } from '@asobeast/shared';
-import { position, stars } from './alert-summary';
+import {
+  AlertBatchBlock,
+  appHeader,
+  competitorBlocks,
+  position,
+  sectionBlocks,
+  stars,
+} from './alert-summary';
 
 const DIGEST_APP_CAP = 10;
+const BATCH_APP_CAP = 10;
+const DISCORD_FIELD_MAX = 1000;
+const DISCORD_TOTAL_MAX = 5500;
+const DISCORD_NAME_MAX = 256;
+const SLACK_SECTION_MAX = 2900;
 
 function host(url: string): string {
   try {
@@ -124,13 +138,115 @@ function digestSlackBody(payload: DigestWeeklyPayload): unknown {
   };
 }
 
+function clamp(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+function allBatchBlocks(section: AlertBatchAppSection): AlertBatchBlock[] {
+  return [...sectionBlocks(section), ...competitorBlocks(section)];
+}
+
+function renderBatchBlocks(
+  blocks: AlertBatchBlock[],
+  bold: (text: string) => string,
+): string {
+  return blocks
+    .map((block) => [bold(block.title), ...block.lines].join('\n'))
+    .join('\n');
+}
+
+function moreAppsLine(total: number, shown: number): string | null {
+  const remaining = total - shown;
+  if (remaining <= 0) {
+    return null;
+  }
+  return `+${remaining} more app${remaining === 1 ? '' : 's'}`;
+}
+
+function batchWindow(payload: AlertBatchPayload): string {
+  return `Window ${payload.window.from} → ${payload.window.to}`;
+}
+
+function batchDiscordBody(payload: AlertBatchPayload): unknown {
+  const bold = (text: string): string => `**${text}**`;
+  const fields: { name: string; value: string }[] = [];
+  let used = 0;
+  let shown = 0;
+  for (const section of payload.apps) {
+    if (shown >= BATCH_APP_CAP) {
+      break;
+    }
+    const value = clamp(
+      renderBatchBlocks(allBatchBlocks(section), bold),
+      DISCORD_FIELD_MAX,
+    );
+    if (value.length === 0) {
+      continue;
+    }
+    if (used + value.length > DISCORD_TOTAL_MAX) {
+      break;
+    }
+    fields.push({ name: clamp(appHeader(section), DISCORD_NAME_MAX), value });
+    used += value.length;
+    shown += 1;
+  }
+  const more = moreAppsLine(payload.apps.length, shown);
+  if (more) {
+    fields.push({ name: '…', value: more });
+  }
+  return {
+    embeds: [
+      {
+        title: clamp(renderMessage(payload), DISCORD_NAME_MAX),
+        description: batchWindow(payload),
+        fields,
+      },
+    ],
+  };
+}
+
+function batchSlackBody(payload: AlertBatchPayload): unknown {
+  const bold = (text: string): string => `*${text}*`;
+  const blocks: unknown[] = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: clamp(renderMessage(payload), 150) },
+    },
+  ];
+  let shown = 0;
+  for (const section of payload.apps) {
+    if (shown >= BATCH_APP_CAP) {
+      break;
+    }
+    const detail = renderBatchBlocks(allBatchBlocks(section), bold);
+    if (detail.length === 0) {
+      continue;
+    }
+    const text = clamp(
+      `${bold(appHeader(section))}\n${detail}`,
+      SLACK_SECTION_MAX,
+    );
+    blocks.push({ type: 'section', text: { type: 'mrkdwn', text } });
+    shown += 1;
+  }
+  const more = moreAppsLine(payload.apps.length, shown);
+  if (more) {
+    blocks.push({ type: 'section', text: { type: 'mrkdwn', text: more } });
+  }
+  blocks.push({
+    type: 'context',
+    elements: [{ type: 'mrkdwn', text: batchWindow(payload) }],
+  });
+  return { blocks };
+}
+
 export function formatWebhookBody(url: string, payload: AlertPayload): string {
   if (payload.event === 'alerts.batch') {
     if (isDiscord(url)) {
-      return JSON.stringify({ content: renderMessage(payload) });
+      return JSON.stringify(batchDiscordBody(payload));
     }
     if (isSlack(url)) {
-      return JSON.stringify({ text: renderMessage(payload) });
+      return JSON.stringify(batchSlackBody(payload));
     }
     return JSON.stringify(payload);
   }
