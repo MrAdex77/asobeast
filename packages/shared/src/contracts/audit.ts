@@ -1,6 +1,6 @@
 import { Store } from '../index';
 
-export type AuditCheckKind = 'auto' | 'heuristic' | 'manual';
+export type AuditCheckKind = 'auto' | 'heuristic' | 'ai';
 export type AuditCheckStatus = 'pass' | 'warn' | 'fail' | 'unanswered';
 
 export interface AuditCheckResult {
@@ -34,6 +34,12 @@ export interface AuditRecommendations {
   strategic: AuditRecommendation[];
 }
 
+export interface AuditAiStatus {
+  configured: boolean;
+  model: string | null;
+  generatedAt: string | null;
+}
+
 export interface AppAuditResult {
   appId: string;
   store: Store;
@@ -42,6 +48,7 @@ export interface AppAuditResult {
   totalWeight: number;
   factors: AuditFactorResult[];
   recommendations: AuditRecommendations;
+  ai: AuditAiStatus;
   generatedAt: string;
 }
 
@@ -54,25 +61,4 @@ export interface AuditScorePoint {
 
 export interface AuditHistory {
   points: AuditScorePoint[];
-}
-
-export interface AuditInputAnswers {
-  screenshotsFirst3Compelling?: boolean;
-  screenshotsTextOverlays?: boolean;
-  screenshotsConsistent?: boolean;
-  screenshotsLocalized?: boolean;
-  screenshotsDeviceFrames?: boolean;
-  previewVideoExists?: boolean;
-  previewVideoHook?: boolean;
-  previewVideoLength?: boolean;
-  previewVideoWorksWithoutSound?: boolean;
-  reviewResponses?: boolean;
-  ratingPrompts?: boolean;
-  iconDistinctive?: boolean;
-  iconSimple?: boolean;
-  iconCategoryFit?: boolean;
-  iconNoText?: boolean;
-  promotionalText?: boolean;
-  inAppEvents?: boolean;
-  customProductPages?: boolean;
 }

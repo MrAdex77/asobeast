@@ -6,7 +6,6 @@ import type {
   AppListItem,
   AppSummary,
   AuditHistory,
-  AuditInputAnswers,
   CategoryRankSeries,
   ChangeTimeline,
   CompetitorAnalysis,
@@ -21,6 +20,9 @@ import type {
   KeywordSuggestion,
   KeywordSuggestionStrategy,
   MarketAvailabilityResult,
+  MetadataAssistantRequest,
+  MetadataAssistantResult,
+  MetadataAssistantStatus,
   MetadataAuditResult,
   PortfolioSummary,
   RankDistributionHistory,
@@ -420,18 +422,28 @@ export function getAuditHistory(
   );
 }
 
-export function saveAuditInputs(
-  appId: string,
-  answers: AuditInputAnswers,
-): Promise<AppAuditResult> {
-  return apiFetch<AppAuditResult>(`/apps/${appId}/audit/inputs`, {
-    method: "PUT",
-    body: JSON.stringify(answers),
+export function runAiAudit(appId: string): Promise<AppAuditResult> {
+  return apiFetch<AppAuditResult>(`/apps/${appId}/audit/ai`, {
+    method: "POST",
   });
 }
 
 export function getMetadataAudit(appId: string): Promise<MetadataAuditResult> {
   return apiFetch<MetadataAuditResult>(`/apps/${appId}/metadata/audit`);
+}
+
+export function getMetadataAssistantStatus(): Promise<MetadataAssistantStatus> {
+  return apiFetch<MetadataAssistantStatus>("/metadata/assistant");
+}
+
+export function generateMetadataDrafts(
+  appId: string,
+  body: MetadataAssistantRequest,
+): Promise<MetadataAssistantResult> {
+  return apiFetch<MetadataAssistantResult>(
+    `/apps/${appId}/metadata/assistant`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
 }
 
 export function getWebhooks(): Promise<WebhookItem[]> {

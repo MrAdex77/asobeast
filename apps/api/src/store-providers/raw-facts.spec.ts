@@ -60,6 +60,8 @@ describe('extractAppStoreRawFacts', () => {
       genreKey: '6013',
       genreName: 'Health & Fitness',
       hasVideo: null,
+      iconUrl: 'https://example.com/icon.png',
+      screenshotUrls: ['a.png', 'b.png', 'c.png', 'd.png', 'e.png'],
     });
   });
 
@@ -77,6 +79,8 @@ describe('extractAppStoreRawFacts', () => {
       genreKey: null,
       genreName: null,
       hasVideo: null,
+      iconUrl: null,
+      screenshotUrls: [],
     });
   });
 
@@ -106,6 +110,8 @@ describe('extractGooglePlayRawFacts', () => {
       genreKey: 'TOOLS',
       genreName: 'Tools',
       hasVideo: true,
+      iconUrl: null,
+      screenshotUrls: ['a', 'b', 'c'],
     });
   });
 
@@ -128,6 +134,8 @@ describe('extractGooglePlayRawFacts', () => {
       genreKey: null,
       genreName: null,
       hasVideo: null,
+      iconUrl: null,
+      screenshotUrls: [],
     });
   });
 });

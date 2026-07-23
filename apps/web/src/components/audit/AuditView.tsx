@@ -1,17 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { Loader2, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import type {
   AppAuditResult,
+  AuditAiStatus,
   AuditCheckResult,
   AuditCheckStatus,
   AuditFactorResult,
-  AuditInputAnswers,
   AuditRecommendation,
 } from "@asobeast/shared";
-import { AuditInputsForm } from "@/components/AuditInputsForm";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ApiError, runAiAudit } from "@/lib/api";
+import { formatRelativeTime } from "@/lib/format";
 
 type BadgeVariant = "success" | "warning" | "destructive" | "secondary";
 
@@ -22,39 +27,12 @@ const STATUS_VARIANT: Record<AuditCheckStatus, BadgeVariant> = {
   unanswered: "secondary",
 };
 
-const CHECK_TO_ANSWER: Record<string, keyof AuditInputAnswers> = {
-  "screenshots-first-three": "screenshotsFirst3Compelling",
-  "screenshots-text-overlays": "screenshotsTextOverlays",
-  "screenshots-consistent": "screenshotsConsistent",
-  "screenshots-localized": "screenshotsLocalized",
-  "screenshots-device-frames": "screenshotsDeviceFrames",
-  "preview-video-exists": "previewVideoExists",
-  "preview-video-hook": "previewVideoHook",
-  "preview-video-length": "previewVideoLength",
-  "preview-video-sound": "previewVideoWorksWithoutSound",
-  "ratings-responses": "reviewResponses",
-  "ratings-prompts": "ratingPrompts",
-  "icon-distinctive": "iconDistinctive",
-  "icon-simple": "iconSimple",
-  "icon-category-fit": "iconCategoryFit",
-  "icon-no-text": "iconNoText",
-  "conversion-promo": "promotionalText",
-  "conversion-events": "inAppEvents",
-  "conversion-cpp": "customProductPages",
+const STATUS_LABEL: Record<AuditCheckStatus, string> = {
+  pass: "pass",
+  warn: "warn",
+  fail: "fail",
+  unanswered: "pending",
 };
-
-function initialAnswers(factors: AuditFactorResult[]): AuditInputAnswers {
-  const answers: AuditInputAnswers = {};
-  for (const factor of factors) {
-    for (const check of factor.checks) {
-      const key = CHECK_TO_ANSWER[check.id];
-      if (key && check.status !== "unanswered") {
-        answers[key] = check.status === "pass";
-      }
-    }
-  }
-  return answers;
-}
 
 function FactorRow({ factor }: { factor: AuditFactorResult }) {
   const pct = factor.score === null ? 0 : factor.score * 10;
@@ -65,7 +43,7 @@ function FactorRow({ factor }: { factor: AuditFactorResult }) {
           {factor.label}
           <span className="text-xs text-zinc-400">weight {factor.weight}</span>
           {factor.needsInput ? (
-            <Badge variant="warning">needs input</Badge>
+            <Badge variant="secondary">pending</Badge>
           ) : null}
         </span>
         <span className="flex items-center gap-3">
@@ -94,7 +72,7 @@ function FactorRow({ factor }: { factor: AuditFactorResult }) {
             <span className="flex shrink-0 items-center gap-2">
               <Badge variant="outline">{check.kind}</Badge>
               <Badge variant={STATUS_VARIANT[check.status]}>
-                {check.status}
+                {STATUS_LABEL[check.status]}
               </Badge>
             </span>
           </li>
@@ -138,6 +116,72 @@ function RecommendationList({
   );
 }
 
+function AiAuditCard({
+  appId,
+  ai,
+  onResult,
+}: {
+  appId: string;
+  ai: AuditAiStatus;
+  onResult: (result: AppAuditResult) => void;
+}) {
+  const mutation = useMutation({
+    mutationKey: ["audit-ai", appId],
+    mutationFn: () => runAiAudit(appId),
+    onSuccess: onResult,
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiError ? error.envelope.message : "AI audit failed",
+      );
+    },
+  });
+
+  if (!ai.configured) {
+    return (
+      <Card>
+        <CardContent>
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            AI analysis
+          </span>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Set <code>OPENAI_API_KEY</code> to let AI review your screenshots,
+            icon, preview video and conversion signals — no manual answers
+            needed.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardContent className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col">
+          <span className="text-sm font-medium">AI analysis</span>
+          <span className="text-xs text-muted-foreground">
+            {ai.generatedAt
+              ? `Last run ${formatRelativeTime(ai.generatedAt)}${
+                  ai.model ? ` · ${ai.model}` : ""
+                }`
+              : "Scores the visual and conversion factors from your listing and creative."}
+          </span>
+        </div>
+        <Button
+          onClick={() => mutation.mutate()}
+          disabled={mutation.isPending}
+        >
+          {mutation.isPending ? (
+            <Loader2 className="animate-spin" />
+          ) : (
+            <Sparkles />
+          )}
+          {ai.generatedAt ? "Re-run AI audit" : "Run AI audit"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function AuditView({
   appId,
   audit: initialAudit,
@@ -163,9 +207,11 @@ export function AuditView({
         </Card>
         <p className="text-sm text-muted-foreground">
           Automated coverage: {audit.coveredWeight} of {audit.totalWeight}{" "}
-          weight scored. Unanswered factors renormalize out of the overall.
+          weight scored. Unscored factors renormalize out of the overall.
         </p>
       </section>
+
+      <AiAuditCard appId={appId} ai={audit.ai} onResult={setAudit} />
 
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-medium">Factors</h2>
@@ -190,15 +236,6 @@ export function AuditView({
             items={audit.recommendations.strategic}
           />
         </div>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">Manual answers</h2>
-        <AuditInputsForm
-          appId={appId}
-          initial={initialAnswers(audit.factors)}
-          onSaved={setAudit}
-        />
       </section>
     </div>
   );

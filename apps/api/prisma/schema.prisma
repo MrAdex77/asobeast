@@ -65,7 +65,7 @@ model App {
   changeEvents ChangeEvent[]
   reviews      Review[]
   suggestProbes SuggestProbe[]
-  auditInput   AuditInput?
+  auditInsight AuditInsight?
   auditScores  AuditScore[]
   createdAt    DateTime         @default(now())
 
@@ -125,11 +125,13 @@ model TrackedKeyword {
   @@index([keywordId])
 }
 
-model AuditInput {
-  appId     String   @id
-  app       App      @relation(fields: [appId], references: [id], onDelete: Cascade)
-  answers   Json
-  updatedAt DateTime @updatedAt
+model AuditInsight {
+  appId       String   @id
+  app         App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  model       String
+  checks      Json
+  generatedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model KeywordMetric {

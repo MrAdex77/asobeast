@@ -169,6 +169,7 @@ export function computeAudit(context: AuditContext): AppAuditResult {
     totalWeight,
     factors,
     recommendations: deriveRecommendations(factors),
+    ai: context.aiStatus,
     generatedAt: context.now.toISOString(),
   };
 }
