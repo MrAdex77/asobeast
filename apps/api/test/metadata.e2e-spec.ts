@@ -332,4 +332,12 @@ describe('MetadataController (e2e)', () => {
       .send({})
       .expect(404);
   });
+
+  it('rejects drafting a field the store does not support', async () => {
+    const id = await seed(false);
+    await request(app.getHttpServer())
+      .post(`/apps/${id}/metadata/assistant`)
+      .send({ fields: ['promotionalText'] })
+      .expect(400);
+  });
 });
