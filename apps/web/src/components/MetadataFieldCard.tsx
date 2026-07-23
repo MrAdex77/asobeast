@@ -1,31 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import {
-  type LintIssue,
-  type LintSeverity,
-  type MetadataField,
-} from "@asobeast/shared";
+import { type LintIssue, type MetadataField } from "@asobeast/shared";
 import { Badge } from "@/components/ui/badge";
-
-const SEVERITY_VARIANT: Record<
-  LintSeverity,
-  "destructive" | "warning" | "info"
-> = {
-  error: "destructive",
-  warn: "warning",
-  info: "info",
-};
-
-const FIELD_LABELS: Record<MetadataField, string> = {
-  title: "Title",
-  subtitle: "Subtitle",
-  keywordField: "Keyword field",
-  description: "Description",
-  promotionalText: "Promotional text",
-  whatsNew: "What's New",
-  shortDescription: "Short description",
-};
+import {
+  LINT_SEVERITY_VARIANT,
+  METADATA_FIELD_LABELS,
+} from "@/lib/metadata-display";
 
 export function MetadataFieldCard({
   field,
@@ -45,7 +26,7 @@ export function MetadataFieldCard({
     <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex items-center justify-between">
         <span className="font-medium text-zinc-800 dark:text-zinc-200">
-          {FIELD_LABELS[field]}
+          {METADATA_FIELD_LABELS[field]}
         </span>
         <span
           className={
@@ -70,7 +51,7 @@ export function MetadataFieldCard({
               key={`${issue.rule}-${index}`}
               className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400"
             >
-              <Badge variant={SEVERITY_VARIANT[issue.severity]}>
+              <Badge variant={LINT_SEVERITY_VARIANT[issue.severity]}>
                 {issue.rule}
               </Badge>
               {issue.message}

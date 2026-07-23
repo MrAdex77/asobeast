@@ -9,6 +9,7 @@ import {
   getMetadataAssistantStatus,
   getMetadataAudit,
 } from "@/lib/api";
+import { METADATA_FIELD_LABELS } from "@/lib/metadata-display";
 
 const FIELD_ORDER: MetadataField[] = [
   "title",
@@ -17,16 +18,6 @@ const FIELD_ORDER: MetadataField[] = [
   "keywordField",
   "description",
 ];
-
-const FIELD_LABELS: Record<MetadataField, string> = {
-  title: "Title",
-  subtitle: "Subtitle",
-  keywordField: "Keyword field",
-  description: "Description",
-  promotionalText: "Promotional text",
-  whatsNew: "What's New",
-  shortDescription: "Short description",
-};
 
 function Tick({ on }: { on: boolean }) {
   return on ? (
@@ -46,7 +37,7 @@ function CoverageTable({ rows }: { rows: KeywordCoverageRow[] }) {
     <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
       <table className="w-full text-left text-sm">
         <caption className="sr-only">
-          Keyword coverage across {columns.map((c) => FIELD_LABELS[c]).join(", ")}
+          Keyword coverage across {columns.map((c) => METADATA_FIELD_LABELS[c]).join(", ")}
           , with uncovered keywords highlighted.
         </caption>
         <thead className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
@@ -55,7 +46,7 @@ function CoverageTable({ rows }: { rows: KeywordCoverageRow[] }) {
             <th className="px-4 py-3 font-medium">Bucket</th>
             {columns.map((column) => (
               <th key={column} className="px-4 py-3 font-medium">
-                {FIELD_LABELS[column]}
+                {METADATA_FIELD_LABELS[column]}
               </th>
             ))}
           </tr>
@@ -104,7 +95,6 @@ export default async function MetadataPage({
     if (err instanceof ApiError && err.envelope.statusCode === 404) notFound();
     return null;
   });
-  const assistant = await getMetadataAssistantStatus().catch(() => null);
   if (!result) {
     return (
       <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
@@ -112,6 +102,7 @@ export default async function MetadataPage({
       </div>
     );
   }
+  const assistant = await getMetadataAssistantStatus().catch(() => null);
 
   return (
     <div className="flex flex-col gap-8">
