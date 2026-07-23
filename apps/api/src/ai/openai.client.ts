@@ -86,12 +86,14 @@ class OpenAiClient implements AiClient {
     if (!choice) {
       throw new BadGatewayException('OpenAI returned no choices');
     }
-    if (choice.finish_reason === 'length') {
-      throw new BadGatewayException('OpenAI response was truncated');
-    }
     if (choice.message.refusal) {
       throw new BadGatewayException(
         `OpenAI refused the request: ${choice.message.refusal}`,
+      );
+    }
+    if (choice.finish_reason !== 'stop') {
+      throw new BadGatewayException(
+        `OpenAI stopped early (${choice.finish_reason}); the response may be incomplete`,
       );
     }
     const content = choice.message.content;
