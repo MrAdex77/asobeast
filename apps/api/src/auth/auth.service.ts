@@ -16,6 +16,7 @@ import type { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
 import { API_TOKEN_PREFIX, SESSION_COOKIE } from './auth.constants';
 import { isEntitled } from './entitlement';
+import type { ChangePasswordDto } from './dto/change-password.dto';
 import type { RegisterDto } from './dto/register.dto';
 import type { LoginDto } from './dto/login.dto';
 import type { SessionClaims } from './auth.types';
@@ -80,6 +81,24 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
     return { user, token: await this.sign(user) };
+  }
+
+  async changePassword(
+    user: User,
+    dto: ChangePasswordDto,
+  ): Promise<{ user: User; token: string }> {
+    const valid = await argon2.verify(user.passwordHash, dto.current);
+    if (!valid) {
+      throw new UnauthorizedException('Invalid current password');
+    }
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: await argon2.hash(dto.next),
+        sessionVersion: { increment: 1 },
+      },
+    });
+    return { user: updated, token: await this.sign(updated) };
   }
 
   async requireSessionUser(token: string | undefined): Promise<User> {

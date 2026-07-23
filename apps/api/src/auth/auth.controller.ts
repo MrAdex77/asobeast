@@ -17,6 +17,7 @@ import { AuthService } from './auth.service';
 import { AllowUnentitled } from './decorators/allow-unentitled.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
@@ -67,6 +68,22 @@ export class AuthController {
   @ApiOperation({ summary: 'Current authenticated user' })
   me(@CurrentUser() user: User): AuthUser {
     return this.auth.toAuthUser(user);
+  }
+
+  @Post('password')
+  @AllowUnentitled()
+  @HttpCode(200)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Change password and reset other sessions' })
+  async changePassword(
+    @CurrentUser() user: User,
+    @Body() dto: ChangePasswordDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthUser> {
+    const { user: updated, token } = await this.auth.changePassword(user, dto);
+    res.cookie(this.auth.cookieName, token, this.auth.cookieOptions());
+    return this.auth.toAuthUser(updated);
   }
 
   @Get('status')

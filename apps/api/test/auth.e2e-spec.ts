@@ -121,6 +121,37 @@ describe('Auth (enabled, self-hosted)', () => {
     await request(app.getHttpServer()).get('/auth/me').expect(401);
   });
 
+  it('changes the password and resets other sessions', async () => {
+    const register = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email: 'change@example.com', password: 'supersecret1' })
+      .expect(201);
+    const oldCookie = sessionCookie(register);
+
+    await request(app.getHttpServer())
+      .post('/auth/password')
+      .set('Cookie', oldCookie)
+      .send({ current: 'wrongpassword', next: 'brandnewsecret1' })
+      .expect(401);
+
+    const changed = await request(app.getHttpServer())
+      .post('/auth/password')
+      .set('Cookie', oldCookie)
+      .send({ current: 'supersecret1', next: 'brandnewsecret1' })
+      .expect(200);
+    const newCookie = sessionCookie(changed);
+
+    await request(app.getHttpServer())
+      .get('/auth/me')
+      .set('Cookie', oldCookie)
+      .expect(401);
+
+    await request(app.getHttpServer())
+      .get('/auth/me')
+      .set('Cookie', newCookie)
+      .expect(200);
+  });
+
   it('serves the public status route', async () => {
     const status = await request(app.getHttpServer())
       .get('/auth/status')
