@@ -1,5 +1,7 @@
 import type {
   ApiErrorEnvelope,
+  ApiTokenCreated,
+  ApiTokenItem,
   AppAuditResult,
   AppDetail,
   AppGroupSummary,
@@ -43,6 +45,8 @@ import type {
   AlertDeliveryStatus,
   AlertFlushResult,
   AlertsConfig,
+  AuthStatus,
+  AuthUser,
   EmailAlertItem,
   WebhookEvent,
   WebhookItem,
@@ -62,13 +66,22 @@ export class ApiError extends Error {
   }
 }
 
+function handleAuthRedirect(path: string, status: number): void {
+  if (typeof window === "undefined" || path.startsWith("/auth")) return;
+  if (status === 401) window.location.assign("/login");
+  else if (status === 402) window.location.assign("/upgrade");
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${apiBase()}${path}`, {
     ...init,
     headers: { "content-type": "application/json", ...init?.headers },
     cache: "no-store",
   });
-  if (!res.ok) throw new ApiError((await res.json()) as ApiErrorEnvelope);
+  if (!res.ok) {
+    handleAuthRedirect(path, res.status);
+    throw new ApiError((await res.json()) as ApiErrorEnvelope);
+  }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
@@ -549,4 +562,59 @@ export function getHealth(): Promise<HealthStatus> {
 
 export function getBudget(): Promise<DailyBudget> {
   return apiFetch<DailyBudget>("/jobs/budget");
+}
+
+export function getAuthStatus(): Promise<AuthStatus> {
+  return apiFetch<AuthStatus>("/auth/status");
+}
+
+export function getAuthMe(): Promise<AuthUser> {
+  return apiFetch<AuthUser>("/auth/me");
+}
+
+export function login(email: string, password: string): Promise<AuthUser> {
+  return apiFetch<AuthUser>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export function register(body: {
+  email: string;
+  password: string;
+  name?: string;
+}): Promise<AuthUser> {
+  return apiFetch<AuthUser>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function logout(): Promise<void> {
+  return apiFetch<void>("/auth/logout", { method: "POST" });
+}
+
+export function changePassword(
+  current: string,
+  next: string,
+): Promise<AuthUser> {
+  return apiFetch<AuthUser>("/auth/password", {
+    method: "POST",
+    body: JSON.stringify({ current, next }),
+  });
+}
+
+export function getApiTokens(): Promise<ApiTokenItem[]> {
+  return apiFetch<ApiTokenItem[]>("/auth/tokens");
+}
+
+export function createApiToken(name: string): Promise<ApiTokenCreated> {
+  return apiFetch<ApiTokenCreated>("/auth/tokens", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function deleteApiToken(id: string): Promise<void> {
+  return apiFetch<void>(`/auth/tokens/${id}`, { method: "DELETE" });
 }

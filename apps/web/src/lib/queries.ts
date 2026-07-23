@@ -7,9 +7,12 @@ import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
   getAlertDeliveryStatus,
   getAlertsConfig,
+  getApiTokens,
   getApp,
   getApps,
   getAuditHistory,
+  getAuthMe,
+  getAuthStatus,
   getBudget,
   getCategoryRanks,
   getChanges,
@@ -120,6 +123,40 @@ export const deliveryKeys = {
 export const healthKey = ["health"] as const;
 
 export const budgetKey = ["budget"] as const;
+
+export const authStatusKey = ["auth", "status"] as const;
+
+export const authMeKey = ["auth", "me"] as const;
+
+export const apiTokenKeys = {
+  all: ["auth", "tokens"] as const,
+};
+
+export const authStatusOptions = queryOptions({
+  queryKey: authStatusKey,
+  queryFn: getAuthStatus,
+  staleTime: 60 * 1000,
+});
+
+export const authMeOptions = queryOptions({
+  queryKey: authMeKey,
+  queryFn: getAuthMe,
+  retry: false,
+});
+
+export const apiTokensOptions = queryOptions({
+  queryKey: apiTokenKeys.all,
+  queryFn: getApiTokens,
+});
+
+export function invalidateAuth(client: QueryClient): void {
+  void client.invalidateQueries({ queryKey: authStatusKey });
+  void client.invalidateQueries({ queryKey: authMeKey });
+}
+
+export function invalidateApiTokenMutation(client: QueryClient): void {
+  void client.invalidateQueries({ queryKey: apiTokenKeys.all });
+}
 
 export const portfolioOptions = queryOptions({
   queryKey: portfolioKey,

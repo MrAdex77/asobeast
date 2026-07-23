@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AuthGate } from "@/components/auth/AuthGate";
 import { HealthBadge } from "@/components/layout/HealthBadge";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { Toaster } from "@/components/ui/sonner";
@@ -35,6 +36,7 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col font-sans">
         <Providers>
           <SiteHeader />
+          <AuthGate />
           <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
             {children}
           </main>
