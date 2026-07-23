@@ -43,8 +43,10 @@ function DraftCard({ draft }: { draft: MetadataDraft }) {
   const over = draft.chars > draft.limit;
 
   function copy() {
-    void navigator.clipboard.writeText(draft.value);
-    toast.success(`${FIELD_LABELS[draft.field]} copied`);
+    navigator.clipboard.writeText(draft.value).then(
+      () => toast.success(`${FIELD_LABELS[draft.field]} copied`),
+      () => toast.error("Couldn't copy — select and copy it manually"),
+    );
   }
 
   return (
