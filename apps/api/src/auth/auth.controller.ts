@@ -11,8 +11,11 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
+import type { User } from '@prisma/client';
 import type { AuthStatus, AuthUser } from '@asobeast/shared';
 import { AuthService } from './auth.service';
+import { CurrentUser } from './decorators/current-user.decorator';
+import { Public } from './decorators/public.decorator';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
@@ -22,6 +25,7 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Post('register')
+  @Public()
   @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Register an account' })
@@ -35,6 +39,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Public()
   @HttpCode(200)
   @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
@@ -57,18 +62,15 @@ export class AuthController {
 
   @Get('me')
   @ApiOperation({ summary: 'Current authenticated user' })
-  async me(@Req() req: Request): Promise<AuthUser> {
-    const user = await this.auth.requireSessionUser(
-      req.cookies?.[this.auth.cookieName] as string | undefined,
-    );
+  me(@CurrentUser() user: User): AuthUser {
     return this.auth.toAuthUser(user);
   }
 
   @Get('status')
+  @Public()
   @ApiOperation({ summary: 'Public auth configuration and session state' })
   status(@Req() req: Request): Promise<AuthStatus> {
-    return this.auth.status(
-      req.cookies?.[this.auth.cookieName] as string | undefined,
-    );
+    const cookies = req.cookies as Record<string, string> | undefined;
+    return this.auth.status(cookies?.[this.auth.cookieName]);
   }
 }

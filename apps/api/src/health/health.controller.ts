@@ -3,6 +3,7 @@ import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { HealthStatus, PipelineHealth } from '@asobeast/shared';
 import { Queue } from 'bullmq';
+import { Public } from '../auth/decorators/public.decorator';
 import { LAST_DAILY_RUN_KEY, QUEUES } from '../jobs/jobs.types';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -31,6 +32,7 @@ export class HealthController {
   ) {}
 
   @Get()
+  @Public()
   @ApiOperation({ summary: 'Liveness, database and pipeline health check' })
   async check(): Promise<HealthStatus> {
     const [db, signals] = await Promise.all([

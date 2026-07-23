@@ -113,7 +113,10 @@ describe('Auth (enabled, self-hosted)', () => {
       .set('Cookie', cookie)
       .expect(200);
 
-    await request(app.getHttpServer()).post('/auth/logout').expect(204);
+    await request(app.getHttpServer())
+      .post('/auth/logout')
+      .set('Cookie', cookie)
+      .expect(204);
 
     await request(app.getHttpServer()).get('/auth/me').expect(401);
   });

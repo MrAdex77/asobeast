@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import {
   ConflictException,
   ForbiddenException,
@@ -14,7 +14,7 @@ import type { User } from '@prisma/client';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import type { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
-import { SESSION_COOKIE } from './auth.constants';
+import { API_TOKEN_PREFIX, SESSION_COOKIE } from './auth.constants';
 import type { RegisterDto } from './dto/register.dto';
 import type { LoginDto } from './dto/login.dto';
 import type { SessionClaims } from './auth.types';
@@ -101,6 +101,22 @@ export class AuthService {
     });
     if (!user || user.sessionVersion !== claims.sv) return null;
     return user;
+  }
+
+  async resolveTokenUser(
+    authorization: string | undefined,
+  ): Promise<User | null> {
+    const raw = bearerToken(authorization);
+    if (!raw?.startsWith(API_TOKEN_PREFIX)) return null;
+    const record = await this.prisma.apiToken.findUnique({
+      where: { tokenHash: sha256(raw) },
+      include: { user: true },
+    });
+    if (!record) return null;
+    void this.prisma.apiToken
+      .update({ where: { id: record.id }, data: { lastUsedAt: new Date() } })
+      .catch(() => undefined);
+    return record.user;
   }
 
   async status(token: string | undefined) {
@@ -192,4 +208,14 @@ export class AuthService {
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+function bearerToken(authorization: string | undefined): string | null {
+  if (!authorization?.startsWith('Bearer ')) return null;
+  const token = authorization.slice('Bearer '.length).trim();
+  return token.length > 0 ? token : null;
+}
+
+export function sha256(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
 }
