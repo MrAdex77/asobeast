@@ -6,9 +6,13 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
-import { METADATA_FIELDS, MetadataField } from '@asobeast/shared';
+import {
+  MetadataAssistantRequest,
+  METADATA_FIELDS,
+  MetadataField,
+} from '@asobeast/shared';
 
-export class MetadataAssistantDto {
+export class MetadataAssistantDto implements MetadataAssistantRequest {
   @ApiPropertyOptional({ enum: METADATA_FIELDS, isArray: true })
   @IsOptional()
   @IsArray()

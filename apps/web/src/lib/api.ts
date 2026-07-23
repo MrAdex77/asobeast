@@ -20,10 +20,10 @@ import type {
   KeywordSuggestion,
   KeywordSuggestionStrategy,
   MarketAvailabilityResult,
+  MetadataAssistantRequest,
   MetadataAssistantResult,
   MetadataAssistantStatus,
   MetadataAuditResult,
-  MetadataField,
   PortfolioSummary,
   RankDistributionHistory,
   RankingSeries,
@@ -438,7 +438,7 @@ export function getMetadataAssistantStatus(): Promise<MetadataAssistantStatus> {
 
 export function generateMetadataDrafts(
   appId: string,
-  body: { fields?: MetadataField[]; instructions?: string },
+  body: MetadataAssistantRequest,
 ): Promise<MetadataAssistantResult> {
   return apiFetch<MetadataAssistantResult>(
     `/apps/${appId}/metadata/assistant`,

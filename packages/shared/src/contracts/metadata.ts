@@ -57,3 +57,8 @@ export interface MetadataAssistantStatus {
   configured: boolean;
   model: string | null;
 }
+
+export interface MetadataAssistantRequest {
+  fields?: MetadataField[];
+  instructions?: string;
+}
