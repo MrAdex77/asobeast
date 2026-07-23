@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AlertsModule } from './alerts/alerts.module';
 import { AuthGuard } from './auth/guards/auth.guard';
+import { EntitlementGuard } from './auth/guards/entitlement.guard';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AppsModule } from './apps/apps.module';
@@ -49,6 +50,7 @@ import { ReviewsModule } from './reviews/reviews.module';
     },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_GUARD, useClass: EntitlementGuard },
   ],
 })
 export class AppModule {}

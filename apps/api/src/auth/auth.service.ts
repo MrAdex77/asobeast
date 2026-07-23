@@ -15,6 +15,7 @@ import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import type { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
 import { API_TOKEN_PREFIX, SESSION_COOKIE } from './auth.constants';
+import { isEntitled } from './entitlement';
 import type { RegisterDto } from './dto/register.dto';
 import type { LoginDto } from './dto/login.dto';
 import type { SessionClaims } from './auth.types';
@@ -165,13 +166,7 @@ export class AuthService {
   }
 
   entitled(user: User): boolean {
-    if (!this.billing) return true;
-    const now = new Date();
-    const premium =
-      user.plan === 'premium' &&
-      (user.planExpiresAt === null || user.planExpiresAt > now);
-    const trialing = user.trialEndsAt !== null && user.trialEndsAt > now;
-    return premium || trialing;
+    return !this.billing || isEntitled(user, new Date());
   }
 
   private baseCookieOptions(): CookieOptions {

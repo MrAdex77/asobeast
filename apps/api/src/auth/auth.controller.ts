@@ -14,6 +14,7 @@ import type { Request, Response } from 'express';
 import type { User } from '@prisma/client';
 import type { AuthStatus, AuthUser } from '@asobeast/shared';
 import { AuthService } from './auth.service';
+import { AllowUnentitled } from './decorators/allow-unentitled.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
 import { LoginDto } from './dto/login.dto';
@@ -54,6 +55,7 @@ export class AuthController {
   }
 
   @Post('logout')
+  @AllowUnentitled()
   @HttpCode(204)
   @ApiOperation({ summary: 'Log out' })
   logout(@Res({ passthrough: true }) res: Response): void {
@@ -61,6 +63,7 @@ export class AuthController {
   }
 
   @Get('me')
+  @AllowUnentitled()
   @ApiOperation({ summary: 'Current authenticated user' })
   me(@CurrentUser() user: User): AuthUser {
     return this.auth.toAuthUser(user);

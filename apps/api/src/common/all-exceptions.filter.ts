@@ -9,6 +9,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { Request, Response } from 'express';
 import { ApiErrorEnvelope, InvalidStoreUrlError } from '@asobeast/shared';
+import { EntitlementRequiredError } from '../auth/auth.errors';
 import {
   StoreNotSupportedError,
   StoreRequestError,
@@ -55,6 +56,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return {
         statusCode: HttpStatus.BAD_GATEWAY,
         error: 'Bad Gateway',
+        message: exception.message,
+      };
+    }
+    if (exception instanceof EntitlementRequiredError) {
+      return {
+        statusCode: HttpStatus.PAYMENT_REQUIRED,
+        error: 'Payment Required',
         message: exception.message,
       };
     }
