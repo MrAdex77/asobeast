@@ -14,22 +14,31 @@ async function forward(
       ? undefined
       : await request.text();
 
+  const headers = new Headers({
+    "content-type": request.headers.get("content-type") ?? "application/json",
+  });
+  const cookie = request.headers.get("cookie");
+  if (cookie) headers.set("cookie", cookie);
+  const authorization = request.headers.get("authorization");
+  if (authorization) headers.set("authorization", authorization);
+
   try {
     const upstream = await fetch(url, {
       method: request.method,
-      headers: {
-        "content-type":
-          request.headers.get("content-type") ?? "application/json",
-      },
+      headers,
       body,
       cache: "no-store",
     });
+    const responseHeaders = new Headers({
+      "content-type":
+        upstream.headers.get("content-type") ?? "application/json",
+    });
+    for (const setCookie of upstream.headers.getSetCookie()) {
+      responseHeaders.append("set-cookie", setCookie);
+    }
     return new Response(upstream.body, {
       status: upstream.status,
-      headers: {
-        "content-type":
-          upstream.headers.get("content-type") ?? "application/json",
-      },
+      headers: responseHeaders,
     });
   } catch {
     const envelope: ApiErrorEnvelope = {
