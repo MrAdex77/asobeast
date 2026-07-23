@@ -1,4 +1,9 @@
-import { ConflictException, Inject, Injectable } from '@nestjs/common';
+import {
+  BadGatewayException,
+  ConflictException,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { Store } from '@prisma/client';
 import { AiClient, AiContentPart, OPENAI_CLIENT } from '../ai/openai.client';
 
@@ -18,7 +23,10 @@ export interface AiAuditInput {
   screenshotUrls: string[];
 }
 
-export type AiAuditChecks = Record<string, { score: number; detail: string }>;
+export type AiAuditChecks = Record<
+  string,
+  { score: number | null; detail: string }
+>;
 
 interface SubjectiveCheck {
   id: string;
@@ -54,7 +62,7 @@ const SUBJECTIVE_CHECKS: SubjectiveCheck[] = [
   {
     id: 'preview-video-exists',
     guidance:
-      'Is there evidence of an app preview video? Score 0 when none is provided.',
+      "Is there a preview video? Use the provided 'Has preview video' flag: score 10 for yes, 0 for no, null when it is unknown.",
   },
   {
     id: 'preview-video-hook',
@@ -105,7 +113,7 @@ const SUBJECTIVE_CHECKS: SubjectiveCheck[] = [
   {
     id: 'conversion-events',
     guidance:
-      'Does the app appear to use in-app events for visibility? Score 0 when unused.',
+      'Does the app appear to use in-app events for visibility? Score null when there is no evidence either way.',
   },
   {
     id: 'conversion-cpp',
@@ -136,7 +144,7 @@ const AUDIT_SCHEMA = {
           required: ['id', 'score', 'detail'],
           properties: {
             id: { type: 'string', enum: [...SUBJECTIVE_IDS] },
-            score: { type: 'integer' },
+            score: { type: ['integer', 'null'] },
             detail: { type: 'string' },
           },
         },
@@ -149,10 +157,14 @@ const SYSTEM_PROMPT = [
   'You are an expert App Store Optimization (ASO) auditor.',
   'Score each subjective listing factor below on a 0-10 integer scale',
   '(10 excellent, 7-9 good, 4-6 needs work, 0-3 poor or absent),',
-  'grounded only in the metadata and creative provided (icon and screenshot images,',
+  'grounded ONLY in the metadata and creative provided (icon and screenshot images,',
   'description, ratings, release notes). Give each factor a concise one-sentence rationale',
-  'referencing what you observed. When a factor cannot be determined from the provided data,',
-  'score it conservatively around 4-5 and say so. Do not invent facts. Return every factor exactly once.',
+  'referencing what you observed.',
+  'CRITICAL: If a factor cannot be judged from the provided images and metadata',
+  '(for example preview-video quality with no video supplied, or review-response behaviour',
+  'with no review data), set its score to null and state what evidence is missing.',
+  'Never guess a numeric score for something you cannot observe, and never invent facts.',
+  'Return every factor exactly once.',
   '',
   'Factors:',
   ...SUBJECTIVE_CHECKS.map((item) => `- ${item.id}: ${item.guidance}`),
@@ -161,12 +173,11 @@ const SYSTEM_PROMPT = [
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
-const clampScore = (value: unknown): number => {
-  const numeric = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(numeric)) {
-    return 0;
+const parseScore = (value: unknown): number | null => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return null;
   }
-  return Math.min(10, Math.max(0, Math.round(numeric)));
+  return Math.min(10, Math.max(0, Math.round(value)));
 };
 
 const storeLabel = (store: Store): string =>
@@ -218,9 +229,19 @@ export const validateAuditChecks = (raw: unknown): AiAuditChecks => {
       typeof entry.detail === 'string' && entry.detail.trim().length > 0
         ? entry.detail.trim()
         : 'No rationale provided.';
-    result[id] = { score: clampScore(entry.score), detail };
+    result[id] = { score: parseScore(entry.score), detail };
   }
   return result;
+};
+
+const UNASSESSED_DETAIL = 'The model returned no assessment for this factor.';
+
+export const completeChecks = (partial: AiAuditChecks): AiAuditChecks => {
+  const complete: AiAuditChecks = {};
+  for (const id of SUBJECTIVE_CHECK_IDS) {
+    complete[id] = partial[id] ?? { score: null, detail: UNASSESSED_DETAIL };
+  }
+  return complete;
 };
 
 @Injectable()
@@ -246,6 +267,17 @@ export class AuditAiService {
       content: buildAuditContent(input),
       schema: AUDIT_SCHEMA,
     });
-    return validateAuditChecks(raw);
+    const scored = validateAuditChecks(raw);
+    const hasCreative =
+      input.iconUrl !== null || input.screenshotUrls.length > 0;
+    const anyScored = Object.values(scored).some(
+      (check) => check.score !== null,
+    );
+    if (hasCreative && !anyScored) {
+      throw new BadGatewayException(
+        'The AI audit returned no usable scores; please try again.',
+      );
+    }
+    return completeChecks(scored);
   }
 }

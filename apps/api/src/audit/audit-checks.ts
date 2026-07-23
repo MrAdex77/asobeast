@@ -90,7 +90,8 @@ const aiCheck = (
   if (!found) {
     return check(id, label, 'ai', null, 'Run the AI audit to score this.');
   }
-  return check(id, label, 'ai', clamp(found.score, 0, 10), found.detail);
+  const score = found.score === null ? null : clamp(found.score, 0, 10);
+  return check(id, label, 'ai', score, found.detail);
 };
 
 const lintScore = (issues: LintIssue[]): number => {

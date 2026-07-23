@@ -1,10 +1,12 @@
-import { ConflictException } from '@nestjs/common';
+import { BadGatewayException, ConflictException } from '@nestjs/common';
 import { Store } from '@prisma/client';
 import { AiClient } from '../ai/openai.client';
 import {
   AiAuditInput,
   AuditAiService,
   buildAuditContent,
+  completeChecks,
+  SUBJECTIVE_CHECK_IDS,
   validateAuditChecks,
 } from './audit-ai.service';
 
@@ -48,6 +50,31 @@ describe('validateAuditChecks', () => {
     expect(validateAuditChecks(null)).toEqual({});
     expect(validateAuditChecks({ checks: 'nope' })).toEqual({});
     expect(validateAuditChecks(42)).toEqual({});
+  });
+
+  it('keeps an explicit null score and nulls out an unparseable score', () => {
+    const out = validateAuditChecks({
+      checks: [
+        { id: 'icon-simple', score: null, detail: 'No icon evidence.' },
+        { id: 'ratings-responses', score: 'high', detail: 'Cannot tell.' },
+      ],
+    });
+    expect(out['icon-simple']).toEqual({
+      score: null,
+      detail: 'No icon evidence.',
+    });
+    expect(out['ratings-responses'].score).toBeNull();
+  });
+});
+
+describe('completeChecks', () => {
+  it('fills every missing factor with a null score', () => {
+    const filled = completeChecks({
+      'icon-simple': { score: 8, detail: 'Clean.' },
+    });
+    expect(Object.keys(filled)).toHaveLength(SUBJECTIVE_CHECK_IDS.length);
+    expect(filled['icon-simple']).toEqual({ score: 8, detail: 'Clean.' });
+    expect(filled['preview-video-hook'].score).toBeNull();
   });
 });
 
@@ -102,10 +129,13 @@ describe('AuditAiService', () => {
 
     expect(service.configured).toBe(true);
     expect(service.model).toBe('gpt-4o');
-    expect(result).toEqual({
-      'icon-simple': { score: 9, detail: 'Clean.' },
-      'screenshots-consistent': { score: 10, detail: 'Cohesive.' },
+    expect(result['icon-simple']).toEqual({ score: 9, detail: 'Clean.' });
+    expect(result['screenshots-consistent']).toEqual({
+      score: 10,
+      detail: 'Cohesive.',
     });
+    expect(Object.keys(result)).toHaveLength(SUBJECTIVE_CHECK_IDS.length);
+    expect(result['icon-no-text'].score).toBeNull();
     const calls = structured.mock.calls as Array<
       [{ content: Array<{ type: string; url?: string }> }]
     >;
@@ -117,5 +147,13 @@ describe('AuditAiService', () => {
       'https://cdn/s0',
       'https://cdn/s1',
     ]);
+  });
+
+  it('fails when the model returns no usable scores for an app with creative', async () => {
+    const structured = jest.fn().mockResolvedValue({ checks: [] });
+    const service = new AuditAiService({ model: 'gpt-4o', structured });
+    await expect(
+      service.generate(baseInput({ iconUrl: 'https://cdn/icon.png' })),
+    ).rejects.toBeInstanceOf(BadGatewayException);
   });
 });
