@@ -35,6 +35,8 @@ export interface AiClient {
 }
 
 const DEFAULT_MAX_OUTPUT_TOKENS = 2048;
+const REQUEST_TIMEOUT_MS = 60_000;
+const MAX_RETRIES = 2;
 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -112,5 +114,12 @@ export function createOpenAiClient(
     return null;
   }
   const model = config.get('AI_MODEL', { infer: true });
-  return new OpenAiClient(new OpenAI({ apiKey }), model);
+  return new OpenAiClient(
+    new OpenAI({
+      apiKey,
+      timeout: REQUEST_TIMEOUT_MS,
+      maxRetries: MAX_RETRIES,
+    }),
+    model,
+  );
 }
