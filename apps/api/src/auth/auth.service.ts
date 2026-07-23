@@ -9,8 +9,8 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { CookieOptions } from 'express';
 import * as argon2 from 'argon2';
-import type { AuthUser } from '@asobeast/shared';
-import type { User } from '@prisma/client';
+import type { ApiTokenCreated, ApiTokenItem, AuthUser } from '@asobeast/shared';
+import type { ApiToken, User } from '@prisma/client';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import type { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
@@ -123,6 +123,31 @@ export class AuthService {
     return user;
   }
 
+  async listTokens(user: User): Promise<ApiTokenItem[]> {
+    const rows = await this.prisma.apiToken.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map(toApiTokenItem);
+  }
+
+  async createToken(user: User, name: string): Promise<ApiTokenCreated> {
+    const token = API_TOKEN_PREFIX + randomBytes(24).toString('hex');
+    const row = await this.prisma.apiToken.create({
+      data: {
+        userId: user.id,
+        name,
+        tokenHash: sha256(token),
+        prefix: token.slice(0, 12),
+      },
+    });
+    return { ...toApiTokenItem(row), token };
+  }
+
+  async revokeToken(user: User, id: string): Promise<void> {
+    await this.prisma.apiToken.deleteMany({ where: { id, userId: user.id } });
+  }
+
   async resolveTokenUser(
     authorization: string | undefined,
   ): Promise<User | null> {
@@ -232,4 +257,14 @@ function bearerToken(authorization: string | undefined): string | null {
 
 export function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function toApiTokenItem(row: ApiToken): ApiTokenItem {
+  return {
+    id: row.id,
+    name: row.name,
+    prefix: row.prefix,
+    lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+  };
 }

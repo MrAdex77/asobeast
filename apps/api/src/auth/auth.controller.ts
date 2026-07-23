@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
+  Param,
   Post,
   Req,
   Res,
@@ -12,12 +14,18 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import type { User } from '@prisma/client';
-import type { AuthStatus, AuthUser } from '@asobeast/shared';
+import type {
+  ApiTokenCreated,
+  ApiTokenItem,
+  AuthStatus,
+  AuthUser,
+} from '@asobeast/shared';
 import { AuthService } from './auth.service';
 import { AllowUnentitled } from './decorators/allow-unentitled.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { CreateTokenDto } from './dto/create-token.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
@@ -92,5 +100,30 @@ export class AuthController {
   status(@Req() req: Request): Promise<AuthStatus> {
     const cookies = req.cookies as Record<string, string> | undefined;
     return this.auth.status(cookies?.[this.auth.cookieName]);
+  }
+
+  @Get('tokens')
+  @ApiOperation({ summary: 'List personal api tokens' })
+  listTokens(@CurrentUser() user: User): Promise<ApiTokenItem[]> {
+    return this.auth.listTokens(user);
+  }
+
+  @Post('tokens')
+  @ApiOperation({ summary: 'Create a personal api token' })
+  createToken(
+    @CurrentUser() user: User,
+    @Body() dto: CreateTokenDto,
+  ): Promise<ApiTokenCreated> {
+    return this.auth.createToken(user, dto.name);
+  }
+
+  @Delete('tokens/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Revoke a personal api token' })
+  revokeToken(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+  ): Promise<void> {
+    return this.auth.revokeToken(user, id);
   }
 }

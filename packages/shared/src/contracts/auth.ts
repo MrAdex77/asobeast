@@ -15,3 +15,15 @@ export interface AuthUser {
   planExpiresAt: string | null;
   entitled: boolean;
 }
+
+export interface ApiTokenItem {
+  id: string;
+  name: string;
+  prefix: string;
+  lastUsedAt: string | null;
+  createdAt: string;
+}
+
+export interface ApiTokenCreated extends ApiTokenItem {
+  token: string;
+}

@@ -4,7 +4,7 @@ import { join } from 'path';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import cookieParser from 'cookie-parser';
-import { AuthUser } from '@asobeast/shared';
+import { ApiTokenCreated, ApiTokenItem, AuthUser } from '@asobeast/shared';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
@@ -150,6 +150,47 @@ describe('Auth (enabled, self-hosted)', () => {
       .get('/auth/me')
       .set('Cookie', newCookie)
       .expect(200);
+  });
+
+  it('creates, uses and revokes a personal api token', async () => {
+    const register = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email: 'token@example.com', password: 'supersecret1' })
+      .expect(201);
+    const cookie = sessionCookie(register);
+
+    const create = await request(app.getHttpServer())
+      .post('/auth/tokens')
+      .set('Cookie', cookie)
+      .send({ name: 'ci' })
+      .expect(201);
+    const created = create.body as ApiTokenCreated;
+    expect(created.token).toMatch(/^asob_[0-9a-f]{48}$/);
+    expect(created.prefix).toBe(created.token.slice(0, 12));
+
+    const list = await request(app.getHttpServer())
+      .get('/auth/tokens')
+      .set('Cookie', cookie)
+      .expect(200);
+    const items = list.body as ApiTokenItem[];
+    expect(items).toHaveLength(1);
+    expect(items[0]).not.toHaveProperty('tokenHash');
+    expect(items[0]).not.toHaveProperty('token');
+
+    await request(app.getHttpServer())
+      .get('/apps')
+      .set('Authorization', `Bearer ${created.token}`)
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .delete(`/auth/tokens/${created.id}`)
+      .set('Cookie', cookie)
+      .expect(204);
+
+    await request(app.getHttpServer())
+      .get('/apps')
+      .set('Authorization', `Bearer ${created.token}`)
+      .expect(401);
   });
 
   it('serves the public status route', async () => {
