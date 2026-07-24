@@ -85,6 +85,10 @@ export const EnvSchema = z.object({
     .default('false')
     .transform((value) => value === 'true'),
   TRIAL_DAYS: z.coerce.number().int().min(0).default(7),
+  TRUST_PROXY: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   LOG_LEVEL: z
     .enum(['error', 'warn', 'log', 'debug', 'verbose'])
     .default('debug'),

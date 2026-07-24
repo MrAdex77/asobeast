@@ -2,10 +2,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { SUPPORTED_STORES } from '@asobeast/shared';
 import { AppModule } from './app.module';
+import type { Env } from './config/env';
 
 type JsonSerializableBigInt = { toJSON: () => number };
 (BigInt.prototype as unknown as JsonSerializableBigInt).toJSON = function (
@@ -19,9 +22,14 @@ const { version } = JSON.parse(
 ) as { version: string };
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.enableCors();
   app.use(cookieParser());
+
+  const config = app.get(ConfigService<Env, true>);
+  if (config.get('TRUST_PROXY', { infer: true })) {
+    app.set('trust proxy', true);
+  }
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('asobeast API')

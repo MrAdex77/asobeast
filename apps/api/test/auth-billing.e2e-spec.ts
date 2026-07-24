@@ -82,6 +82,18 @@ describe('Auth (billing mode)', () => {
     expect(created.entitled).toBe(true);
   });
 
+  it('rejects a duplicate email with 409 while registration is open', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email: 'dupe@example.com', password: 'supersecret1' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email: 'Dupe@Example.com', password: 'anothersecret1' })
+      .expect(409);
+  });
+
   const registerOwner = async (): Promise<{ cookie: string; id: string }> => {
     const res = await request(app.getHttpServer())
       .post('/auth/register')

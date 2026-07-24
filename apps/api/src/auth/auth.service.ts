@@ -10,7 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { CookieOptions } from 'express';
 import * as argon2 from 'argon2';
 import type { ApiTokenCreated, ApiTokenItem, AuthUser } from '@asobeast/shared';
-import type { ApiToken, User } from '@prisma/client';
+import { Prisma, type ApiToken, type User } from '@prisma/client';
 import { DEFAULT_WORKSPACE_ID } from '../common/workspace';
 import type { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
@@ -58,16 +58,27 @@ export class AuthService {
           Date.now() + this.config.get('TRIAL_DAYS', { infer: true }) * DAY_MS,
         )
       : null;
-    const user = await this.prisma.user.create({
-      data: {
-        workspaceId: DEFAULT_WORKSPACE_ID,
-        email,
-        passwordHash,
-        name: dto.name ?? null,
-        role: bootstrap ? 'owner' : 'member',
-        trialEndsAt,
-      },
-    });
+    let user: User;
+    try {
+      user = await this.prisma.user.create({
+        data: {
+          workspaceId: DEFAULT_WORKSPACE_ID,
+          email,
+          passwordHash,
+          name: dto.name ?? null,
+          role: bootstrap ? 'owner' : 'member',
+          trialEndsAt,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException('Email already registered');
+      }
+      throw error;
+    }
     return { user, token: await this.sign(user) };
   }
 

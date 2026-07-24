@@ -109,6 +109,8 @@ export class AuthController {
   }
 
   @Post('tokens')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Create a personal api token' })
   createToken(
     @CurrentUser() user: User,

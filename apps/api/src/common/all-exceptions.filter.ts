@@ -76,6 +76,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
         message: 'Resource not found',
       };
     }
+    if (
+      exception instanceof Prisma.PrismaClientKnownRequestError &&
+      exception.code === 'P2002'
+    ) {
+      return {
+        statusCode: HttpStatus.CONFLICT,
+        error: 'Conflict',
+        message: 'Resource already exists',
+      };
+    }
     if (exception instanceof HttpException) {
       return this.fromHttp(exception);
     }
