@@ -113,8 +113,9 @@ docker compose -f docker-compose.dev.yml up -d
 4. **One app, per-market keyword tracking; one search serves everyone.** An app is a single row; countries live on keyword tracking (`Keyword` is scoped by `text, store, country`), so a single app owns keywords across storefronts, added and filtered per market on the keyword monitor. `checkKeyword` searches `keyword.country` (not `app.country`) and records positions for the primary app and all its competitors in that storefront from one search — never one search per app. The same phrase tracked in two markets is two keyword rows checked by two searches; rankings differ per storefront. Each added market multiplies daily search volume against the same `SCRAPE_ITUNES_RPM` budget; `GET /jobs/budget` estimates the fan-out and the settings budget card surfaces it. The iOS keyword field, category ranks, reviews, snapshots and auto-tracked keywords stay on the home market in v1 (a full per-market app-detail switcher is backlog).
 5. **Opportunity is per app, not per keyword.** Traffic and difficulty persist in `KeywordMetric`; opportunity depends on the app's keyword relevance and is computed in the read layer only (aso-skills formula).
 6. **Position semantics.** 1 based; `null` means "checked, not found within `depth`" (default 100). Store the row even when null.
-7. **Multi tenancy is prepared, not implemented.** Tenant owned rows carry `workspaceId`; v1 uses the seeded default workspace; no auth in v1.
+7. **Multi tenancy is prepared, not implemented.** Tenant owned rows carry `workspaceId`; v1 uses the seeded default workspace.
 8. **Scrapers break.** Parse failures fail the job (BullMQ retries with backoff) and must never take down request handling.
+9. **Auth is opt-in and single-workspace.** `AUTH_ENABLED=false` (default) keeps the frictionless single-user localhost experience unchanged; enabled, all users share the seeded default workspace (per-user isolation stays prepared-only). Two global guards run in order: `AuthGuard` (session cookie or `asob_` Bearer token) then `EntitlementGuard`. `BILLING_ENABLED` is the premium seam — unentitled requests get **402**; a later billing phase only writes `plan`/`planExpiresAt`/`billingCustomerId`, the guards never change. Routes opt out with `@Public()`; account/paywall routes stay reachable via `@AllowUnentitled()`.
 
 ## Environment variables
 
@@ -146,6 +147,13 @@ RETENTION_ALERT_EVENTS_DAYS=30      # flushed alert outbox rows; 0 keeps forever
 OPENAI_API_KEY=                     # optional; enables the AI audit + metadata drafts. Empty = AI actions disabled (endpoints 409), drafts card hidden, audit shows a setup hint
 AI_MODEL=gpt-4o                     # OpenAI model with vision + structured outputs
 BULL_BOARD_ENABLED=true
+AUTH_ENABLED=false                  # opt-in user accounts, session cookies and API tokens; off keeps the frictionless single-user localhost experience
+AUTH_SECRET=                        # required when AUTH_ENABLED=true; >=32 chars or the app refuses to boot (openssl rand -hex 32)
+AUTH_SESSION_DAYS=7                 # session cookie lifetime in days
+AUTH_ALLOW_REGISTRATION=false       # keep registration open after the first user (self-hosted); first account always bootstraps as owner
+AUTH_COOKIE_SECURE=false            # MUST be true behind TLS on any hosted deployment
+BILLING_ENABLED=false               # entitlement seam: new accounts start a trial and lose access afterwards until plan=premium; registration stays open
+TRIAL_DAYS=7                        # trial length in days when BILLING_ENABLED=true
 LOG_LEVEL=debug
 ```
 

@@ -131,6 +131,13 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 | `BULL_BOARD_ENABLED` | `true` | Serve the Bull Board queue dashboard at `/admin/queues`. |
 | `BULL_BOARD_USER` | — | Set together with `BULL_BOARD_PASSWORD` to protect `/admin/queues` with HTTP basic auth. |
 | `BULL_BOARD_PASSWORD` | — | Basic-auth password for `/admin/queues`; the guard activates only when both are set. |
+| `AUTH_ENABLED` | `false` | Turn on user accounts, session cookies and API tokens. Off by default — the localhost experience stays frictionless. See [Authentication & hosting](#authentication--hosting). |
+| `AUTH_SECRET` | — | Required when `AUTH_ENABLED=true`; the app refuses to boot without a value of at least 32 characters. Generate one with `openssl rand -hex 32`. |
+| `AUTH_SESSION_DAYS` | `7` | Session cookie lifetime in days. |
+| `AUTH_ALLOW_REGISTRATION` | `false` | Keep registration open after the first user (self-hosted mode). The first account is always allowed so a fresh deployment can bootstrap its owner. |
+| `AUTH_COOKIE_SECURE` | `false` | Marks the session cookie `Secure`. **Must be `true` behind TLS on any hosted deployment.** |
+| `BILLING_ENABLED` | `false` | Turn on the entitlement seam: every new account starts a trial and loses full access afterwards until a premium plan is set. Registration stays open in this mode. |
+| `TRIAL_DAYS` | `7` | Trial length in days when `BILLING_ENABLED=true`. |
 | `LOG_LEVEL` | `debug` | `error`, `warn`, `log`, `debug` or `verbose`. |
 
 Alerts fan out to two channels: **webhooks** (Slack, Discord, ntfy or any endpoint) and **email** (SMTP, enabled only when `SMTP_HOST` and `SMTP_FROM` are set). Both carry the same events and record every attempt in a delivery log, surfaced per channel on the settings page so failed deliveries are visible instead of silently retrying.
@@ -155,6 +162,47 @@ Only the data for the app being worked on is sent (its metadata, keyword stats a
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `API_INTERNAL_URL` | `http://localhost:4000` | API base URL read at runtime. Server-rendered pages call it directly; browser requests reach it through the `/api/backend/*` proxy. |
+
+## Authentication & hosting
+
+Authentication is **off by default**. On a private machine you run asobeast as a single user with no login — nothing changes. Turn it on before you put asobeast on a VPS or expose it to the internet.
+
+### Enabling auth (self-hosted)
+
+1. Set `AUTH_ENABLED=true` and generate a secret:
+
+   ```bash
+   openssl rand -hex 32
+   ```
+
+   Put the result in `AUTH_SECRET`. The app refuses to boot with `AUTH_ENABLED=true` and a secret shorter than 32 characters — there are no silently-signed sessions.
+2. Behind TLS (any hosted deployment) set `AUTH_COOKIE_SECURE=true` so the session cookie is only sent over HTTPS. This is **mandatory** for a public deployment.
+3. Start the app and open the web UI. With zero users, `/register` is open and the **first account becomes the owner** — this is how a fresh deployment bootstraps its admin. After that, registration is closed unless you set `AUTH_ALLOW_REGISTRATION=true`.
+
+Sessions are JWTs in an `httpOnly`, `SameSite=Lax` cookie (`asobeast_session`). The browser only ever talks to the web origin; the Next.js proxy (`/api/backend/*`) forwards the cookie to the API, so there is **no CORS or cross-site cookie configuration** to do. A JSON-only API plus `SameSite=Lax` is the CSRF story. Changing your password (from the account menu) bumps a session version that **signs out every other session** — the current one keeps working.
+
+### API tokens (scripts & MCP)
+
+Once auth is on, the settings page gains an **API tokens** card. Create a token (its plaintext value, `asob_…`, is shown **once** — copy it then) and authenticate automation or the MCP server with a `Bearer` header:
+
+```bash
+curl -H "Authorization: Bearer asob_…" https://your-host/api/backend/apps
+```
+
+Tokens are stored as SHA-256 hashes (the plaintext is never persisted), carry the same entitlement checks as a session, and can be revoked at any time — a revoked token stops authenticating immediately.
+
+### Hosted mode & the premium seam
+
+`BILLING_ENABLED=true` turns asobeast into a billing-ready product without wiring a payment provider yet:
+
+- Registration stays **open** (sign-ups are the funnel), and every new account is stamped with a `TRIAL_DAYS`-day trial (default 7).
+- A pure entitlement check decides access: a user is entitled while their trial is active **or** while they hold a `premium` plan (optionally bounded by `planExpiresAt`).
+- An unentitled request gets **HTTP 402** through the standard error envelope; the web app catches it and sends the user to `/upgrade`. Account routes (`/auth/me`, logout, password change) and the paywall stay reachable so an expired user can still sign in and pay.
+- A slim banner counts down the remaining trial days while a user is on the trial.
+
+The seam is provider-agnostic. A later billing phase (Stripe Checkout + customer portal + a signature-verified webhook) only writes `plan`, `planExpiresAt` and `billingCustomerId` — the guard never changes. **Stripe is the recommended web-billing provider; RevenueCat matters only if asobeast is ever sold through mobile in-app purchase.** Setting `plan='premium'` directly in the database restores access with no code change, which is exactly what the webhook will do.
+
+Auth is **single-workspace**: every user shares the seeded default workspace. Per-user data isolation (`workspaceId` already lives on tenant-owned rows) remains prepared, not implemented.
 
 ## Tracking multiple countries
 
