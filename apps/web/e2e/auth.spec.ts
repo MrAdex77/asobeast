@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { AuthStatus, AuthUser } from "@asobeast/shared";
+import type { ApiTokenItem, AuthStatus, AuthUser } from "@asobeast/shared";
 
 const TRIAL_USER: AuthUser = {
   id: "u1",
@@ -96,6 +96,60 @@ test("an active trial shows the upgrade banner", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText(/Trial ends in 5 days/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Upgrade" })).toBeVisible();
+});
+
+test("settings creates, reveals and revokes an api token", async ({ page }) => {
+  await routeStatus(page, {
+    enabled: true,
+    billing: false,
+    registrationOpen: true,
+    authenticated: true,
+  });
+  await page.route("**/api/backend/auth/me", (route) =>
+    route.fulfill(fulfillJson(200, TRIAL_USER)),
+  );
+
+  let tokens: ApiTokenItem[] = [];
+  await page.route("**/api/backend/auth/tokens", (route) => {
+    if (route.request().method() === "POST") {
+      const item: ApiTokenItem = {
+        id: "t1",
+        name: "ci",
+        prefix: "asob_1234567",
+        lastUsedAt: null,
+        createdAt: new Date().toISOString(),
+      };
+      tokens = [item];
+      return route.fulfill(
+        fulfillJson(201, { ...item, token: `asob_${"a".repeat(48)}` }),
+      );
+    }
+    return route.fulfill(fulfillJson(200, tokens));
+  });
+  await page.route("**/api/backend/auth/tokens/*", (route) => {
+    tokens = [];
+    return route.fulfill({ status: 204, body: "" });
+  });
+
+  await page.goto("/settings");
+  await expect(page.getByText("API tokens")).toBeVisible();
+
+  await page.getByRole("button", { name: "New token" }).click();
+  await page.getByLabel("Name").fill("ci");
+  await page.getByRole("button", { name: "Create token" }).click();
+
+  await expect(page.getByText("Copy your token")).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "New api token" }),
+  ).toHaveValue(`asob_${"a".repeat(48)}`);
+  await page.getByRole("button", { name: "Done" }).click();
+
+  await expect(page.getByRole("cell", { name: "ci", exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Revoke ci" }).click();
+  await page.getByRole("button", { name: "Revoke", exact: true }).click();
+
+  await expect(page.getByRole("cell", { name: "ci", exact: true })).toBeHidden();
 });
 
 test("a 402 response redirects to the upgrade page", async ({ page }) => {

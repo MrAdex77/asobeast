@@ -17,14 +17,14 @@ function daysLeft(iso: string): number {
 export function AuthGate() {
   const pathname = usePathname();
   const router = useRouter();
-  const { status, user, trialOnly } = useAuth();
+  const { status, user, trialOnly, isFetching } = useAuth();
   const isPublic = PUBLIC_ROUTES.includes(pathname);
 
   useEffect(() => {
-    if (status?.enabled && !status.authenticated && !isPublic) {
+    if (status?.enabled && !status.authenticated && !isPublic && !isFetching) {
       router.replace("/login");
     }
-  }, [status, isPublic, router]);
+  }, [status, isPublic, isFetching, router]);
 
   if (isPublic || !trialOnly || !user?.trialEndsAt) return null;
 
