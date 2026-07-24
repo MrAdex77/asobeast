@@ -134,10 +134,11 @@ Every request and response shape the frontend consumes lives in `@asobeast/share
 | `AUTH_ENABLED` | `false` | Turn on user accounts, session cookies and API tokens. Off by default — the localhost experience stays frictionless. See [Authentication & hosting](#authentication--hosting). |
 | `AUTH_SECRET` | — | Required when `AUTH_ENABLED=true`; the app refuses to boot without a value of at least 32 characters. Generate one with `openssl rand -hex 32`. |
 | `AUTH_SESSION_DAYS` | `7` | Session cookie lifetime in days. |
-| `AUTH_ALLOW_REGISTRATION` | `false` | Keep registration open after the first user (self-hosted mode). The first account is always allowed so a fresh deployment can bootstrap its owner. |
+| `AUTH_ALLOW_REGISTRATION` | `false` | `true` keeps signups open; `false` closes registration once the first account exists. The first account is always allowed so a fresh deployment can bootstrap its owner. |
 | `AUTH_COOKIE_SECURE` | `false` | Marks the session cookie `Secure`. **Must be `true` behind TLS on any hosted deployment.** |
 | `BILLING_ENABLED` | `false` | Turn on the entitlement seam: every new account starts a trial and loses full access afterwards until a premium plan is set. Registration stays open in this mode. |
 | `TRIAL_DAYS` | `7` | Trial length in days when `BILLING_ENABLED=true`. |
+| `TRUST_PROXY` | `false` | Set `true` **only** behind a reverse proxy that overwrites `X-Forwarded-For` with a trustworthy client IP. It lets the auth rate-limiter (`/auth/login`, `/auth/register`, …) key on the real client IP instead of the shared proxy IP. Leaving it `false` is safe on a directly-exposed instance. |
 | `LOG_LEVEL` | `debug` | `error`, `warn`, `log`, `debug` or `verbose`. |
 
 Alerts fan out to two channels: **webhooks** (Slack, Discord, ntfy or any endpoint) and **email** (SMTP, enabled only when `SMTP_HOST` and `SMTP_FROM` are set). Both carry the same events and record every attempt in a delivery log, surfaced per channel on the settings page so failed deliveries are visible instead of silently retrying.
@@ -162,6 +163,7 @@ Only the data for the app being worked on is sent (its metadata, keyword stats a
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `API_INTERNAL_URL` | `http://localhost:4000` | API base URL read at runtime. Server-rendered pages call it directly; browser requests reach it through the `/api/backend/*` proxy. |
+| `API_PROXY_TIMEOUT_MS` | `30000` | Upper bound for a single `/api/backend/*` proxy request; if the API does not respond in time the proxy returns a `504` envelope instead of hanging. |
 
 ## Authentication & hosting
 
@@ -180,6 +182,8 @@ Authentication is **off by default**. On a private machine you run asobeast as a
 3. Start the app and open the web UI. With zero users, `/register` is open and the **first account becomes the owner** — this is how a fresh deployment bootstraps its admin. After that, registration is closed unless you set `AUTH_ALLOW_REGISTRATION=true`.
 
 Sessions are JWTs in an `httpOnly`, `SameSite=Lax` cookie (`asobeast_session`). The browser only ever talks to the web origin; the Next.js proxy (`/api/backend/*`) forwards the cookie to the API, so there is **no CORS or cross-site cookie configuration** to do. A JSON-only API plus `SameSite=Lax` is the CSRF story. Changing your password (from the account menu) bumps a session version that **signs out every other session** — the current one keeps working.
+
+The auth endpoints (register, login, password change, token creation) are rate-limited per client IP. Because every request reaches the API through the web proxy, the API sees the proxy's IP by default — fine for a single-instance deployment. If you front the app with a reverse proxy that sets a trustworthy `X-Forwarded-For`, set `TRUST_PROXY=true` so the limiter keys on the real client IP. Do **not** enable it on a directly-exposed instance, where `X-Forwarded-For` is attacker-controlled.
 
 ### API tokens (scripts & MCP)
 

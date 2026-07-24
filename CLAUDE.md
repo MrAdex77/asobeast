@@ -150,10 +150,11 @@ BULL_BOARD_ENABLED=true
 AUTH_ENABLED=false                  # opt-in user accounts, session cookies and API tokens; off keeps the frictionless single-user localhost experience
 AUTH_SECRET=                        # required when AUTH_ENABLED=true; >=32 chars or the app refuses to boot (openssl rand -hex 32)
 AUTH_SESSION_DAYS=7                 # session cookie lifetime in days
-AUTH_ALLOW_REGISTRATION=false       # keep registration open after the first user (self-hosted); first account always bootstraps as owner
+AUTH_ALLOW_REGISTRATION=false       # true keeps signups open; false closes registration once the first (owner) account exists (self-hosted). The first account always bootstraps as owner regardless
 AUTH_COOKIE_SECURE=false            # MUST be true behind TLS on any hosted deployment
 BILLING_ENABLED=false               # entitlement seam: new accounts start a trial and lose access afterwards until plan=premium; registration stays open
 TRIAL_DAYS=7                        # trial length in days when BILLING_ENABLED=true
+TRUST_PROXY=false                   # true only behind a reverse proxy that sets a trustworthy X-Forwarded-For; lets auth throttling key on the real client IP instead of the proxy's
 LOG_LEVEL=debug
 ```
 
