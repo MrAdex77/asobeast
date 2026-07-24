@@ -94,9 +94,16 @@ function CreateTokenDialog() {
 
   async function copy() {
     if (!created) return;
-    await navigator.clipboard.writeText(created.token);
-    setCopied(true);
-    toast.success("Token copied");
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("clipboard unavailable");
+      }
+      await navigator.clipboard.writeText(created.token);
+      setCopied(true);
+      toast.success("Token copied");
+    } catch {
+      toast.error("Copy failed — select the token above and copy it manually.");
+    }
   }
 
   return (

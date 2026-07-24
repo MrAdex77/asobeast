@@ -27,14 +27,21 @@ export function ChangePasswordDialog({ trigger }: { trigger: ReactNode }) {
   const [next, setNext] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  function reset(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setCurrent("");
+      setNext("");
+      setError(null);
+    }
+  }
+
   const mutation = useMutation({
     mutationFn: () => changePassword(current, next),
     onSuccess: () => {
       invalidateAuth(queryClient);
       toast.success("Password changed. Other sessions were signed out.");
-      setOpen(false);
-      setCurrent("");
-      setNext("");
+      reset(false);
     },
     onError: (err) => {
       setError(
@@ -56,7 +63,7 @@ export function ChangePasswordDialog({ trigger }: { trigger: ReactNode }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={reset}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <form onSubmit={submit} className="flex flex-col gap-4">

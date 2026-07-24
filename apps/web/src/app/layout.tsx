@@ -36,10 +36,11 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col font-sans">
         <Providers>
           <SiteHeader />
-          <AuthGate />
-          <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
-            {children}
-          </main>
+          <AuthGate>
+            <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
+              {children}
+            </main>
+          </AuthGate>
           <footer className="border-t">
             <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4 text-xs text-muted-foreground">
               <span>asobeast · App Store · US</span>

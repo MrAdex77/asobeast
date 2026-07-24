@@ -2,6 +2,16 @@ import { NextRequest } from "next/server";
 import type { ApiErrorEnvelope } from "@asobeast/shared";
 
 const API_BASE = process.env.API_INTERNAL_URL ?? "http://localhost:4000";
+const UPSTREAM_TIMEOUT_MS = Number(
+  process.env.API_PROXY_TIMEOUT_MS ?? 30_000,
+);
+
+const FORWARDED_HEADERS = [
+  "cookie",
+  "authorization",
+  "x-forwarded-for",
+  "x-real-ip",
+] as const;
 
 async function forward(
   request: NextRequest,
@@ -17,10 +27,10 @@ async function forward(
   const headers = new Headers({
     "content-type": request.headers.get("content-type") ?? "application/json",
   });
-  const cookie = request.headers.get("cookie");
-  if (cookie) headers.set("cookie", cookie);
-  const authorization = request.headers.get("authorization");
-  if (authorization) headers.set("authorization", authorization);
+  for (const name of FORWARDED_HEADERS) {
+    const value = request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
 
   try {
     const upstream = await fetch(url, {
@@ -28,6 +38,7 @@ async function forward(
       headers,
       body,
       cache: "no-store",
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
     const responseHeaders = new Headers({
       "content-type":
@@ -40,15 +51,18 @@ async function forward(
       status: upstream.status,
       headers: responseHeaders,
     });
-  } catch {
+  } catch (error) {
+    const timedOut = error instanceof Error && error.name === "TimeoutError";
     const envelope: ApiErrorEnvelope = {
-      statusCode: 502,
-      error: "Bad Gateway",
-      message: "The API is unreachable.",
+      statusCode: timedOut ? 504 : 502,
+      error: timedOut ? "Gateway Timeout" : "Bad Gateway",
+      message: timedOut
+        ? "The API did not respond in time."
+        : "The API is unreachable.",
       path: request.nextUrl.pathname,
       timestamp: new Date().toISOString(),
     };
-    return Response.json(envelope, { status: 502 });
+    return Response.json(envelope, { status: envelope.statusCode });
   }
 }
 
