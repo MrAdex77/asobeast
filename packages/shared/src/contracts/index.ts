@@ -13,3 +13,4 @@ export * from './changes';
 export * from './spider';
 export * from './reviews';
 export * from './portfolio';
+export * from './auth';

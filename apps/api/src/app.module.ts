@@ -1,13 +1,16 @@
 import { Module, ValidationPipe } from '@nestjs/common';
-import { APP_FILTER, APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AlertsModule } from './alerts/alerts.module';
+import { AuthGuard } from './auth/guards/auth.guard';
+import { EntitlementGuard } from './auth/guards/entitlement.guard';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AppsModule } from './apps/apps.module';
 import { AuditModule } from './audit/audit.module';
+import { AuthModule } from './auth/auth.module';
 import { CompetitorsModule } from './competitors/competitors.module';
 import { MetadataModule } from './metadata/metadata.module';
 import { validateEnv } from './config/env';
@@ -23,6 +26,7 @@ import { ReviewsModule } from './reviews/reviews.module';
       validate: validateEnv,
     }),
     PrismaModule,
+    AuthModule,
     HealthModule,
     JobsModule,
     AppsModule,
@@ -45,6 +49,8 @@ import { ReviewsModule } from './reviews/reviews.module';
       }),
     },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_GUARD, useClass: EntitlementGuard },
   ],
 })
 export class AppModule {}

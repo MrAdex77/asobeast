@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { ApiTokensCard } from "@/components/settings/ApiTokensCard";
 import { BudgetCard } from "@/components/settings/BudgetCard";
 import { DeliveryCard } from "@/components/settings/DeliveryCard";
 import { EmailAlertsCard } from "@/components/settings/EmailAlertsCard";
@@ -50,6 +51,7 @@ export default async function SettingsPage() {
         <Suspense fallback={<EmailAlertsCardSkeleton />}>
           <EmailAlertsCard />
         </Suspense>
+        <ApiTokensCard />
       </div>
     </HydrationBoundary>
   );

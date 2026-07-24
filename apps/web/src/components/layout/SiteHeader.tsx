@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { UserMenu } from "@/components/auth/UserMenu";
 import { CommandPalette } from "./CommandPalette";
 import { HealthBadge } from "./HealthBadge";
 import { ThemeToggle } from "./ThemeToggle";
@@ -23,6 +24,7 @@ export function SiteHeader() {
           <CommandPalette />
           <HealthBadge />
           <ThemeToggle />
+          <UserMenu />
         </div>
       </div>
     </header>

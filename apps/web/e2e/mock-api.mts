@@ -77,6 +77,23 @@ function appRoute(pattern: RegExp, pick: (dataset: (typeof DATASETS)[string]) =>
 
 const routes: Route[] = [
   { method: "GET", pattern: /^\/health$/, handler: (_p, _q, res) => json(res, 200, HEALTH) },
+  {
+    method: "GET",
+    pattern: /^\/auth\/status$/,
+    handler: (_p, _q, res) =>
+      json(res, 200, {
+        enabled: false,
+        billing: false,
+        registrationOpen: true,
+        authenticated: false,
+      }),
+  },
+  {
+    method: "GET",
+    pattern: /^\/auth\/me$/,
+    handler: (_p, req, res) =>
+      json(res, 401, errorEnvelope(401, req.url ?? "/auth/me")),
+  },
   { method: "GET", pattern: /^\/apps$/, handler: (_p, _q, res) => json(res, 200, apps) },
   {
     method: "GET",

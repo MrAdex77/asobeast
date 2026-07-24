@@ -9,6 +9,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { Request, Response } from 'express';
 import { ApiErrorEnvelope, InvalidStoreUrlError } from '@asobeast/shared';
+import { EntitlementRequiredError } from '../auth/auth.errors';
 import {
   StoreNotSupportedError,
   StoreRequestError,
@@ -58,6 +59,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
         message: exception.message,
       };
     }
+    if (exception instanceof EntitlementRequiredError) {
+      return {
+        statusCode: HttpStatus.PAYMENT_REQUIRED,
+        error: 'Payment Required',
+        message: exception.message,
+      };
+    }
     if (
       exception instanceof Prisma.PrismaClientKnownRequestError &&
       exception.code === 'P2025'
@@ -66,6 +74,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
         statusCode: HttpStatus.NOT_FOUND,
         error: 'Not Found',
         message: 'Resource not found',
+      };
+    }
+    if (
+      exception instanceof Prisma.PrismaClientKnownRequestError &&
+      exception.code === 'P2002'
+    ) {
+      return {
+        statusCode: HttpStatus.CONFLICT,
+        error: 'Conflict',
+        message: 'Resource already exists',
       };
     }
     if (exception instanceof HttpException) {
